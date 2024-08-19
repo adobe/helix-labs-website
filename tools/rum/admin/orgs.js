@@ -31,13 +31,13 @@ const orgDataList = document.getElementById('org-list');
  * @returns {HTMLDivElement}
  */
 const createModal = ({
-                       title,
-                       content = '',
-                       acceptText = 'OK',
-                       cancelText = 'Cancel',
-                       onAccept = () => {},
-                       onCancel = () => {},
-                     }) => {
+  title,
+  content = '',
+  acceptText = 'OK',
+  cancelText = 'Cancel',
+  onAccept = () => {},
+  onCancel = () => {},
+}) => {
   const modal = document.createElement('div');
   modal.classList.add('modal');
   modal.innerHTML = /* html */`
