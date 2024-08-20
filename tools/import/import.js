@@ -3,6 +3,7 @@ import ImportService from './importservice.js';
 const form = document.querySelector('.form');
 const apiKeyInput = document.querySelector('input#apiKey-input');
 const urlInput = document.querySelector('textarea#url-input');
+const scriptInput = document.querySelector('input#import-script');
 const startButton = document.querySelector('button#start-button');
 const clearButton = document.querySelector('a#clear-button');
 const resultsContainer = document.querySelector('div#results');
@@ -64,6 +65,26 @@ function buildOptions(element) {
   return values;
 }
 
+function getImportScript(input) {
+  return new Promise((resolve, reject) => {
+    const file = input.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        resolve(base64Content);
+      };
+      reader.onerror = function(e) {
+        reject(e);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reject(new Error('No file selected'));
+    }
+  });
+}
+
 (() => {
   const service = new ImportService({ poll: true});
 
@@ -84,9 +105,16 @@ function buildOptions(element) {
   });
 
   startButton.addEventListener('click', async () => {
+    clearResults(resultsContainer);
+    const h4 = document.createElement('h4');
+    h4.textContent = 'Starting job...';
+    resultsContainer.append(h4);
+    resultsContainer.classList.remove('hidden');
+
     const urlsArray = urlInput.value.split('\n').reverse().filter((u) => u.trim() !== '');
     const options = buildOptions(form);
-    await service.startJob(urlsArray, options);
+    const importScript = await getImportScript(scriptInput);
+    await service.startJob({ urls: urlsArray, options, importScript });
   });
 
   clearButton.addEventListener('click', (event) => {

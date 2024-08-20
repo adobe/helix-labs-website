@@ -118,7 +118,7 @@ export default class ImportService {
     localStorage.setItem(STORAGE_JOBS, JSON.stringify([]));
   }
 
-  async startJob(urls = [], options = {}) {
+  async startJob({urls = [], options = {}, importScript}) {
     if (!this.apiKey) {
       throw new Error('API keys are required');
     }
@@ -126,7 +126,7 @@ export default class ImportService {
       const resp = await fetch(`${this.endpoint}${IMPORT_JOBS_PATH}`, {
         method: 'POST',
         headers: this.#getAuthHeaders(),
-        body: JSON.stringify({urls, options: {...options}}),
+        body: JSON.stringify({urls, options, importScript}),
       });
       if (resp.ok) {
         this.job = await resp.json();

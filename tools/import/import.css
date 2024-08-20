@@ -15,6 +15,11 @@
   cursor: pointer;
 }
 
+.form {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
 .field {
   margin-bottom: 20px;
 }
@@ -61,7 +66,7 @@ button:hover {
 }
 
 #results {
-
+ padding-top: 22px;
 }
 
 #results.hidden {
