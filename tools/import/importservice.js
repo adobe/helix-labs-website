@@ -18,7 +18,7 @@ export default class ImportService {
       ...cfg,
     };
     this.endpoint = endpoint[this.config.endpoint];
-    this.apiKey = this.config.apiKey || localStorage.getItem(STORAGE_API_KEY);
+    this.apiKey = this.config.apiKey || localStorage.getItem(STORAGE_API_KEY) || '';
     this.listeners = [];
     this.job = {};
     this.busy = false;
