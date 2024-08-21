@@ -54,7 +54,7 @@ function createJobTable(job) {
         .map(([optionKey]) => optionKey)
         .join(', ');
     } else if (key === 'baseURL' || key === 'downloadUrl') {
-      formattedValue = `<a href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
+      formattedValue = `<a class="button accent" href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
     }
     tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
     tbody.append(tr);
