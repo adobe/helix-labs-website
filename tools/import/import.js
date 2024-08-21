@@ -2,6 +2,7 @@ import ImportService from './importservice.js';
 
 const form = document.querySelector('.form');
 const resultsContainer = document.querySelector('div#results');
+const jobList = document.querySelector('span.job-list');
 
 const fields = Object.freeze({
   apiKey: document.querySelector('input#apiKey-input'),
@@ -12,8 +13,8 @@ const fields = Object.freeze({
   clearButton: document.querySelector('a#clear-button'),
 });
 
-function clearResults(element) {
-  element.textContent = '';
+function clearResults() {
+  resultsContainer.textContent = '';
 }
 
 function formatDate(dateString) {
@@ -44,7 +45,11 @@ function createJobTable(job) {
   Object.entries(job).forEach(([key, value]) => {
     const tr = document.createElement('tr');
     let formattedValue = value;
-    if (key === 'startTime' || key === 'endTime') {
+    if (key === 'id') {
+      const deepLink = new URL(window.location);
+      deepLink.searchParams.set('jobid', value);
+      formattedValue = `<a href="${deepLink.toString()}">${value}</a>`;
+    } else if (key === 'startTime' || key === 'endTime') {
       formattedValue = formatDate(value);
     } else if (key === 'duration') {
       formattedValue = formatDuration(value);
@@ -57,6 +62,8 @@ function createJobTable(job) {
       formattedValue = `<a href="${value}" target="_blank">${value}</a>`;
     } else if (key === 'downloadUrl') {
       formattedValue = `<a class="button accent" href="${value}" download>Download</a>`;
+    } else if (typeof value === 'object') {
+      formattedValue = Object.values(value).map((v) => `<p>${v}</p>`).join('');
     }
     tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
     tbody.append(tr);
@@ -96,15 +103,46 @@ function getImportScript(input) {
   });
 }
 
+function addJobsList(jobs) {
+  const dropdown = document.createElement('select');
+  const defaultOption = document.createElement('option');
+  defaultOption.textContent = 'Select a job';
+  defaultOption.value = '';
+  dropdown.appendChild(defaultOption);
+
+  jobs.forEach((job) => {
+    const option = document.createElement('option');
+    option.textContent = formatDate(job.endTime || job.startTime);
+    option.value = job.id;
+    dropdown.appendChild(option);
+  });
+
+  dropdown.addEventListener('change', (event) => {
+    const selectedJobId = event.target.value;
+    if (selectedJobId) {
+      const url = new URL(window.location);
+      url.searchParams.set('jobid', selectedJobId);
+      window.location.href = url.toString();
+    }
+  });
+
+  jobList.appendChild(dropdown);
+}
+
 (() => {
   const service = new ImportService({ poll: true });
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const searchJob = { id: urlParams.get('jobid') };
+  service.setJob(searchJob);
   fields.apiKey.value = service.apiKey;
   service.init();
 
+  addJobsList(ImportService.getJobs());
+
   service.addListener(({ job }) => {
     // Update job results
-    clearResults(resultsContainer);
+    clearResults();
     // build new results
     resultsContainer.append(createJobTable(job));
     resultsContainer.closest('.job-details').classList.remove('hidden');
@@ -116,7 +154,7 @@ function getImportScript(input) {
   });
 
   fields.startButton.addEventListener('click', async () => {
-    clearResults(resultsContainer);
+    clearResults();
     const msg = document.createElement('h5');
     msg.textContent = 'Starting job...';
     resultsContainer.append(msg);
@@ -125,13 +163,18 @@ function getImportScript(input) {
     const urlsArray = fields.urls.value.split('\n').reverse().filter((u) => u.trim() !== '');
     const options = buildOptions(form);
     const importScript = await getImportScript(fields.importScript);
-    await service.startJob({ urls: urlsArray, options, importScript });
+    const newJob = await service.startJob({ urls: urlsArray, options, importScript });
+
+    const url = new URL(window.location);
+    url.searchParams.set('jobid', newJob.id);
+    window.history.pushState({}, '', url);
   });
 
   fields.clearButton.addEventListener('click', (event) => {
     event.preventDefault(); // Prevent the default link behavior
     ImportService.clearHistory();
-    clearResults(resultsContainer);
+    clearResults();
+    jobList.textContent = '';
   });
 
   fields.scriptButton.addEventListener('click', () => {

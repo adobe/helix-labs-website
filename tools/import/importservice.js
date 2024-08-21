@@ -41,14 +41,16 @@ export default class ImportService {
     localStorage.setItem(STORAGE_API_KEY, apiKey);
   }
 
-  async init(job = null) {
-    if (!job) {
+  setJob(job) {
+    this.job = job;
+  }
+
+  async init() {
+    if (!this.job.id) {
       const jobs = ImportService.getJobs();
       if (jobs.length > 0) {
         this.job = jobs[jobs.length - 1];
       }
-    } else {
-      this.job = job;
     }
     if (this.job.id) {
       return this.startPolling();
@@ -99,9 +101,6 @@ export default class ImportService {
     }
     const allJobs = (storedJobs ? JSON.parse(storedJobs) : []);
 
-    // update running jobs for the next load.
-    ImportService.updateRunningJobs(allJobs);
-
     // remove jobs older than 30 days
     const filteredJobs = allJobs.filter((job) => {
       const now = new Date();
@@ -121,7 +120,7 @@ export default class ImportService {
 
   async startJob({ urls = [], options = {}, importScript }) {
     if (!this.apiKey) {
-      throw new Error('API keys are required');
+      throw new Error('API key is required');
     }
     try {
       const resp = await fetch(`${this.endpoint}${IMPORT_JOBS_PATH}`, {
@@ -154,7 +153,7 @@ export default class ImportService {
 
   async queryJob(job) {
     if (!this.apiKey) {
-      throw new Error('API keys are required');
+      throw new Error('API key is required');
     }
     const { id: jobId } = job;
     if (!jobId) {
@@ -181,7 +180,7 @@ export default class ImportService {
 
   async fetchResult(job) {
     if (!this.apiKey) {
-      throw new Error('API keys are required');
+      throw new Error('API key is required');
     }
     const { id: jobId } = job;
     if (!jobId) {
@@ -205,35 +204,6 @@ export default class ImportService {
       console.error(e);
     }
     return undefined;
-  }
-
-  /**
-   * For any 'RUNNING' jobs (in localstorage), fetch their results again
-   * and if no longer running, update the information.
-   * TEMPORARY - needs refresh to work (probably twice).  Will eventually
-   * poll for updates.
-   * @param jobs
-   */
-  static updateRunningJobs(jobs) {
-    if (!jobs?.length) {
-      return;
-    }
-    const apiKey = localStorage.getItem('aem-spacecat-apiKey') || '';
-    const importApiKey = localStorage.getItem('aem-import-apiKey') || '';
-
-    jobs.every(async (job, index) => {
-      if (job.status === 'RUNNING') {
-        const service = new ImportService(({ apiKey, importApiKey }));
-        if (service) {
-          const newJob = await service.queryJob(job);
-          if (newJob && newJob.status !== 'RUNNING') {
-            jobs[index] = newJob;
-            localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-          }
-        }
-      }
-      return job;
-    });
   }
 
   addListener(listener) {
