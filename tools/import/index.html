@@ -12,43 +12,54 @@
 
 <body>
 <header></header>
-<main>
+<main class="import">
     <div>
         <h1>Bulk Import</h1>
-        <div class="form">
-            <div class="field">
-                <label for="apiKey-input">Api Key</label>
-                <input id="apiKey-input" type="text"/>
-            </div>
-            <div class="field">
-                <label for="url-input">URLs</label>
-                <textarea id="url-input"></textarea>
-            </div>
-            <div class="field">
-                <label for="import-script">Import Script</label>
-                <input type="file" id="import-script" name="file">
-            </div>
-            <div class="field">
-                <label>Options</label>
-                <div>
-                    <label for="saveAsDocx">Save as DOCX</label>
-                    <input type="checkbox" id="saveAsDocx" name="saveAsDocx">
+        <p>Perform bulk imports using your existing import scripts. <a href="https://www.aem.live/developer/importer" target="_blank">Learn more</a> about importing content.</p>
+        <div>
+            <div class="form">
+                <div class="field">
+                    <label for="apiKey-input">API Key</label>
+                    <input id="apiKey-input" type="text"/>
                 </div>
-                <div>
-                    <label for="scrollToBottom">Scroll to Bottom</label>
-                    <input type="checkbox" id="scrollToBottom" name="scrollToBottom">
+                <div class="field">
+                    <label for="url-input">URLs</label>
+                    <textarea id="url-input"></textarea>
                 </div>
-                <div>
-                    <label for="enableJavaScript">Enable JavaScript</label>
-                    <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
+                <div class="field">
+                    <label for="import-script">Import Script</label>
+                    <input type="file" id="import-script" hidden>
+                    <button id="script-button" class="button outline">Browse</button>
+                    <span id="script-name">No script selected</span>
+                    <p class="small">Use <a href="https://www.npmjs.com/package/aem-import-helper" target="_blank">aem-import-helper</a> to bundle your import script.</p>
                 </div>
+                <div class="field">
+                    <label>Options</label>
+                    <div class="field-group">
+                        <div>
+                            <label for="saveAsDocx">Save as DOCX</label>
+                            <input type="checkbox" id="saveAsDocx" name="saveAsDocx">
+                        </div>
+                        <div>
+                            <label for="scrollToBottom">Scroll to Bottom</label>
+                            <input type="checkbox" id="scrollToBottom" name="scrollToBottom">
+                        </div>
+                        <div>
+                            <label for="enableJavaScript">Enable JavaScript</label>
+                            <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
+                        </div>
+                    </div>
+                </div>
+                <button id="start-button" class="button">Start</button>
             </div>
-            <button id="start-button">Start</button>
-        </div>
-        <div id="results" class="hidden">
-            <div class="heading">
-                <h2>Job Details</h2>
-                <a id="clear-button">Clear history</a>
+            <div>
+                <div class="job-details hidden">
+                    <div class="heading">
+                        <h2>Job Details</h2>
+                        <a id="clear-button">Clear history</a>
+                    </div>
+                    <div id="results"></div>
+                </div>
             </div>
         </div>
     </div>

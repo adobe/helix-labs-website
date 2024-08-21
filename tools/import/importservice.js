@@ -59,6 +59,7 @@ export default class ImportService {
 
   async startPolling() {
     const $this = this;
+
     const poll = async () => {
       if ($this.busy) {
         return;
@@ -67,7 +68,7 @@ export default class ImportService {
       if (jobId) {
         await $this.queryJob($this.job);
         if ($this.job.status === 'COMPLETE' || $this.job.status === 'FAILURE') {
-          window.clearInterval($this.importInterval);
+          clearInterval($this.importInterval);
           $this.importInterval = undefined;
           const { downloadUrl } = await $this.fetchResult($this.job);
           if (downloadUrl) {
@@ -85,8 +86,9 @@ export default class ImportService {
 
     if (this.config.poll) {
       await poll();
-      if (!this.projectTransformInterval) {
-        this.importInterval = window.setInterval(poll, POLL_INTERVAL);
+      if (!this.importInterval && this.job?.status === 'RUNNING') {
+        // start polling
+        this.importInterval = setInterval(poll, POLL_INTERVAL);
       }
     }
   }

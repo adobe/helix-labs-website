@@ -1,97 +1,125 @@
-.heading {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin: 1em 0 0.5em;
-  gap: var(--spacing-xxs);
+.import p.small {
+  font-size: var(--font-size-50);
 }
 
-.heading h2 {
-  margin: 0;
+.import .form .field {
+  margin-bottom: var(--spacing-400);
 }
 
-.heading a {
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.form {
-  padding-bottom: 20px;
-  border-bottom: 1px solid #ccc;
-}
-
-.field {
-  margin-bottom: 20px;
-}
-
-.field div {
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.field label {
-  display: block;
-  margin-bottom: 5px;
+.import .form .field label {
   font-weight: bold;
-  width: 100%;
 }
 
-.field input,
-.field textarea {
+.import .form .field .field-group {
   width: 100%;
-  padding: 10px;
-  border: 1px solid var(--color-font-grey);
-  border-radius: 4px;
-  box-sizing: border-box;
+  border: var(--border-m) solid var(--gray-300);
+  border-radius: var(--rounding-m);
+  padding: 0.85em;
+  color: var(--color-text);
 }
 
-.field textarea {
+.import .form .field .field-group div {
+  margin-bottom: var(--spacing-200);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-100);
+}
+
+.import .form .field .field-group div:last-child {
+  margin-bottom: 0;
+}
+
+.import .form .field .field-group div label {
+  width: 160px;
+  font-size: var(--body-size-s);
+  margin: unset;
+}
+
+.import .form .field textarea {
   resize: vertical;
   min-height: 200px;
 }
 
-button {
-  padding: 10px 20px;
-  background-color: var(--spectrum-blue);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.import .form .field input[type="file"] {
+  position: relative;
+  inset: unset;
+  appearance: unset;
+  opacity: unset;
+  outline: none;
 }
 
-button:hover {
-  background-color: var(--dark-spectrum-blue);
+.import .form .field input[type="file"] ~ span {
+  margin-left: var(--spacing-100);
+}
+
+.import .form .field input[type="checkbox"] {
+  width: unset;
+}
+
+.import .form + div > div:has(#results) {
+  margin-top: var(--spacing-m);
+  border-top: var(--border-m) solid var(--gray-300);
+}
+
+.import .heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 1em 0 0.5em;
+  gap: var(--spacing-xs);
+}
+
+.import .heading h2 {
+  margin: 0;
+}
+
+.import .heading a {
+  font-size: var(--body-size-xs);
+  cursor: pointer;
 }
 
 #results {
  padding-top: var(--spacing-s);
 }
 
-#results.hidden {
+.import div.hidden {
   display: none;
 }
 
-#results ul {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  display: table;
-  width: 100%;
+#results table {
+  display: grid;
+  min-width: 100%;
+  grid-template-columns: auto minmax(150px, 1.67fr);
+  border-collapse: separate;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--rounding-m);
+  border-spacing: 0;
+  overflow: hidden;
 }
 
-#results ul li {
-  display: table-row;
+#results thead,
+#results tbody,
+#results tr {
+  display: contents;
 }
 
-#results ul li span {
-  display: table-cell;
-  padding: 8px;
-  border: 1px solid #ddd;
+#results table td {
+  padding: var(--spacing-200);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-#results ul li span:first-child {
+#results table td:first-child {
   font-weight: bold;
-  background-color: #f9f9f9;
+  background-color: var(--gray-400);
 }
+
+#results table tr:nth-child(odd) td:last-child {
+  background-color: var(--gray-100);
+}
+
+#results table tr:nth-child(even) td:last-child {
+  background-color: var(--gray-25);
+}
+

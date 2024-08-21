@@ -1,22 +1,19 @@
 import ImportService from './importservice.js';
 
 const form = document.querySelector('.form');
-const apiKeyInput = document.querySelector('input#apiKey-input');
-const urlInput = document.querySelector('textarea#url-input');
-const scriptInput = document.querySelector('input#import-script');
-const startButton = document.querySelector('button#start-button');
-const clearButton = document.querySelector('a#clear-button');
 const resultsContainer = document.querySelector('div#results');
 
-function clearResults(element)  {
-  const heading = element.querySelector('.heading');
+const fields = Object.freeze({
+  apiKey: document.querySelector('input#apiKey-input'),
+  urls: document.querySelector('textarea#url-input'),
+  importScript: document.querySelector('input#import-script'),
+  startButton: document.querySelector('button#start-button'),
+  scriptButton: document.querySelector('button#script-button'),
+  clearButton: document.querySelector('a#clear-button'),
+})
 
-  let sibling = heading.nextElementSibling;
-  while (sibling) {
-    const nextSibling = sibling.nextElementSibling;
-    sibling.remove();
-    sibling = nextSibling;
-  }
+function clearResults(element)  {
+  element.textContent = '';
 }
 
 function formatDate(dateString) {
@@ -33,25 +30,29 @@ function formatDuration(durationMs) {
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-function createJobList(job) {
-  const ul = document.createElement('ul');
+function createJobTable(job) {
+  const table = document.createElement('table');
+  const tbody = document.createElement('tbody');
 
   Object.entries(job).forEach(([key, value]) => {
-    const li = document.createElement('li');
+    const tr = document.createElement('tr');
     if (key === 'startTime' || key === 'endTime') {
       value = formatDate(value);
     } else if (key === 'duration') {
       value = formatDuration(value);
     } else if (key === 'options') {
-      value = Object.keys(value).join(', ');
+      value = Object.entries(value)
+                .filter(([_, state]) => state)
+                .map(([key]) => key)
+                .join(', ');
     } else if (key === 'baseURL' || key === 'downloadUrl') {
-      value = `<a href="${value}" target="_blank">${value}</a>`;
+      value = `<a href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
     }
-    li.innerHTML = `<span>${key}</span><span>${value}</span>`;
-    ul.appendChild(li);
+    tr.innerHTML = `<td>${key}</td><td>${value}</td>`;
+    tbody.append(tr);
   });
-
-  return ul;
+  table.append(tbody);
+  return table;
 }
 
 function buildOptions(element) {
@@ -88,39 +89,52 @@ function getImportScript(input) {
 (() => {
   const service = new ImportService({ poll: true});
 
-  apiKeyInput.value = service.apiKey;
+  fields.apiKey.value = service.apiKey;
   service.init()
 
   service.addListener(({job}) => {
     // Update job results
     clearResults(resultsContainer);
     // build new results
-    resultsContainer.append(createJobList(job));
-    resultsContainer.classList.remove('hidden');
+    resultsContainer.append(createJobTable(job));
+    resultsContainer.closest('.job-details').classList.remove('hidden');
   })
 
-  apiKeyInput.addEventListener('blur', () => {
-    service.setApiKey(apiKeyInput.value);
+  fields.apiKey.addEventListener('blur', () => {
+    service.setApiKey(fields.apiKey.value);
     service.init();
   });
 
-  startButton.addEventListener('click', async () => {
+  fields.startButton.addEventListener('click', async () => {
     clearResults(resultsContainer);
-    const h4 = document.createElement('h4');
-    h4.textContent = 'Starting job...';
-    resultsContainer.append(h4);
-    resultsContainer.classList.remove('hidden');
+    const msg = document.createElement('h5');
+    msg.textContent = 'Starting job...';
+    resultsContainer.append(msg);
+    resultsContainer.closest('.job-details').classList.remove('hidden');
 
-    const urlsArray = urlInput.value.split('\n').reverse().filter((u) => u.trim() !== '');
+    const urlsArray = fields.urls.value.split('\n').reverse().filter((u) => u.trim() !== '');
     const options = buildOptions(form);
-    const importScript = await getImportScript(scriptInput);
+    const importScript = await getImportScript(fields.importScript);
     await service.startJob({ urls: urlsArray, options, importScript });
   });
 
-  clearButton.addEventListener('click', (event) => {
+  fields.clearButton.addEventListener('click', (event) => {
     event.preventDefault(); // Prevent the default link behavior
     service.clearHistory();
     clearResults(resultsContainer);
+  });
+
+  fields.scriptButton.addEventListener('click', () => {
+    fields.importScript.click();
+  });
+
+  fields.importScript.addEventListener('change', (event) => {
+    const scriptName = fields.importScript.parentElement?.querySelector(':scope > input ~ span');
+    const file = event.target.files[0];
+    const fileSizeInKB = (file.size / 1024).toFixed(2); // Convert bytes to KB and round to 2 decimal places
+    if (scriptName) {
+      scriptName.textContent = `${file.name} (${fileSizeInKB} KB)`;
+    }
   });
 
 })();
