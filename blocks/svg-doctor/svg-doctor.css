@@ -1,4 +1,10 @@
 /* form */
+.svg-doctor {
+  --color-checkerboard-bg-fill: #fefefe;
+  --color-checkerboard-bg-border: rgb(214 213 213 / 40%);
+  --checkerboard-background: linear-gradient( var(--color-checkerboard-bg-border) 1px, transparent 1px ), linear-gradient( 90deg, var(--color-checkerboard-bg-border) 1px, transparent 1px ), linear-gradient( 45deg, var(--color-checkerboard-bg-fill) 50%, var(--color-checkerboard-bg-fill) 51% );
+  --checkerboard-background-size: clamp(15px, 3vw, 25px) clamp(15px, 3vw, 25px);
+}
 
 .svg-doctor.block {
   text-align: left;
@@ -32,7 +38,6 @@
 
 .svg-doctor form label p {
   color: inherit;
-  font-size: var(--type-body-l-size);
   text-align: center;
 }
 
@@ -94,9 +99,9 @@
 
 .svg-doctor .viewbox[data-status='upload'].hover,
 .svg-doctor .viewbox[data-status='upload']:hover {
-  --color-checkerboard-bg-fill: var(--bg-color-lightgrey);
+  --color-checkerboard-bg-fill: var(--gray-100);
 
-  outline: 2px solid var(--spectrum-blue);
+  outline: 2px solid var(--link-hover-color);
 }
 
 .svg-doctor .viewbox[data-status='upload'][data-mode='dark'].hover,
@@ -123,8 +128,9 @@
 /* controls */
 .svg-doctor .form.specs {
   filter: none;
-  box-shadow: 0 0 20px var(--bg-color-grey);
+  box-shadow: 0 0 20px var(--gray-300);
   margin: var(--spacing-s) 0 var(--spacing-l);
+  padding: var(--horizontal-spacing);
 }
 
 .svg-doctor .controls {
@@ -132,10 +138,10 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: .5rem;
-  border-radius: 0 0 var(--card-border-radius-l) var(--card-border-radius-l);
-  padding: .5rem var(--card-border-radius-l);
-  background-color: var(--bg-color-grey);
-  margin-top: var(--small);
+  border-radius: 0 0 var(--rounding-l) var(--rounding-l);
+  padding: .5rem var(--rounding-xl);
+  background-color: var(--layer-pasteboard);
+  margin-top: 0;
 }
 
 .svg-doctor .controls[aria-hidden] {
@@ -157,16 +163,15 @@
   content: '';
   width: 1px;
   height: 100%;
-  background-color: var(--bg-color-grey-2);
+  background-color: var(--gray-400);
 }
 
 .svg-doctor .controls-buttons button {
   position: relative;
   border: 0;
-  border-radius: var(--input-border-radius);
+  border-radius: var(--rounding-s);
   padding: .2rem .5rem;
   background-color: transparent;
-  font-size: var(--type-detail-m-size);
   cursor: pointer;
   transition: background-color .3s;
 }
@@ -174,7 +179,7 @@
 .svg-doctor .controls-buttons button[aria-checked="true"],
 .svg-doctor .controls-buttons button:hover,
 .svg-doctor .controls-buttons button:focus {
-  background-color: var(--bg-color-grey-2);
+  background-color: var(--gray-400);
 }
 
 .svg-doctor .controls-buttons button:hover::after {
@@ -185,10 +190,10 @@
   transform: translateX(-50%);
   width: max-content;
   padding: .2rem .5rem;
-  border: 1px solid var(--bg-color-lightgrey);
-  border-radius: var(--input-border-radius);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--rounding-s);
   background-color: #070707;
-  color: var(--bg-color-lightgrey);
+  color: var(--gray-200);
   z-index: 1;
 }
 
@@ -234,7 +239,7 @@
 }
 
 .svg-doctor .viewbox[data-display='button'] + .controls .controls-palette .swatch {
-  background-color: var(--spectrum-blue);
+  background-color: black;
 }
 
 .svg-doctor .viewbox[data-display='button'] + .controls .controls-palette .swatch.icon::after {
@@ -269,14 +274,15 @@
 
 .svg-doctor .viewbox[data-display='button'] .preview {
   width: max-content;
+  display: flex;
   border-radius: 32px;
   padding: 13px 1.5em;
   border-width: 2px;
   border-style: solid;
   border-color: transparent;
-  background-color: var(--spectrum-blue);
-  color: var(--color-white);
-  font-size: var(--type-body-l-lh);
+  background-color: var(--color-link);
+  color: white;
+  font-size: var(--body-size-l);
   font-style: normal;
   font-weight: 600;
   text-align: center;
@@ -285,9 +291,9 @@
 }
 
 .svg-doctor .viewbox[data-display='button'] .preview:hover {
-  border-color: var(--spectrum-blue);
-  background-color: var(--color-white);
-  color: var(--spectrum-blue);
+  border-color: var(--color-link-hover);
+  background-color: white;
+  color: var(--color-link-hover);
 }
 
 .svg-doctor .viewbox[data-display='button'] .preview::after {
@@ -297,7 +303,7 @@
 
 .svg-doctor .viewbox[data-display='button'] .preview svg {
   width: auto;
-  height: var(--type-body-l-lh);
+  height: var(--body-size-l);
   margin-right: 1ch;
 }
 
@@ -308,6 +314,7 @@
   box-sizing: border-box;
   display: block;
   position: relative;
+  color: var(--color-text);
 }
 
 .svg-doctor .glyph::before,
