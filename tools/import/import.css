@@ -3,7 +3,7 @@
   flex-direction: row;
   align-items: center;
   margin: 1em 0 0.5em;
-  gap: 8px;
+  gap: var(--spacing-xxs);
 }
 
 .heading h2 {
@@ -42,7 +42,7 @@
 .field textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-font-grey);
   border-radius: 4px;
   box-sizing: border-box;
 }
@@ -54,7 +54,7 @@
 
 button {
   padding: 10px 20px;
-  background-color: #007bff;
+  background-color: var(--spectrum-blue);
   color: white;
   border: none;
   border-radius: 4px;
@@ -62,11 +62,11 @@ button {
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: var(--dark-spectrum-blue);
 }
 
 #results {
- padding-top: 22px;
+ padding-top: var(--spacing-s);
 }
 
 #results.hidden {

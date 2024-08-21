@@ -2,10 +2,10 @@
 
 <head>
     <title>Bulk Import | AEM Live</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <script src="/scripts/aem.js" type="module"></script>
     <script src="/scripts/scripts.js" type="module"></script>
-    <link rel="stylesheet" href="/styles/styles.css" />
+    <link rel="stylesheet" href="/styles/styles.css"/>
     <script src="./import.js" type="module"></script>
     <link rel="stylesheet" href="./import.css">
 </head>
@@ -14,43 +14,41 @@
 <header></header>
 <main>
     <div>
-        <div>
-            <h1>Bulk Import</h1>
-            <div class="form">
-                <div class="field">
-                    <label for="apiKey-input">Api Key</label>
-                    <input id="apiKey-input" type="text"/>
-                </div>
-                <div class="field">
-                    <label for="url-input">URLs</label>
-                    <textarea id="url-input"></textarea>
-                </div>
-                <div class="field">
-                    <label for="import-script">Import Script</label>
-                    <input type="file" id="import-script" name="file">
-                </div>
-                <div class="field">
-                    <label>Options</label>
-                    <div>
-                        <label for="saveAsDocx">Save as DOCX</label>
-                        <input type="checkbox" id="saveAsDocx" name="saveAsDocx">
-                    </div>
-                    <div>
-                        <label for="scrollToBottom">Scroll to Bottom</label>
-                        <input type="checkbox" id="scrollToBottom" name="scrollToBottom">
-                    </div>
-                    <div>
-                        <label for="enableJavaScript">Enable JavaScript</label>
-                        <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
-                    </div>
-                </div>
-                <button id="start-button">Start</button>
+        <h1>Bulk Import</h1>
+        <div class="form">
+            <div class="field">
+                <label for="apiKey-input">Api Key</label>
+                <input id="apiKey-input" type="text"/>
             </div>
-            <div id="results" class="hidden">
-                <div class="heading">
-                    <h2>Job Details</h2>
-                    <a id="clear-button">Clear history</a>
+            <div class="field">
+                <label for="url-input">URLs</label>
+                <textarea id="url-input"></textarea>
+            </div>
+            <div class="field">
+                <label for="import-script">Import Script</label>
+                <input type="file" id="import-script" name="file">
+            </div>
+            <div class="field">
+                <label>Options</label>
+                <div>
+                    <label for="saveAsDocx">Save as DOCX</label>
+                    <input type="checkbox" id="saveAsDocx" name="saveAsDocx">
                 </div>
+                <div>
+                    <label for="scrollToBottom">Scroll to Bottom</label>
+                    <input type="checkbox" id="scrollToBottom" name="scrollToBottom">
+                </div>
+                <div>
+                    <label for="enableJavaScript">Enable JavaScript</label>
+                    <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
+                </div>
+            </div>
+            <button id="start-button">Start</button>
+        </div>
+        <div id="results" class="hidden">
+            <div class="heading">
+                <h2>Job Details</h2>
+                <a id="clear-button">Clear history</a>
             </div>
         </div>
     </div>
