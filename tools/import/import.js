@@ -110,7 +110,7 @@ function addJobsList(jobs) {
   defaultOption.value = '';
   dropdown.appendChild(defaultOption);
 
-  jobs.forEach((job) => {
+  jobs.reverse().forEach((job) => {
     const option = document.createElement('option');
     option.textContent = formatDate(job.endTime || job.startTime);
     option.value = job.id;
