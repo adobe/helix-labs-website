@@ -104,6 +104,10 @@ function getImportScript(input) {
 }
 
 function addJobsList(jobs) {
+  if (jobs.length === 0) {
+    return;
+  }
+
   const dropdown = document.createElement('select');
   const defaultOption = document.createElement('option');
   defaultOption.textContent = 'Select a job';
