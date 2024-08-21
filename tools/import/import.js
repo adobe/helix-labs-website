@@ -148,6 +148,11 @@ function addJobsList(jobs) {
     resultsContainer.closest('.job-details').classList.remove('hidden');
   });
 
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    return false;
+  });
+
   fields.apiKey.addEventListener('blur', () => {
     service.setApiKey(fields.apiKey.value);
     service.init();
