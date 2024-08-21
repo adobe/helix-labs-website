@@ -10,14 +10,21 @@ const fields = Object.freeze({
   startButton: document.querySelector('button#start-button'),
   scriptButton: document.querySelector('button#script-button'),
   clearButton: document.querySelector('a#clear-button'),
-})
+});
 
-function clearResults(element)  {
+function clearResults(element) {
   element.textContent = '';
 }
 
 function formatDate(dateString) {
-  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  const options = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  };
   return new Date(dateString).toLocaleDateString(undefined, options);
 }
 
@@ -36,19 +43,20 @@ function createJobTable(job) {
 
   Object.entries(job).forEach(([key, value]) => {
     const tr = document.createElement('tr');
+    let formattedValue = value;
     if (key === 'startTime' || key === 'endTime') {
-      value = formatDate(value);
+      formattedValue = formatDate(value);
     } else if (key === 'duration') {
-      value = formatDuration(value);
+      formattedValue = formatDuration(value);
     } else if (key === 'options') {
-      value = Object.entries(value)
-                .filter(([_, state]) => state)
-                .map(([key]) => key)
-                .join(', ');
+      formattedValue = Object.entries(value)
+        .filter(([, optionValue]) => optionValue)
+        .map(([optionKey]) => optionKey)
+        .join(', ');
     } else if (key === 'baseURL' || key === 'downloadUrl') {
-      value = `<a href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
+      formattedValue = `<a href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
     }
-    tr.innerHTML = `<td>${key}</td><td>${value}</td>`;
+    tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
     tbody.append(tr);
   });
   table.append(tbody);
@@ -71,12 +79,12 @@ function getImportScript(input) {
     const file = input.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = (e) => {
         const arrayBuffer = e.target.result;
         const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
         resolve(base64Content);
       };
-      reader.onerror = function(e) {
+      reader.onerror = (e) => {
         reject(e);
       };
       reader.readAsArrayBuffer(file);
@@ -87,18 +95,18 @@ function getImportScript(input) {
 }
 
 (() => {
-  const service = new ImportService({ poll: true});
+  const service = new ImportService({ poll: true });
 
   fields.apiKey.value = service.apiKey;
-  service.init()
+  service.init();
 
-  service.addListener(({job}) => {
+  service.addListener(({ job }) => {
     // Update job results
     clearResults(resultsContainer);
     // build new results
     resultsContainer.append(createJobTable(job));
     resultsContainer.closest('.job-details').classList.remove('hidden');
-  })
+  });
 
   fields.apiKey.addEventListener('blur', () => {
     service.setApiKey(fields.apiKey.value);
@@ -120,7 +128,7 @@ function getImportScript(input) {
 
   fields.clearButton.addEventListener('click', (event) => {
     event.preventDefault(); // Prevent the default link behavior
-    service.clearHistory();
+    ImportService.clearHistory();
     clearResults(resultsContainer);
   });
 
@@ -131,10 +139,10 @@ function getImportScript(input) {
   fields.importScript.addEventListener('change', (event) => {
     const scriptName = fields.importScript.parentElement?.querySelector(':scope > input ~ span');
     const file = event.target.files[0];
-    const fileSizeInKB = (file.size / 1024).toFixed(2); // Convert bytes to KB and round to 2 decimal places
+    // Convert bytes to KB and round to 2 decimal places
+    const fileSizeInKB = (file.size / 1024).toFixed(2);
     if (scriptName) {
       scriptName.textContent = `${file.name} (${fileSizeInKB} KB)`;
     }
   });
-
 })();

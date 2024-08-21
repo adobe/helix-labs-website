@@ -1,8 +1,7 @@
-
 const endpoint = Object.freeze({
   STAGE: 'https://spacecat.experiencecloud.live/api/ci',
-  PROD: 'https://spacecat.experiencecloud.live/api/v1'
-})
+  PROD: 'https://spacecat.experiencecloud.live/api/v1',
+});
 
 const IMPORT_PATH = '/tools/import';
 const IMPORT_JOBS_PATH = `${IMPORT_PATH}/jobs`;
@@ -27,7 +26,7 @@ export default class ImportService {
   }
 
   #sendEvent(job) {
-    this.listeners.forEach((listener) => listener({job}));
+    this.listeners.forEach((listener) => listener({ job }));
   }
 
   #getAuthHeaders() {
@@ -64,7 +63,7 @@ export default class ImportService {
       if ($this.busy) {
         return;
       }
-      const {id: jobId} = $this.job;
+      const { id: jobId } = $this.job;
       if (jobId) {
         await $this.queryJob($this.job);
         if ($this.job.status === 'COMPLETE' || $this.job.status === 'FAILURE') {
@@ -72,7 +71,7 @@ export default class ImportService {
           $this.importInterval = undefined;
           const { downloadUrl } = await $this.fetchResult($this.job);
           if (downloadUrl) {
-            $this.job = {...$this.job, downloadUrl};
+            $this.job = { ...$this.job, downloadUrl };
             this.#sendEvent($this.job);
           }
         }
@@ -116,11 +115,11 @@ export default class ImportService {
     return filteredJobs;
   }
 
-  clearHistory() {
+  static clearHistory() {
     localStorage.setItem(STORAGE_JOBS, JSON.stringify([]));
   }
 
-  async startJob({urls = [], options = {}, importScript}) {
+  async startJob({ urls = [], options = {}, importScript }) {
     if (!this.apiKey) {
       throw new Error('API keys are required');
     }
@@ -128,7 +127,7 @@ export default class ImportService {
       const resp = await fetch(`${this.endpoint}${IMPORT_JOBS_PATH}`, {
         method: 'POST',
         headers: this.#getAuthHeaders(),
-        body: JSON.stringify({urls, options, importScript}),
+        body: JSON.stringify({ urls, options, importScript }),
       });
       if (resp.ok) {
         this.job = await resp.json();
@@ -157,7 +156,7 @@ export default class ImportService {
     if (!this.apiKey) {
       throw new Error('API keys are required');
     }
-    const {id: jobId} = job;
+    const { id: jobId } = job;
     if (!jobId) {
       throw new Error('No job ID available');
     }
@@ -184,24 +183,25 @@ export default class ImportService {
     if (!this.apiKey) {
       throw new Error('API keys are required');
     }
-    const {id: jobId} = job;
+    const { id: jobId } = job;
     if (!jobId) {
       throw new Error('No job ID available');
     }
     try {
       const resp = await fetch(
-          `${this.endpoint}${IMPORT_JOBS_PATH}/${jobId}/result`,
-          {
-            method: 'POST',
-            headers: this.#getAuthHeaders(),
-            body: JSON.stringify({}),
-          },
+        `${this.endpoint}${IMPORT_JOBS_PATH}/${jobId}/result`,
+        {
+          method: 'POST',
+          headers: this.#getAuthHeaders(),
+          body: JSON.stringify({}),
+        },
       );
       if (resp.ok) {
         return await resp.json();
       }
       return {};
     } catch (e) {
+      /* eslint-disable no-console */
       console.error(e);
     }
     return undefined;
@@ -223,7 +223,7 @@ export default class ImportService {
 
     jobs.every(async (job, index) => {
       if (job.status === 'RUNNING') {
-        const service = new ImportService(({apiKey, importApiKey}));
+        const service = new ImportService(({ apiKey, importApiKey }));
         if (service) {
           const newJob = await service.queryJob(job);
           if (newJob && newJob.status !== 'RUNNING') {
