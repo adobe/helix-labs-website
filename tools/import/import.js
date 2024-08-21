@@ -53,8 +53,10 @@ function createJobTable(job) {
         .filter(([, optionValue]) => optionValue)
         .map(([optionKey]) => optionKey)
         .join(', ');
-    } else if (key === 'baseURL' || key === 'downloadUrl') {
-      formattedValue = `<a class="button accent" href="${value}" target="_blank">${key === 'downloadUrl' ? 'Download' : value}</a>`;
+    } else if (key === 'baseURL') {
+      formattedValue = `<a href="${value}" target="_blank">${value}</a>`;
+    } else if (key === 'downloadUrl') {
+      formattedValue = `<a class="button accent" href="${value}" download>Download</a>`;
     }
     tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
     tbody.append(tr);
