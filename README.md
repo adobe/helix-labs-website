@@ -1,6 +1,6 @@
 # Helix Labs Website 🧪
 
-Experimental tooling for developing and managing Helix sites.
+Experimental tooling for developing and managing AEM sites.
 
 ## Environments
 
