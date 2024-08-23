@@ -191,7 +191,7 @@ function addJobsList(jobs) {
     const url = new URL(window.location);
     url.searchParams.set('jobid', newJob.id);
     window.history.pushState({}, '', url);
-    resultsContainer.closest('.job-details').scrollIntoView({ behavior: "smooth"});
+    resultsContainer.closest('.job-details').scrollIntoView({ behavior: 'smooth' });
   });
 
   fields.clearButton.addEventListener('click', (event) => {
