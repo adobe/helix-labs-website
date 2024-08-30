@@ -7,7 +7,9 @@ const jobList = document.querySelector('span.job-list');
 const fields = Object.freeze({
   apiKey: document.querySelector('input#apiKey-input'),
   urls: document.querySelector('textarea#url-input'),
+  headers: document.querySelector('textarea#headers-input'),
   importScript: document.querySelector('input#import-script'),
+  timeout: document.querySelector('input#timeout-input'),
   startButton: document.querySelector('button#start-button'),
   scriptButton: document.querySelector('button#script-button'),
   clearButton: document.querySelector('a#clear-button'),
@@ -54,34 +56,36 @@ function createJobTable(job) {
     job.duration = Date.now() - (new Date(job.startTime).getTime());
   }
 
-  Object.entries(job).forEach(([key, value]) => {
-    const tr = document.createElement('tr');
-    let formattedValue = value;
-    if (key === 'id') {
-      const deepLink = new URL(window.location);
-      deepLink.searchParams.set('jobid', value);
-      formattedValue = `<a href="${deepLink.toString()}">${value}</a>`;
-    } else if (key === 'startTime' || key === 'endTime') {
-      formattedValue = formatDate(value);
-    } else if (key === 'duration') {
-      formattedValue = formatDuration(value);
-    } else if (key === 'status' && value === 'RUNNING') {
-      formattedValue += '<div class="spinner"></div>';
-    } else if (key === 'options') {
-      formattedValue = Object.entries(value)
-        .filter(([, optionValue]) => optionValue)
-        .map(([optionKey]) => optionKey)
-        .join(', ');
-    } else if (key === 'baseURL') {
-      formattedValue = `<a href="${value}" target="_blank">${value}</a>`;
-    } else if (key === 'downloadUrl') {
-      formattedValue = `<a class="button accent" href="${value}" download>Download</a>`;
-    } else if (typeof value === 'object') {
-      formattedValue = Object.values(value).map((v) => `<p>${v}</p>`).join('');
-    }
-    tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
-    tbody.append(tr);
-  });
+  Object.entries(job)
+    .filter(([key]) => key !== 'downloadUrl')
+    .forEach(([key, value]) => {
+      const tr = document.createElement('tr');
+      let formattedValue = value;
+      if (key === 'id') {
+        const deepLink = new URL(window.location);
+        deepLink.searchParams.set('jobid', value);
+        formattedValue = `<a href="${deepLink.toString()}">${value}</a>`;
+      } else if (key === 'startTime' || key === 'endTime') {
+        formattedValue = formatDate(value);
+      } else if (key === 'duration') {
+        formattedValue = formatDuration(value);
+      } else if (key === 'status' && value === 'RUNNING') {
+        formattedValue += '<div class="spinner"></div>';
+      } else if (key === 'options') {
+        formattedValue = Object.entries(value)
+          .filter(([, optionValue]) => optionValue)
+          .map(([optionKey]) => optionKey)
+          .join(', ');
+      } else if (key === 'baseURL') {
+        formattedValue = `<a href="${value}" target="_blank">${value}</a>`;
+      } else if (key === 'downloadUrl') {
+        formattedValue = `<a class="button accent" href="${value}" download>Download</a>`;
+      } else if (typeof value === 'object') {
+        formattedValue = Object.values(value).map((v) => `<p>${v}</p>`).join('');
+      }
+      tr.innerHTML = `<td>${key}</td><td>${formattedValue}</td>`;
+      tbody.append(tr);
+    });
   table.append(tbody);
   return table;
 }
@@ -163,6 +167,14 @@ function addJobsList(jobs) {
     clearResults();
     // build new results
     resultsContainer.append(createJobTable(job));
+    if (job.downloadUrl) {
+      const downloadLink = document.createElement('a');
+      downloadLink.className = 'button accent';
+      downloadLink.href = job.downloadUrl;
+      downloadLink.textContent = 'Download';
+      downloadLink.download = 'import_results.zip';
+      resultsContainer.append(downloadLink);
+    }
     resultsContainer.closest('.job-details').classList.remove('hidden');
   });
 
@@ -184,7 +196,11 @@ function addJobsList(jobs) {
     resultsContainer.closest('.job-details').classList.remove('hidden');
 
     const urlsArray = fields.urls.value.split('\n').reverse().filter((u) => u.trim() !== '');
-    const options = buildOptions(form);
+    const options = {
+      ...buildOptions(form),
+      pageLoadTimeout: parseInt(fields.timeout.value || '100', 10),
+      customHeaders: fields.headers.value || undefined,
+    };
     const importScript = await getImportScript(fields.importScript);
     const newJob = await service.startJob({ urls: urlsArray, options, importScript });
 

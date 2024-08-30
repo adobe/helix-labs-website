@@ -34,21 +34,25 @@
                     <p class="small">Use <a href="https://www.npmjs.com/package/aem-import-helper" target="_blank">aem-import-helper</a> to bundle your import script.</p>
                 </div>
                 <div class="field">
+                    <label for="timeout-input">Page load timeout</label>
+                    <input id="timeout-input" type="number" value="100" min="0" step="100"></input>
+                </div>
+                <div class="field">
                     <label>Options</label>
                     <div class="field-group">
                         <div>
-                            <label for="saveAsDocx">Save as DOCX</label>
-                            <input type="checkbox" id="saveAsDocx" name="saveAsDocx">
+                            <label for="enableJavaScript">Enable JavaScript</label>
+                            <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
                         </div>
                         <div>
                             <label for="scrollToBottom">Scroll to Bottom</label>
                             <input type="checkbox" id="scrollToBottom" name="scrollToBottom">
                         </div>
-                        <div>
-                            <label for="enableJavaScript">Enable JavaScript</label>
-                            <input type="checkbox" id="enableJavaScript" name="enableJavaScript">
-                        </div>
                     </div>
+                </div>
+                <div class="field">
+                    <label for="headers-input">Custom headers</label>
+                    <textarea id="headers-input"></textarea>
                 </div>
                 <button id="start-button" class="button">Start</button>
             </form>

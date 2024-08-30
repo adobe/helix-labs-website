@@ -123,6 +123,10 @@
   background-color: var(--gray-25);
 }
 
+#results table + a.button {
+  margin-top: var(--spacing-l);
+}
+
 .spinner {
   display: inline-block;
   width: 1rem;
