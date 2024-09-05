@@ -196,10 +196,17 @@ function addJobsList(jobs) {
     resultsContainer.closest('.job-details').classList.remove('hidden');
 
     const urlsArray = fields.urls.value.split('\n').reverse().filter((u) => u.trim() !== '');
+    let customHeaders = {};
+    try {
+      customHeaders = JSON.parse(fields.headers.value);
+    } catch (e) {
+      /* eslint-disable no-console */
+      console.warn('Invalid headers JSON');
+    }
     const options = {
       ...buildOptions(form),
       pageLoadTimeout: parseInt(fields.timeout.value || '100', 10),
-      customHeaders: fields.headers.value || undefined,
+      customHeaders,
     };
     const importScript = await getImportScript(fields.importScript);
     const newJob = await service.startJob({ urls: urlsArray, options, importScript });
