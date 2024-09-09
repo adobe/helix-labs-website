@@ -1,0 +1,46 @@
+{
+  "name": "helix-website",
+  "version": "1.0.0",
+  "description": "",
+  "main": "scripts.js",
+  "scripts": {
+    "test": "wtr \"./tests/**/*.test.js\" --node-resolve --port=2000 --coverage",
+    "test:watch": "npm test -- --watch",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint 'blocks/**/*.css' 'styles/*.css'",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:fix": "eslint --fix --ext .js,.jsx . && npm run lint -- --fix",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adobe/helix-website.git"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/adobe/helix-website/issues"
+  },
+  "homepage": "https://github.com/adobe/helix-website#readme",
+  "devDependencies": {
+    "@babel/core": "7.18.0",
+    "@babel/eslint-parser": "7.17.0",
+    "@esm-bundle/chai": "4.3.4-fix.0",
+    "@web/test-runner": "0.13.28",
+    "@web/test-runner-commands": "0.6.1",
+    "eslint": "8.16.0",
+    "eslint-config-airbnb-base": "15.0.0",
+    "eslint-plugin-import": "2.26.0",
+    "husky": "8.0.1",
+    "lint-staged": "12.4.2",
+    "sinon": "14.0.0",
+    "stylelint": "14.8.3",
+    "stylelint-config-prettier": "9.0.3",
+    "stylelint-config-standard": "25.0.0"
+  },
+  "lint-staged": {
+    "*.js": "eslint",
+    "*.cjs": "eslint",
+    "*.css": "stylelint"
+  }
+}

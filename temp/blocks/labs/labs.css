@@ -1,0 +1,30 @@
+.labs {
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background-color: #e6118a;
+  color: #fff;
+  border-radius: var(--image-border-radius-l);
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-lh);
+}
+
+.labs .header {
+  font-weight: 700;
+  font-size: var(--type-heading-m-size);
+  text-transform: uppercase;
+}
+
+.labs a {
+  color: #fff;
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.home-template .labs {
+  margin-left: 25%;
+  margin-right: 25%;
+  margin-top: -2em;
+  z-index: 10;
+  position: relative;
+  text-align: center;
+}

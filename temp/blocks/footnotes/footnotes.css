@@ -1,0 +1,18 @@
+.footnotes {
+  margin: var(--spacing-ml) 0;
+}
+
+.footnotes > div {
+  display: flex;
+}
+
+.footnotes > div,
+.footnotes .footnote-text > a {
+  font-size: var(--type-body-xs-size);
+  line-height: var(--type-body-xs-lh);
+}
+
+.footnotes .footnote-num {
+  text-align: right;
+  padding-right: 20px;
+}

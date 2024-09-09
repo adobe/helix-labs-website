@@ -1,0 +1,14 @@
+/* default rule for mobile */
+.videotext>div {
+  display: grid;
+  padding-top: var(--spacing-xxs);
+}
+
+.videocontent video {
+  width: 100%;
+}
+
+.videotext .text {
+  font-size: var(--type-body-xs-size);
+  padding-top: var(--spacing-xxs);
+}
