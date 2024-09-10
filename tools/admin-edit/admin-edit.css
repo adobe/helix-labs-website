@@ -1,0 +1,58 @@
+.admin-edit [aria-hidden='true'] {
+  display: none;
+}
+
+.admin-edit textarea {
+  font-family: var(--code-font-family);
+  font-size: var(--body-size-s);
+  overflow-wrap: normal;
+  overflow-x: scroll;
+  white-space: pre;
+}
+
+.admin-edit #admin-form {
+  display: grid;
+  gap: var(--spacing-s);
+}
+
+@media (width >= 720px) {
+  .admin-edit #admin-form {
+    grid-template-columns: 1fr max-content;
+  }
+}
+
+.admin-edit #admin-form .button-wrapper {
+  align-self: center;
+}
+
+.admin-edit #body-form .save-wrapper {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: var(--spacing-s);
+  margin-top: 0.5em;
+}
+
+.admin-edit #body-form .save-wrapper .button-wrapper {
+  align-self: flex-end;
+  margin: 0;
+}
+
+.admin-edit .status-light {
+  white-space: nowrap;
+}
+
+.admin-edit .status-light::before {
+  color: var(--red-900);
+}
+
+.admin-edit .status-light.http1::before {
+  color: var(--blue-900);
+}
+
+.admin-edit .status-light.http2::before {
+  color: var(--green-900);
+}
+
+.admin-edit .status-light.http3::before {
+  color: var(--yellow-900);
+}

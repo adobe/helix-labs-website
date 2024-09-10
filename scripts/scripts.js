@@ -11,6 +11,7 @@ import {
   loadSections,
   loadCSS,
   sampleRUM,
+  getMetadata,
 } from './aem.js';
 
 /**
@@ -23,6 +24,29 @@ async function loadFonts() {
   } catch (e) {
     // do nothing
   }
+}
+
+/**
+ * Helper function to create DOM elements
+ * @param {string} tag DOM element to be created
+ * @param {Record<string, string>} [attributes] attributes to be added
+ * @param {string|Element} [html]
+ */
+export function createTag(tag, attributes, html) {
+  const el = document.createElement(tag);
+  if (html) {
+    if (html instanceof HTMLElement || html instanceof SVGElement) {
+      el.append(html);
+    } else {
+      el.insertAdjacentHTML('beforeend', html);
+    }
+  }
+  if (attributes) {
+    Object.entries(attributes).forEach(([key, val]) => {
+      el.setAttribute(key, val);
+    });
+  }
+  return el;
 }
 
 /**
@@ -150,6 +174,13 @@ export function decorateMain(main) {
   decorateButtons(main);
 }
 
+async function loadThemeStyles() {
+  const theme = getMetadata('theme');
+  if (theme === 'powerscore') {
+    await loadCSS(`${window.hlx.codeBasePath}/styles/powerscore-styles.css`);
+  }
+}
+
 /**
  * Loads everything needed to get to LCP.
  * @param {Element} doc The container element
@@ -157,6 +188,8 @@ export function decorateMain(main) {
 async function loadEager(doc) {
   document.documentElement.lang = 'en';
   decorateTemplateAndTheme();
+  loadThemeStyles();
+
   const main = doc.querySelector('main');
   if (main) {
     decorateMain(main);

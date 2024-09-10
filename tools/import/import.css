@@ -123,3 +123,21 @@
   background-color: var(--gray-25);
 }
 
+#results table + a.button {
+  margin-top: var(--spacing-l);
+}
+
+.spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin: 6px 0 0 1rem;
+  border: 3px solid rgb(0 0 0 / 30%);
+  border-radius: 50%;
+  border-top-color: var(--cyan-700);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

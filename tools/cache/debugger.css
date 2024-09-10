@@ -1,3 +1,30 @@
+:root {
+  --color-white: #fff;
+  --bg-color-grey-2: #d6d6d6;
+  --color-success: #0d9f54;
+  --color-success-highlight: #2dd17c;
+  --color-error: #f31616;
+  --color-error-highlight: #fc0909;
+  --overlay-curtain-bg-color: rgb(0 0 0 / 60%);
+  --overlay-curtain-bg-filter: blur(0.05em);
+  --input-border-radius: 4px;
+  --image-border-radius-m: 8px;
+  --image-border-radius-l: 16px;
+  --image-border-radius-xl: 24px;
+  --image-border-radius-xxl: 30px;
+  --spacing-xxxs: 4px;
+  --spacing-xxs: 8px;
+  --spacing-xs: 16px;
+  --spacing-s: 24px;
+  --spacing-m: 32px;
+  --spacing-ml: 40px;
+  --spacing-l: 48px;
+  --spacing-xl: 56px;
+  --spacing-xxl: 80px;
+  --spacing-xxxl: 104px;
+  --type-detail-m-lh: 15px;
+}
+
 div.form {
   display: flex;
   gap: 14px;

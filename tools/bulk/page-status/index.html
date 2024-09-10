@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Page Status Viewer</title>
+  <script src="/scripts/aem.js" type="module"></script>
+  <script src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script src="./scripts.js" type="module" defer></script>
+  <link rel="stylesheet" href="./styles.css" />
+
+</head>
+<body class="page-status">
+  <header></header>
+  <main>
+    <div>
+      <h1>Page Status</h1>
+      <p>
+        The <em>Page Status</em> allows users to display the current preview/publish status of a site or subpath in a site.
+      </p>
+      <p>
+        To specify a sub-path, ensure that the URL ends with `/` or `/*`.
+      </p>
+    </div>
+
+    <div>
+      <form id="page-status-form" aria-hidden="false">
+        <label id="url-label" for="url">GitHub or Site URL:</label>
+        <input name="url" id="url" type="url" required />
+        <p class="errors"></p>
+        <p class="button-wrapper">
+          <button type="submit" class="button">Submit</button>
+          <button type="reset" id="form-reset" class="button outline">Reset</button>
+        </p>
+        <div class="field-help-text">
+          <p>
+            Examples: <span class="example">https://github.com/{org}/{repo}</span> or <span class="example">https://main--{repo}--{org}.aem.page/[{path}]</span>
+          </p>
+        </div>
+      </form>
+    </div>
+    <div>
+      <h3>Results</h3>
+      <div>
+        <div class="page-status-results">
+          <div class="headers">
+            <div>Path</div>
+            <div>Previewed</div>
+            <div>Published</div>
+          </div>
+          <div class="loading" aria-hidden="true">
+            <i class="symbol symbol-loading"></i>
+          </div>
+          <div class="results" aria-hidden="true">
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+</html>

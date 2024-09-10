@@ -1,11 +1,12 @@
-# Helix Labs Website 🧪
+# AEM Live Labs 🧪
+
+This is https://labs.aem.live
 
 Experimental tooling for developing and managing AEM sites.
 
 ## Environments
-
-- Preview: https://main--helix-labs-website--adobe.aem.page
-- Live: https://main--helix-labs-website--adobe.aem.live
+- Preview: https://main--helix-labs-website--adobe.aem.page/
+- Live: https://main--helix-labs-website--adobe.aem.live/
 
 ## Development
 

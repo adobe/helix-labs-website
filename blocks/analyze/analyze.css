@@ -1,0 +1,90 @@
+main .analyze-container {
+    /* avoid layout shift when results block is added */
+    min-height: 80vh;
+}
+
+main .analyze form {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 4fr 1fr;
+    justify-content: center;
+    align-items: center;
+    max-width: 800px;
+    margin-inline: auto;
+
+    .analyze-box-wrapper, .sitemap-box-wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        position: relative;
+
+        label {
+            border: 0 !important;
+            clip: rect(1px, 1px, 1px, 1px) !important;
+            clip-path: inset(50%) !important; 
+            height: 1px !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            position: absolute !important;
+            width: 1px !important;
+            white-space: nowrap !important;
+        }
+
+        .analyze-box,.sitemap-box {
+            padding: 0 16px;
+            height: 48px;
+            font-size: var(--body-font-size-s);
+            font-family: inherit;
+
+            &.visited:invalid {
+                outline: 2px solid var(--error-color);
+                
+                + .input-error {
+                    display: block;
+                }
+            }
+        }
+
+        /* stylelint-disable-next-line no-descending-specificity */
+        .input-error {
+            display: none;
+            position: absolute;
+            bottom: -2.25rem;
+            left: 1rem;
+
+            > p {
+                font-size: .75rem;
+                color: var(--error-color);
+            }
+        }
+    }
+
+    .sitemap-box-wrapper {
+        display: none;
+    }
+    
+    .sitemap-box-wrapper.visible {
+        display: flex;
+    }
+
+    .force-wrapper, .sitemap-cbox-wrapper {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: start;
+        align-items: center;
+        gap: 1rem;
+        font-size: var(--body-font-size-xs);
+    }
+
+    
+    .submit-wrapper {
+        /* stylelint-disable-next-line no-descending-specificity */
+        > button {
+            border-radius: 4px;
+            font-weight: 500;
+            height: 48px;
+            font-size: 1rem;
+        }
+    }
+}
