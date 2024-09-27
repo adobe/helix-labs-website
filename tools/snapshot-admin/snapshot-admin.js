@@ -11,6 +11,9 @@ const snapshotReview = document.getElementById('snapshot-review');
 const snapshotLock = document.getElementById('snapshot-lock');
 const snapshotUnlock = document.getElementById('snapshot-unlock');
 const snapshotPublish = document.getElementById('snapshot-publish');
+const reviewRequest = document.getElementById('review-request');
+const reviewReject = document.getElementById('review-reject');
+const reviewApprove = document.getElementById('review-approve');
 
 let manifest = {};
 let adminURL = '';
@@ -82,6 +85,13 @@ async function unlockSnapshot() {
   await updateSnapshot({ locked: false });
 }
 
+async function updateReviewStatus(status) {
+  const resp = await fetch(`${adminURL}?review=${status}`, {
+    method: 'POST',
+  });
+  logResponse([resp.status, 'POST', `${adminURL}`, resp.headers.get('x-error') || '']);
+}
+
 async function publishSnapshot() {
   const resp = await fetch(`${adminURL}?publish=true`, {
     method: 'POST',
@@ -122,6 +132,10 @@ function displaySnapshot() {
   updateStatus();
   snapshotLock.disabled = manifest.locked;
   snapshotUnlock.disabled = !manifest.locked;
+  reviewRequest.disabled = manifest.locked;
+  reviewReject.disabled = !manifest.locked;
+  reviewApprove.disabled = !manifest.locked;
+  snapshotResources.disabled = manifest.locked;
 }
 
 async function fetchSnapshotManifest(urlString) {
@@ -178,5 +192,23 @@ snapshotUnlock.addEventListener('click', async (e) => {
 snapshotPublish.addEventListener('click', async (e) => {
   e.preventDefault();
   await publishSnapshot();
+  fetchSnapshotManifest(snapshotURL.value);
+});
+
+reviewRequest.addEventListener('click', async (e) => {
+  e.preventDefault();
+  await updateReviewStatus('request');
+  fetchSnapshotManifest(snapshotURL.value);
+});
+
+reviewReject.addEventListener('click', async (e) => {
+  e.preventDefault();
+  await updateReviewStatus('reject');
+  fetchSnapshotManifest(snapshotURL.value);
+});
+
+reviewApprove.addEventListener('click', async (e) => {
+  e.preventDefault();
+  await updateReviewStatus('approve');
   fetchSnapshotManifest(snapshotURL.value);
 });
