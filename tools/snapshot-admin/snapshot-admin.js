@@ -17,6 +17,7 @@ const reviewApprove = document.getElementById('review-approve');
 
 let manifest = {};
 let adminURL = '';
+let snapshotInfo = {};
 
 /**
  * Logs the response information to the log table.
@@ -43,7 +44,15 @@ function logResponse(cols) {
 }
 
 function getCurrentResources() {
-  const currentResources = snapshotResources.value.split('\n').map((e) => e.trim()).filter((e) => e);
+  const currentURLs = snapshotResources.value.split('\n').map((e) => e.trim());
+  const currentResources = currentURLs.map((e) => {
+    try {
+      const url = new URL(e);
+      return url.pathname;
+    } catch {
+      return '';
+    }
+  }).filter((e) => e);
   return currentResources;
 }
 
@@ -127,7 +136,8 @@ async function saveSnapshot() {
 }
 
 function displaySnapshot() {
-  snapshotResources.value = manifest.resources.map((e) => e.path).join('\r\n');
+  const { owner, repo, branch } = snapshotInfo;
+  snapshotResources.value = manifest.resources.map((e) => `https://${branch}--${repo}--${owner}.aem.page${e.path}`).join('\r\n');
   snapshotElem.ariaHidden = false;
   updateStatus();
   snapshotLock.disabled = manifest.locked;
@@ -144,6 +154,12 @@ async function fetchSnapshotManifest(urlString) {
   const [branch, repo, owner] = hostname.split('--');
   const [, , snapshotId] = url.pathname.split('/');
   adminURL = `https://admin.hlx.page/snapshot/${owner}/${repo}/${branch}/${snapshotId}`;
+  snapshotInfo = {
+    owner,
+    repo,
+    branch,
+    snapshotId,
+  };
   snapshotReview.href = `https://${snapshotId}--${branch}--${repo}--${owner}.aem.reviews/`;
   const resp = await fetch(adminURL);
   if (resp.status === 200) {
@@ -161,9 +177,14 @@ adminForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   localStorage.setItem('snapshot', snapshotURL.value);
   fetchSnapshotManifest(snapshotURL.value);
+  const url = new URL(window.location);
+  url.searchParams.set('snapshot', snapshotURL.value);
+  // eslint-disable-next-line no-restricted-globals
+  history.pushState({}, '', url);
 });
 
-snapshotURL.value = localStorage.getItem('snapshot') || 'https://main--aem-boilerplate--adobe/.snapshots/default/.manifest.json';
+const params = new URLSearchParams(window.location.search);
+snapshotURL.value = localStorage.getItem('snapshot') || params.get('snapshot');
 if (snapshotURL.value) fetchSnapshotManifest(snapshotURL.value);
 
 snapshotResources.addEventListener('input', () => {
