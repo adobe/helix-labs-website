@@ -2,6 +2,12 @@
   display: none;
 }
 
+.snapshot-admin textarea {
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: scroll;
+}
+
 .snapshot-admin #snapshot-admin-form {
   display: grid;
   gap: var(--spacing-s);

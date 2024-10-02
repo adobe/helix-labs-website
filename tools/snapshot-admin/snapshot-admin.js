@@ -108,9 +108,18 @@ async function publishSnapshot() {
   logResponse([resp.status, 'POST', `${adminURL}`, resp.headers.get('x-error') || '']);
 }
 
-async function addToSnapshot(path) {
-  const url = `${adminURL}${path}`;
-  const resp = await fetch(url, { method: 'POST' });
+async function addToSnapshot(paths) {
+  const url = `${adminURL}/*`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      paths,
+    }),
+  });
+
   logResponse([resp.status, 'POST', `${url}`, resp.headers.get('x-error') || '']);
 }
 
@@ -124,10 +133,7 @@ async function saveSnapshot() {
   const fieldset = editForm.querySelector('fieldset');
   fieldset.disabled = true;
   const { newItems, deletedItems } = calculateDiff();
-  for (let i = 0; i < newItems.length; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    await addToSnapshot(newItems[i]);
-  }
+  if (newItems.length) await addToSnapshot(newItems);
   for (let i = 0; i < deletedItems.length; i += 1) {
     // eslint-disable-next-line no-await-in-loop
     await deleteFromSnapshot(deletedItems[i]);
