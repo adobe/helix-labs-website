@@ -88,8 +88,10 @@ const numberOfTopColors = 10; // used for selecting top colors
 const numberOfTopRawColors = 20; // used for selecting top colors
 const saturationThreshold = 10; // used for sorting colors
 const colorThief = new ColorThief();
-const usedColors = new Set();
 const permittedProtocols = ['http', 'https', 'data'];
+
+const usedColors = new Set();
+const unique = new Map();
 
 function sortColorNameSetIntoArray(colorSet) {
   const filteredColorNames = cssColors.filter((color) => colorSet.has(color.name));
@@ -164,9 +166,9 @@ function getColorSpan(color) {
  * @returns {Object[]} Sorted array of report rows.
  */
 function writeReportRows() {
-  const unique = window.audit;
+  const reportEntries = window.audit;
   const entries = [];
-  unique.forEach((image) => {
+  reportEntries.forEach((image) => {
     if (image && image.site) {
       image.site.forEach((site, i) => {
         entries.push({
@@ -370,15 +372,15 @@ function parameterizeColors(loadedImg, values) {
 
 /**
  * Filters out duplicate images and compiles unique image data.
- * @param {Object[]} data - Array of image data objects.
+ * @param {Object[]} daindividualBatchta - Array of image data objects.
  * @returns {Object[]} Array of unique image data objects.
  */
-async function findAndLoadUniqueImages(data, individualBatch) {
+async function findAndLoadUniqueImages(individualBatch) {
   // use a map to track unique images by their src attribute
-  const unique = new Map();
   const promises = []; // Array to hold promises
+  const batchUnique = new Map();
 
-  data.forEach((img) => {
+  individualBatch.forEach((img) => {
     const {
       src, origin, site, alt, width, height, aspectRatio, fileType,
     } = img;
@@ -419,8 +421,8 @@ async function findAndLoadUniqueImages(data, individualBatch) {
       });
 
       promises.push(promise);
-
       unique.set(src, values);
+      batchUnique.set(src, values);
     }
     // update the existing entry with additional image data
     const entry = unique.get(src);
@@ -432,10 +434,10 @@ async function findAndLoadUniqueImages(data, individualBatch) {
     await Promise.all(promises);
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error(`Error loading files ${individualBatch}`, { individualBatch, error });
+    console.error('Error loading files', { batchUnique, error });
   }
 
-  return [...unique.values()];
+  return Array.from(batchUnique.values());
 }
 
 /**
@@ -783,8 +785,7 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
       // Display images as they are fetched
       main.dataset.canvas = true;
       results.removeAttribute('aria-hidden');
-      const uniqueBatchData = await findAndLoadUniqueImages(data, batchData);
-      window.audit = uniqueBatchData;
+      const uniqueBatchData = await findAndLoadUniqueImages(batchData);
       updateCounter(imagesCounter, uniqueBatchData.length);
       displayImages(uniqueBatchData);
       decorateIcons(gallery);
@@ -798,6 +799,8 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
 
   // Wait for all batches to finish processing
   await Promise.all(batchPromises);
+
+  window.audit = unique.values();
 
   // After all batches are done
   data.length = 0;
@@ -913,6 +916,7 @@ async function processForm(sitemap) {
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
   usedColors.clear();
+  unique.clear();
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
