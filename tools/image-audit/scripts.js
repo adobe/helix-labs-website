@@ -1,9 +1,10 @@
 /* eslint-disable class-methods-use-this */
+// eslint-disable-next-line import/extensions, import/no-relative-packages
 import ColorThief from '../../node_modules/colorthief/dist/color-thief.modern.mjs';
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
 
-// this should come from some standard library really.
+// this should come from some standard library.
 // If you revisit it, the color-name library didn't have the names formatted well.
 const cssColors = [
   { name: 'AliceBlue', rgb: [240, 248, 255], hsl: [208, 100, 97] },
@@ -81,21 +82,45 @@ const cssColors = [
   { name: 'LimeGreen', rgb: [50, 205, 50], hsl: [120, 61, 50] },
   { name: 'Linen', rgb: [250, 240, 230], hsl: [30, 67, 94] },
   { name: 'Magenta', rgb: [255, 0, 255], hsl: [300, 100, 50] },
+  // next two are "special" colors that we use to indicate different states
+  { name: 'Transparency', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
   { name: 'Unknown', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
 ];
 
 const numberOfTopColors = 10; // used for selecting top colors
-const numberOfTopRawColors = 20; // used for selecting top colors
+// const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
 const saturationThreshold = 10; // used for sorting colors
 const colorThief = new ColorThief();
 const permittedProtocols = ['http', 'https', 'data'];
+/* url and sitemap utility */
+const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
+const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
+const CORS_ANONYMOUS = true;
 
-const usedColors = new Set();
-const unique = new Map();
-
+/**
+ * Sorts a set of color names into an array based on specific criteria.
+ *
+ * The sorting criteria are as follows:
+ * 1. Colors named 'Transparency' are pushed to the top.
+ * 2. Colors named 'Unknown' are pushed to the end.
+ * 3. Colors with low saturation are pushed to the end sorted by lightness.
+ * 4. Colors with high saturation are sorted by hue, and if hues are equal, by lightness.
+ *
+ * @param {Set<string>} colorSet - A set of color names to be sorted.
+ * @returns {string[]} - An array of sorted color names.
+ */
 function sortColorNameSetIntoArray(colorSet) {
   const filteredColorNames = cssColors.filter((color) => colorSet.has(color.name));
   filteredColorNames.sort((a, b) => {
+    if (a.name === 'Transparency') {
+      // push to the top
+      return -1;
+    }
+    if (b.name === 'Transparency') {
+      // push to the top
+      return 1;
+    }
+
     if (a.name === 'Unknown') {
       // push to the end
       return 1;
@@ -134,29 +159,34 @@ function sortColorNameSetIntoArray(colorSet) {
   return sortedColorNames;
 }
 
-function getColorSpan(color) {
+/**
+ * Creates a span element representing a color with optional clickability.
+ *
+ * @param {string} color - The color to be represented from the ccsColors list.
+ * @param {boolean} clickable - Determines if the formatting is for a clickable color.
+ * @returns {HTMLSpanElement} The span element representing the color.
+ */
+function getColorSpan(color, clickable) {
   const colorSpan = document.createElement('span');
+
+  // Add title for hover text
+  colorSpan.title = color.replace(/([a-z])([A-Z])/g, '$1 $2'); // Set hover text
+
+  colorSpan.classList.add('color-span');
+
   if (color === 'Unknown') {
-    // Center the question mark for the "Unknown" case
-    colorSpan.style.display = 'flex';
-    colorSpan.style.justifyContent = 'center'; // Center horizontally
-    colorSpan.style.alignItems = 'center'; // Center vertically
+    colorSpan.classList.add('unknown');
     colorSpan.textContent = '?'; // Display question mark
-    colorSpan.style.fontSize = '14px'; // Adjust font size for the '?'
-    colorSpan.style.lineHeight = '20px'; // Make the line height match the box size
-    colorSpan.style.color = '#555'; // Text color for the '?'
-    colorSpan.style.backgroundColor = 'transparent'; // No background color
-    colorSpan.style.padding = '0'; // Ensure no padding interferes
-    colorSpan.style.boxSizing = 'border-box'; // Include borders in the element's total size
+  } else if (color === 'Transparency') {
+    colorSpan.classList.add('color-span', 'alpha');
   } else {
     colorSpan.style.backgroundColor = color; // Set background color if not "Unknown"
   }
-  colorSpan.style.display = 'inline-block';
-  colorSpan.style.width = '20px'; // Smaller width
-  colorSpan.style.height = '20px'; // Smaller height
-  colorSpan.style.borderRadius = '3px'; // Square shape with slight rounding
-  colorSpan.style.border = '1px solid #ccc'; // Border for visibility
-  colorSpan.style.cursor = 'pointer';
+
+  if (!clickable) {
+    colorSpan.style.cursor = 'default'; // Set cursor to pointer for colors
+  }
+
   return colorSpan;
 }
 
@@ -166,9 +196,8 @@ function getColorSpan(color) {
  * @returns {Object[]} Sorted array of report rows.
  */
 function writeReportRows() {
-  const reportEntries = window.audit;
   const entries = [];
-  reportEntries.forEach((image) => {
+  window.unique.values().forEach((image) => {
     if (image && image.site) {
       image.site.forEach((site, i) => {
         entries.push({
@@ -211,8 +240,16 @@ function generateCSV(rows) {
  * @returns {string} Generated or extracted modal ID.
  */
 function getModalId(src) {
-  if (src.includes('_')) return src.split('_')[1].split('.')[0];
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+  let modalId = '';
+  const match = src.match(/_(.*?)\./);
+  if (match && match[1] && match[1].length > 0) {
+    // eslint-disable-next-line prefer-destructuring
+    modalId = match[1];
+  } else {
+    // TODO: URL and etag.
+    modalId = Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+  }
+  return modalId;
 }
 
 class RewrittenData {
@@ -256,7 +293,7 @@ class RewrittenData {
 
   topColors(value) {
     if (!value) return '-';
-    return sortColorNameSetIntoArray(new Set(value)).map((color) => getColorSpan(color).outerHTML).join(' ');
+    return sortColorNameSetIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
   // rewrite data based on key
@@ -278,6 +315,7 @@ function displayModal(figure) {
   const id = getModalId(src);
   // check if a modal with this ID already exists
   let modal = document.getElementById(id);
+
   if (!modal) {
     // build new modal
     const [newModal, body] = buildModal();
@@ -285,6 +323,7 @@ function displayModal(figure) {
     modal = newModal;
     // define and populate modal content
     const table = document.createElement('table');
+
     table.innerHTML = '<tbody></tbody>';
     const rows = {
       fileType: 'Kind',
@@ -295,11 +334,14 @@ function displayModal(figure) {
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
+
     // format data for display
-    const data = window.audit.find((img) => src.includes(img.src.slice(2)));
-    if (!data) return;
+    const data = window.unique.get(src);
+    if (!data) return; // shouldn't happen.
+
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
+
     Object.keys(rows).forEach((key) => {
       if (formattedData.data[key]) {
         const tr = document.createElement('tr');
@@ -343,53 +385,390 @@ function findNearestColor(color) {
   }).name;
 }
 
-function parameterizeColors(loadedImg, values) {
-  if (loadedImg == null || values == null) {
-    values.topColors = ['Unknown'];
-    usedColors.add('Unknown');
-    return;
+/**
+ * Checks if a given URL is valid based on its protocol.
+ *
+ * @param {string|URL|Object} url - The URL to validate. It can be a string,
+ * an instance of URL, or an object with `href`, `origin`, or `src` properties.
+ * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
+ */
+function isUrlValid(url) {
+  let protocol = '';
+  if (url instanceof URL) {
+    protocol = url.protocol.replace(':', '').toLowerCase();
+  } else if (typeof url === 'string') {
+    try {
+      const newUrl = new URL(url);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
+    }
+  } else if (typeof url?.href === 'string') {
+    return isUrlValid(url.href);
+  } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
+    try {
+      const newUrl = new URL(url.src, url.origin);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
+    }
+  } else if (typeof url?.origin === 'string') {
+    return isUrlValid(url.origin);
+  } else {
+    return false;
   }
-  const colors = numberOfTopColors > 1
-    ? colorThief.getPalette(loadedImg, numberOfTopColors)
-    : [colorThief.getColor(loadedImg)];
 
-  if (colors == null || colors.length === 0) {
-    values.topColors = ['Unknown'];
-    usedColors.add('Unknown');
-    return;
-  }
-
-  const rawColors = numberOfTopRawColors > 1
-    ? colorThief.getPalette(loadedImg, numberOfTopRawColors)
-    : [colorThief.getColor(loadedImg)];
-
-  const roundedColors = [...new Set(colors.map(findNearestColor))];
-  // Add each rounded color to the usedColors Set
-  roundedColors.forEach((color) => usedColors.add(color));
-  values.topColors = roundedColors;
-  values.topColorsRaw = rawColors;
+  return permittedProtocols.includes(protocol);
 }
 
 /**
- * Filters out duplicate images and compiles unique image data.
- * @param {Object[]} daindividualBatchta - Array of image data objects.
- * @returns {Object[]} Array of unique image data objects.
+ * Filters and returns an array of valid URLs.
+ *
+ * @param {string[]} urls - An array of URLs to be validated.
+ * @returns {string[]} An array containing only the valid URLs.
  */
-async function findAndLoadUniqueImages(individualBatch) {
+function cleanseUrls(urls) {
+  return urls.filter((url) => isUrlValid(url));
+}
+
+/**
+ * Adds an event listener to the specified action element that filters images in a gallery
+ * based on user selected criteria.
+ *
+ * @param {HTMLElement} action - The HTML element that is receiving the event listener.
+ *
+ * The function filters images in the gallery based on the following criteria:
+ * - Shape: Filters images by their aspect ratio (square, portrait, landscape, widescreen).
+ * - Color: Filters images by their top colors.
+ * - Missing Alt Text: Filters images that are missing alt text.
+ *
+ * The function updates the `aria-hidden` attribute of each figure element
+ * in the gallery to show or hide it based on the selected filters.
+ */
+function addFilterAction(action) {
+  action.addEventListener('change', () => {
+    const CANVAS = document.getElementById('canvas');
+    const GALLERY = CANVAS.querySelector('.gallery');
+    const ACTION_BAR = CANVAS.querySelector('.action-bar');
+    const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+
+    const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+    const figures = [...GALLERY.querySelectorAll('figure')];
+
+    const checkColors = checked.filter((c) => c.startsWith('color-'));
+    const checkShapes = checked.filter((c) => c.startsWith('shape-'));
+
+    figures.forEach((figure) => {
+      const aspect = parseFloat(figure.dataset.aspect, 10);
+
+      // eslint-disable-next-line no-nested-ternary
+      const shape = aspect === 1 ? 'square'
+        // eslint-disable-next-line no-nested-ternary
+        : aspect < 1 ? 'portrait'
+          : aspect > 1.7 ? 'widescreen' : 'landscape';
+
+      let hide = true; // hide figures by default
+
+      // check images against filter critera
+      if (checked.length === 0) { // no filters are selected
+        // show all figures
+        hide = false;
+      } else {
+        let hiddenChanged = false;
+
+        if (checked.includes('missing-alt')) {
+          // only show figures without alt text
+          hide = figure.dataset.alt === 'true';
+          hiddenChanged = true;
+        }
+
+        // shapes are subtractive against missing alt.
+        if (checkShapes.length > 0) {
+          // only one shape.
+          if (checkShapes.includes(`shape-${shape}`)) {
+            if (!hiddenChanged) {
+              hide = false;
+              hiddenChanged = true;
+            }
+          } else {
+            hide = true;
+            hiddenChanged = true;
+          }
+        }
+
+        // colors are subtractive against other matches.
+        if (checkColors.length > 0) {
+          let foundAnyColor = false;
+          if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
+            figure.dataset.topColors.split(',').forEach((color) => {
+              if (checked.includes(`color-${color}`)) {
+                foundAnyColor = true;
+              }
+            });
+          }
+
+          if (!foundAnyColor) {
+            hide = true;
+            hiddenChanged = true;
+          } else if (!hiddenChanged) {
+            hide = false;
+            hiddenChanged = true;
+          }
+        } else if (!hiddenChanged) {
+          hide = false;
+        }
+      }
+
+      figure.setAttribute('aria-hidden', hide);
+    });
+  });
+}
+
+/**
+ * Function to add colors as checkbox-style palettes in a compact grid
+ */
+function addColorsToFilterList() {
+  const colorPaletteContainer = document.getElementById('color-pallette');
+  colorPaletteContainer.innerHTML = ''; // Clear the container
+
+  // Create and append the "Top Color Filter" text
+  const topColorText = document.createElement('div');
+  topColorText.textContent = 'Top Color Filter:';
+  topColorText.style.marginBottom = '4px'; // Space between text and colors
+  topColorText.style.fontWeight = 'normal'; // Non-bold text
+  topColorText.style.textAlign = 'left'; // Left align the text
+  colorPaletteContainer.appendChild(topColorText); // Append text to the main container
+
+  // Create a container for the grid
+  const gridContainer = document.createElement('div');
+
+  const totalColors = window.usedColors.size;
+  const maxColumns = 10; // Maximum colors per row
+  let numRows = Math.ceil(totalColors / maxColumns); // Calculate the number of rows
+
+  // If there are 10 colors or less, set rows to 2 and adjust columns accordingly
+  if (totalColors <= maxColumns) {
+    numRows = 2;
+  }
+
+  const sortedColorNames = sortColorNameSetIntoArray(window.usedColors);
+
+  sortedColorNames.forEach((color) => {
+    // Create a label for the color checkbox
+    const label = document.createElement('label');
+    label.style.display = 'inline-block';
+    label.style.margin = '1px'; // Reduce spacing around each item
+
+    // Create a checkbox input
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.name = 'filter';
+    checkbox.value = `color-${color}`;
+    checkbox.id = `filter-color-${color}`;
+    checkbox.style.display = 'none'; // Hide the default checkbox
+
+    // Create a square for the color representation
+    const colorSpan = getColorSpan(color, true);
+
+    // Add a click event to toggle the checkbox and change border on click
+    label.addEventListener('click', () => {
+      checkbox.checked = !checkbox.checked; // Toggle the checkbox state
+      if (checkbox.checked) {
+        colorSpan.style.border = '2px solid black'; // Show a black border if checked
+      } else {
+        colorSpan.style.border = '1px solid #ccc'; // Reset border if unchecked
+      }
+    });
+    addFilterAction(checkbox, document);
+
+    // Append the hidden checkbox and color square to the label
+    label.appendChild(checkbox);
+    label.appendChild(colorSpan);
+
+    // Append the label (which contains the checkbox and color square) to the grid container
+    gridContainer.appendChild(label);
+  });
+
+  // Update the CSS grid layout dynamically based on the number of colors
+  gridContainer.style.display = 'grid';
+  gridContainer.style.gridTemplateColumns = `repeat(${Math.min(maxColumns, Math.ceil(totalColors / numRows))}, 1fr)`; // Adjust number of columns to form a square grid
+  gridContainer.style.gap = '1px'; // Minimal gap between items
+
+  // Append the grid container to the main color palette container
+  colorPaletteContainer.appendChild(gridContainer);
+}
+
+/**
+ * Utility to blindly add colors to the used color list.
+ * @param {string} color - The color to be added to the used colors list.
+ */
+function addUsedColor(color) {
+  if (!window.usedColors.has(color)) {
+    window.usedColors.add(color);
+    addColorsToFilterList();
+  }
+}
+
+/**
+ * Detects if an image element detects a substantial alpha channel.
+ *
+ * @param {HTMLImageElement} imgElement - The image element to check for an alpha channel.
+ * @param {function(boolean): void} callback - A callback function that is called with a
+ *                                             boolean value indicating whether the image
+ *                                             has an alpha channel.
+ */
+async function detectAlphaChannel(imgElement, callback) {
+  const ext = imgElement.src.split('.').pop().toLowerCase();
+  if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
+    callback(false);
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = imgElement.naturalWidth;
+  canvas.height = imgElement.naturalHeight;
+  ctx.drawImage(imgElement, 0, 0);
+
+  // Get the pixel data from the canvas
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = imageData;
+
+  let alphaPixelsCount = 0;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) {
+      alphaPixelsCount += 1;
+      // only detecting alpha if 1% of pixels have alpha. This trims small alpha borders.
+      if (alphaPixelsCount >= data.length * 0.01) {
+        callback(true);
+        return;
+      }
+    }
+  }
+
+  callback(false); // No alpha channel
+}
+
+/**
+ * Analyzes the colors in a loaded image and updates the provided values object with the top colors.
+ * If the image or values are null, or if an error occurs, it sets the top colors to 'Unknown'.
+ *
+ * @param {HTMLImageElement} loadedImg - The image element to analyze.
+ * @param {Object} values - The object to update with the top colors.
+ * @param {Array} values.topColors - The array to store the top colors.
+ */
+function parameterizeColors(loadedImg, values) {
+  try {
+    if (loadedImg == null || values == null) {
+      values.topColors = ['Unknown'];
+      addUsedColor('Unknown');
+      return;
+    }
+    const colors = numberOfTopColors > 1
+      ? colorThief.getPalette(loadedImg, numberOfTopColors)
+      : [colorThief.getColor(loadedImg)];
+
+    if (colors == null || colors.length === 0) {
+      values.topColors = ['Unknown'];
+      addUsedColor('Unknown');
+      return;
+    }
+
+    // RGB Values. Disabled for now.
+    // const rawColors = numberOfTopRawColors > 1
+    //  ? colorThief.getPalette(loadedImg, numberOfTopRawColors)
+    //  : [colorThief.getColor(loadedImg)];
+
+    const roundedColors = [...new Set(colors.map(findNearestColor))];
+    // Add each rounded color to the usedColors Set
+    roundedColors.forEach((color) => addUsedColor(color));
+    values.topColors = roundedColors;
+    // values.topColorsRaw = rawColors;
+  } catch (error) {
+    values.topColors = ['Unknown'];
+    addUsedColor('Unknown');
+  }
+}
+
+/**
+ * Utility to updates the dataset attributes of a given figure element with provided data.
+ * Should be called after any update to the sorting or filtering attributes.
+ *
+ * @param {HTMLElement} figure - The figure element to update.
+ * @param {Object} data - The data object containing information to update the figure with.
+ * @param {Array<string>} [data.topColors] - An array of top colors to set in the dataset.
+ * @param {string} data.alt - The alt text to validate and set in the dataset.
+ * @param {number} data.count - The count to set in the dataset.
+ * @param {string} data.aspectRatio - The aspect ratio to set in the dataset.
+ */
+function updateFigureData(figure, data) {
+  if (figure == null) return;
+
+  if ((data.topColors != null && data.topColors.length > 0)) {
+    figure.dataset.topColors = data.topColors.join(',');
+  }
+
+  figure.dataset.alt = validateAlt(data.alt, data.count);
+  figure.dataset.aspect = data.aspectRatio;
+  figure.dataset.count = data.count;
+}
+
+/**
+ * Finds and loads unique images from a batch of images with a specified concurrency limit.
+ *
+ * @param {Array} individualBatch - An array of image objects to process.
+ * @param {number} concurrency - The maximum number of concurrent image loads.
+ * @returns {Promise<Array>} A promise that resolves to an array of unique image values.
+ *
+ * @typedef {Object} ImageObject
+ * @property {string} src - The source URL of the image.
+ * @property {string} origin - The origin URL of the image.
+ * @property {string} site - The site where the image is used.
+ * @property {string} alt - The alt text of the image.
+ * @property {number} width - The width of the image.
+ * @property {number} height - The height of the image.
+ * @property {number} aspectRatio - The aspect ratio of the image.
+ * @property {string} fileType - The file type of the image.
+ *
+ * @typedef {Object} ImageValues
+ * @property {string} src - The source URL of the image.
+ * @property {string} origin - The origin URL of the image.
+ * @property {number} count - The count of how many times the image is used.
+ * @property {Array<string>} site - An array of sites where the image is used.
+ * @property {Array<string>} alt - An array of alt texts for the image.
+ * @property {number} width - The width of the image.
+ * @property {number} height - The height of the image.
+ * @property {number} aspectRatio - The aspect ratio of the image.
+ * @property {string} fileType - The file type of the image.
+ * @property {Array<string>} topColors - An array of top colors in the image.
+ * @property {HTMLImageElement} loadedImg - The loaded image element.
+ */
+async function findAndLoadUniqueImages(individualBatch, concurrency) {
   // use a map to track unique images by their src attribute
   const promises = []; // Array to hold promises
   const batchUnique = new Map();
 
-  individualBatch.forEach((img) => {
+  individualBatch.filter((img) => isUrlValid(img.origin));
+
+  individualBatch.forEach(async (img) => {
     const {
       src, origin, site, alt, width, height, aspectRatio, fileType,
     } = img;
     // if the image src is not already in the map, init a new entry
-    if (!unique.has(src)) {
+    if (!window.unique.has(src)) {
+      if (promises.length >= concurrency) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.race(promises);
+        // Remove the completed promises
+        promises.splice(0, promises.findIndex((p) => p.isFulfilled) + 1);
+      }
+
       const { href } = new URL(src, origin);
+      // TODO: Should this just get put into the DOM instead of the lazy load one?
       const loadedImg = new Image(width, height);
-      loadedImg.crossOrigin = 'Anonymous';
+      if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
       loadedImg.src = href; // start loading the image
+      loadedImg.dataset.src = src;
 
       const values = {
         src,
@@ -402,41 +781,48 @@ async function findAndLoadUniqueImages(individualBatch) {
         aspectRatio,
         fileType,
         topColors: [],
+        loadedImg,
       };
 
-      const promise = new Promise((resolve, reject) => {
+      values.loadedImg = loadedImg;
+
+      const promise = new Promise((resolve) => {
         loadedImg.onload = () => {
-          try {
-            parameterizeColors(loadedImg, values);
-            // More image processing here
-            resolve();
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error(`Error loading file ${href}`, error);
-          } finally {
-            resolve();
-          }
+          parameterizeColors(loadedImg, values);
+          updateFigureData(loadedImg.parentElement, values);
+          detectAlphaChannel(loadedImg, (hasAlpha) => {
+            if (hasAlpha) {
+              values.topColors.push('Transparency');
+              addUsedColor('Transparency');
+              updateFigureData(loadedImg.parentElement, values);
+            }
+          });
+          resolve();
         };
-        loadedImg.onerror = (error) => reject(error);
+        loadedImg.onerror = (error) => {
+          values.topColors = ['Unknown'];
+          addUsedColor('Unknown');
+          updateFigureData(loadedImg.parentElement, values);
+          // eslint-disable-next-line no-console
+          console.error(`Error loading img file at ${href}`, error);
+          // TODO: Show broken file image?
+          resolve();
+        };
       });
 
       promises.push(promise);
-      unique.set(src, values);
+      window.unique.set(src, values);
       batchUnique.set(src, values);
     }
     // update the existing entry with additional image data
-    const entry = unique.get(src);
+    const entry = window.unique.get(src);
     entry.count += 1;
     entry.site.push(site);
     entry.alt.push(alt);
+    updateFigureData(entry.loadedImg.parentElement, entry);
   });
-  try {
-    await Promise.all(promises);
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Error loading files', { batchUnique, error });
-  }
 
+  await Promise.all(promises);
   return Array.from(batchUnique.values());
 }
 
@@ -449,50 +835,17 @@ function displayImages(images) {
   images.forEach((data) => {
     // create a new figure to hold the image and its metadata
     const figure = document.createElement('figure');
-    figure.dataset.alt = validateAlt(data.alt, data.count);
-    figure.dataset.aspect = data.aspectRatio;
-    figure.dataset.count = data.count;
-    figure.dataset.topColors = data.topColors;
+    updateFigureData(figure, data);
 
-    // build image
-    const { href } = new URL(data.src, data.origin);
-    const img = document.createElement('img');
-    img.dataset.src = href;
-    img.width = data.width;
-    img.height = data.height;
-    img.loading = 'lazy';
-    figure.append(img);
-    // load the image when it comes into view
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.timeoutId = setTimeout(() => {
-            img.src = img.dataset.src;
-            observer.disconnect();
-          }, 500); // delay image loading
-        } else {
-          // cancel loading delay if image is scrolled out of view
-          clearTimeout(entry.target.timeoutId);
-        }
-      });
-    }, { threshold: 0 });
-    observer.observe(figure);
+    figure.append(data.loadedImg);
+
     // build info button
     const info = document.createElement('button');
     info.setAttribute('aria-label', 'More information');
     info.setAttribute('type', 'button');
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
-    // check if image already exists in the gallery
-    const existingImg = gallery.querySelector(`figure img[src="${href}"], figure [data-src="${href}"]`);
-    if (existingImg) {
-      const existingFigure = existingImg.parentElement;
-      const existingCount = parseInt(existingFigure.dataset.count, 10);
-      if (existingCount !== data.count) {
-        // if count has changed, replace existing figure with the new one
-        gallery.replaceChild(figure, existingFigure);
-      }
-    } else gallery.append(figure);
+    gallery.append(figure);
   });
 }
 
@@ -591,167 +944,36 @@ async function fetchBatch(batch, concurrency, counter) {
   return results;
 }
 
-function addFilterAction(action, document) {
-  action.addEventListener('change', () => {
-    const CANVAS = document.getElementById('canvas');
-    const GALLERY = CANVAS.querySelector('.gallery');
-    const ACTION_BAR = CANVAS.querySelector('.action-bar');
-    const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+async function handleBatch(
+  batch,
+  concurrency,
+  pagesCounter,
+  data,
+  main,
+  results,
+  imagesCounter,
+  gallery,
+) {
+  const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+  data.push(...batchData);
 
-    const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-    const figures = [...GALLERY.querySelectorAll('figure')];
-
-    const checkColors = checked.filter((c) => c.startsWith('color-'));
-    const checkShapes = checked.filter((c) => c.startsWith('shape-'));
-
-    figures.forEach((figure) => {
-      const aspect = parseFloat(figure.dataset.aspect, 10);
-
-      // eslint-disable-next-line no-nested-ternary
-      const shape = aspect === 1 ? 'square'
-        // eslint-disable-next-line no-nested-ternary
-        : aspect < 1 ? 'portrait'
-          : aspect > 1.7 ? 'widescreen' : 'landscape';
-
-      let hide = true; // hide figures by default
-
-      // check images against filter critera
-      if (checked.length === 0) { // no filters are selected
-        // show all figures
-        hide = false;
-      } else {
-        let hiddenChanged = false;
-
-        if (checked.includes('missing-alt')) {
-          // only show figures without alt text
-          hide = figure.dataset.alt === 'true';
-          hiddenChanged = true;
-        }
-
-        // shapes are subtractive against missing alt.
-        if (checkShapes.length > 0) {
-          // only one shape.
-          if (checkShapes.includes(`shape-${shape}`)) {
-            if (!hiddenChanged) {
-              hide = false;
-              hiddenChanged = true;
-            }
-          } else {
-            hide = true;
-            hiddenChanged = true;
-          }
-        }
-
-        // colors are subtractive against other matches.
-        if (checkColors.length > 0) {
-          let foundAnyColor = false;
-          if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
-            figure.dataset.topColors.split(',').forEach((color) => {
-              if (checked.includes(`color-${color}`)) {
-                foundAnyColor = true;
-              }
-            });
-          }
-
-          if (!foundAnyColor) {
-            hide = true;
-            hiddenChanged = true;
-          } else if (!hiddenChanged) {
-            hide = false;
-            hiddenChanged = true;
-          }
-        } else if (!hiddenChanged) {
-          hide = false;
-        }
-      }
-
-      figure.setAttribute('aria-hidden', hide);
-    });
-  });
-}
-
-// Function to add colors as checkbox-style palettes in a compact grid
-function addColorsToFilterList() {
-  const colorPaletteContainer = document.getElementById('color-pallette');
-  colorPaletteContainer.innerHTML = ''; // Clear the container
-
-  // Create and append the "Top Color Filter" text
-  const topColorText = document.createElement('div');
-  topColorText.textContent = 'Top Color Filter:';
-  topColorText.style.marginBottom = '4px'; // Space between text and colors
-  topColorText.style.fontWeight = 'normal'; // Non-bold text
-  topColorText.style.textAlign = 'left'; // Left align the text
-  colorPaletteContainer.appendChild(topColorText); // Append text to the main container
-
-  // Create a container for the grid
-  const gridContainer = document.createElement('div');
-
-  const totalColors = usedColors.size;
-  const maxColumns = 10; // Maximum colors per row
-  let numRows = Math.ceil(totalColors / maxColumns); // Calculate the number of rows
-
-  // If there are 10 colors or less, set rows to 2 and adjust columns accordingly
-  if (totalColors <= maxColumns) {
-    numRows = 2;
-  }
-
-  const sortedColorNames = sortColorNameSetIntoArray(usedColors);
-
-  sortedColorNames.forEach((color) => {
-    // Create a label for the color checkbox
-    const label = document.createElement('label');
-    label.style.display = 'inline-block';
-    label.style.margin = '1px'; // Reduce spacing around each item
-
-    // Create a checkbox input
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.name = 'filter';
-    checkbox.value = `color-${color}`;
-    checkbox.id = `filter-color-${color}`;
-    checkbox.style.display = 'none'; // Hide the default checkbox
-
-    // Create a square for the color representation
-    const colorSpan = getColorSpan(color);
-
-    // Add a click event to toggle the checkbox and change border on click
-    label.addEventListener('click', () => {
-      checkbox.checked = !checkbox.checked; // Toggle the checkbox state
-      if (checkbox.checked) {
-        colorSpan.style.border = '2px solid black'; // Show a black border if checked
-      } else {
-        colorSpan.style.border = '1px solid #ccc'; // Reset border if unchecked
-      }
-    });
-    addFilterAction(checkbox, document);
-
-    // Append the hidden checkbox and color square to the label
-    label.appendChild(checkbox);
-    label.appendChild(colorSpan);
-
-    // Append the label (which contains the checkbox and color square) to the grid container
-    gridContainer.appendChild(label);
-  });
-
-  // Update the CSS grid layout dynamically based on the number of colors
-  gridContainer.style.display = 'grid';
-  gridContainer.style.gridTemplateColumns = `repeat(${Math.min(maxColumns, Math.ceil(totalColors / numRows))}, 1fr)`; // Adjust number of columns to form a square grid
-  gridContainer.style.gap = '1px'; // Minimal gap between items
-
-  // Append the grid container to the main color palette container
-  colorPaletteContainer.appendChild(gridContainer);
+  // Display images as they are fetched
+  main.dataset.canvas = true;
+  results.removeAttribute('aria-hidden');
+  const uniqueBatchData = await findAndLoadUniqueImages(batchData, concurrency);
+  updateCounter(imagesCounter, uniqueBatchData.length);
+  displayImages(uniqueBatchData);
+  decorateIcons(gallery);
 }
 
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
  * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
- * @param {number} [delay = 2000] - Delay (in milliseconds) between each batch.
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concurrency = 5) {
-  window.audit = [];
+async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -775,32 +997,31 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   // Collect promises for all batches
   const batchPromises = [];
   for (let i = 0; i < urls.length; i += batchSize) {
+    if (batchPromises.length >= concurrency) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.race(batchPromises);
+      // Remove the completed promises
+      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled) + 1);
+    }
     const batch = urls.slice(i, i + batchSize);
 
     // Process each batch and handle the delay between batches asynchronously
-    const promise = (async () => {
-      const batchData = await fetchBatch(batch, concurrency, pagesCounter);
-      data.push(...batchData);
-
-      // Display images as they are fetched
-      main.dataset.canvas = true;
-      results.removeAttribute('aria-hidden');
-      const uniqueBatchData = await findAndLoadUniqueImages(batchData);
-      updateCounter(imagesCounter, uniqueBatchData.length);
-      displayImages(uniqueBatchData);
-      decorateIcons(gallery);
-
-      // Wait for the delay before resolving the promise
-      await new Promise((resolve) => { setTimeout(resolve, delay); });
-    })();
+    const promise = handleBatch(
+      batch,
+      concurrency,
+      pagesCounter,
+      data,
+      main,
+      results,
+      imagesCounter,
+      gallery,
+    );
 
     batchPromises.push(promise);
   }
 
   // Wait for all batches to finish processing
   await Promise.all(batchPromises);
-
-  window.audit = unique.values();
 
   // After all batches are done
   data.length = 0;
@@ -810,9 +1031,6 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
 
   return data;
 }
-
-/* url and sitemap utility */
-const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 
 /**
  * Determines the type of a URL based on its hostname and pathname.
@@ -847,15 +1065,6 @@ function writeSitemapUrl(url) {
     return `https://main--${repo}--${owner}.hlx.live/sitemap.xml`;
   }
   return null;
-}
-
-function cleanseUrls(urls) {
-  return urls.filter((url) => {
-    if (permittedProtocols.includes(url.href.split('://')[0].toLowerCase())) {
-      return true;
-    }
-    return false;
-  });
 }
 
 /**
@@ -915,8 +1124,8 @@ async function fetchSitemap(sitemap) {
 async function processForm(sitemap) {
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
-  usedColors.clear();
-  unique.clear();
+  window.usedColors.clear();
+  window.unique.clear();
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
@@ -988,6 +1197,7 @@ function registerListeners(doc) {
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
+
     if (figure) displayModal(figure);
   });
 
@@ -1031,4 +1241,11 @@ function registerListeners(doc) {
   FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
 }
 
+function setupWindowVariables() {
+  window.usedColors = new Set();
+  // key is the data-src, value is the data object about the value
+  window.unique = new Map();
+}
+
+setupWindowVariables();
 registerListeners(document);
