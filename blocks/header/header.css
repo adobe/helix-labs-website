@@ -43,19 +43,22 @@ header section > [aria-hidden='true'] {
 }
 
 header .experimental-ribbon {
-  background-color: var(--purple-700);
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: fit-content;
-  margin: -16px auto;
-  padding: 4px 16px;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: var(--rounding-l);
+  border-bottom-right-radius: var(--rounding-l);
+  padding: var(--spacing-xs) var(--spacing-m);
+  background-color: var(--purple-900);
   color: white;
+  font-size: var(--detail-size-xs);
+  font-weight: var(--weight-bold);
   text-align: center;
   text-transform: uppercase;
-  font-weight: bold;
-  font-size: 12px;
-  margin-bottom: 2px;
-  box-shadow: 0 0 16px 0 rgba(0 0 0 / 30%);
+  box-shadow: var(--shadow-default);
+  z-index: 1;
 }
 
 @media (width >= 900px) {
@@ -66,13 +69,17 @@ header .experimental-ribbon {
   }
 
   header .experimental-ribbon {
+    top: 30px;
+    right: -105px;
+    left: unset;
+    /* position: fixed; */
     width: 300px;
-    padding: 10px;
-    position: fixed;
-    top: 40px;
-    left: -105px;
-    transform: rotate(-45deg);
-    z-index: 1;
+    border-radius: 0;
+    /* padding: 10px; */
+    /* top: 40px; */
+    /* left: -105px; */
+    transform: rotate(45deg);
+    /* z-index: 1; */
   }
 }
 
