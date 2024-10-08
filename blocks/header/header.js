@@ -142,5 +142,13 @@ export default async function decorate(block) {
   navWrapper.append(nav);
   block.append(navWrapper);
 
+  // decorate experimental ribbon
+  if (block.textContent.includes('🧪')) {
+    const ribbon = document.createElement('div');
+    ribbon.className = 'experimental-ribbon';
+    ribbon.textContent = 'Experimental';
+    block.prepend(ribbon);
+  }
+
   swapIcons(block);
 }

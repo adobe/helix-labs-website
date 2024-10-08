@@ -42,11 +42,39 @@ header section > [aria-hidden='true'] {
   display: none;
 }
 
+header .experimental-ribbon {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: fit-content;
+  border-bottom-left-radius: var(--rounding-l);
+  border-bottom-right-radius: var(--rounding-l);
+  padding: var(--spacing-xs) var(--spacing-m);
+  background-color: var(--purple-900);
+  color: white;
+  font-size: var(--detail-size-xs);
+  font-weight: var(--weight-bold);
+  text-align: center;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-default);
+  z-index: 1;
+}
+
 @media (width >= 900px) {
   header section[data-expanded='true'] {
     grid-template:
       'title sections tools' auto / auto 1fr auto;
     height: 0;
+  }
+
+  header .experimental-ribbon {
+    top: 30px;
+    right: -105px;
+    left: unset;
+    width: 300px;
+    border-radius: 0;
+    transform: rotate(45deg);
   }
 }
 
@@ -155,7 +183,7 @@ header .nav-sections i.symbol-chevron::after {
   header .nav-sections .subsection {
     position: relative;
   }
-  
+
   header .nav-sections .subsection button + ul {
     flex-direction: column;
     gap: 0;
@@ -220,7 +248,7 @@ header .nav-tools a.button:hover {
   header .nav-tools {
     align-self: center;
   }
-  
+
   header .nav-tools p.button-wrapper {
     margin: 0;
   }
@@ -250,7 +278,7 @@ header .nav-hamburger button:hover,
 header .nav-hamburger button:focus {
   background-color: var(--gray-100);
 }
-  
+
 header .nav-hamburger i.symbol-hamburger,
 header .nav-hamburger i.symbol-hamburger::before,
 header .nav-hamburger i.symbol-hamburger::after {
