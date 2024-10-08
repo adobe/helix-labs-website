@@ -780,6 +780,12 @@ function updateCounter(counter, increment, float = false) {
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
 }
 
+function clearPalette(palette) {
+  palette.innerHTML = '';
+  window.usedColors.clear();
+  window.unique.clear();
+}
+
 /* fetching data */
 /**
  * Fetches the HTML content of a page.
@@ -912,6 +918,10 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
   updateCounter(elapsed);
   const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
 
+  // reset palette
+  const palette = document.getElementById('color-pallette');
+  clearPalette(palette);
+
   // Collect promises for all batches
   const batchPromises = [];
   for (let i = 0; i < urls.length; i += batchSize) {
@@ -1040,13 +1050,7 @@ async function fetchSitemap(sitemap) {
 
 /* setup */
 async function processForm(sitemap) {
-  const colorPaletteContainer = document.getElementById('color-pallette');
-  colorPaletteContainer.innerHTML = ''; // Clear the container
-  window.usedColors.clear();
-  window.unique.clear();
-
   const urls = await fetchSitemap(sitemap);
-  // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(urls);
 }
 
