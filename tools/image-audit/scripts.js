@@ -9,7 +9,6 @@ const numberOfTopColors = 10; // used for selecting top colors
 // const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
 const saturationThreshold = 10; // used for sorting colors
 const colorThief = new ColorThief();
-const permittedProtocols = ['http', 'https', 'data'];
 /* url and sitemap utility */
 const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
@@ -305,48 +304,28 @@ function findNearestColor(color) {
 
 /**
  * Checks if a given URL is valid based on its protocol.
- *
- * @param {string|URL|Object} url - The URL to validate. It can be a string,
- * an instance of URL, or an object with `href`, `origin`, or `src` properties.
- * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
+ * @param {string} url - URL to validate.
+ * @returns {boolean} - Returns `true` if the URL has a valid protocol, otherwise `false`.
  */
 function isUrlValid(url) {
-  let protocol = '';
-  if (url instanceof URL) {
-    protocol = url.protocol.replace(':', '').toLowerCase();
-  } else if (typeof url === 'string') {
-    try {
-      const newUrl = new URL(url);
-      return isUrlValid(newUrl);
-    } catch (error) {
-      return false;
-    }
-  } else if (typeof url?.href === 'string') {
-    return isUrlValid(url.href);
-  } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
-    try {
-      const newUrl = new URL(url.src, url.origin);
-      return isUrlValid(newUrl);
-    } catch (error) {
-      return false;
-    }
-  } else if (typeof url?.origin === 'string') {
-    return isUrlValid(url.origin);
-  } else {
-    return false;
+  try {
+    const parsedUrl = new URL(url);
+    const protocol = parsedUrl.protocol.replace(':', '').toLowerCase();
+    return ['http', 'https', 'data'].includes(protocol);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('invalid url:', url);
   }
-
-  return permittedProtocols.includes(protocol);
+  return false;
 }
 
 /**
- * Filters and returns an array of valid URLs.
- *
- * @param {string[]} urls - An array of URLs to be validated.
- * @returns {string[]} An array containing only the valid URLs.
+ * Filters an array of URLs, returning only the valid ones.
+ * @param {Array<Object>} urls - Array of objects.
+ * @returns {Array<Object>} - Array of objects where the `href` property is a valid URL.
  */
 function cleanseUrls(urls) {
-  return urls.filter((url) => isUrlValid(url));
+  return urls.filter((url) => isUrlValid(url.href));
 }
 
 /**
