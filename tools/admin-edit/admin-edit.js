@@ -1,6 +1,11 @@
+import { decorateIcons } from '../../scripts/aem.js';
+import { swapIcons } from '../../scripts/scripts.js';
+
 const adminForm = document.getElementById('admin-form');
 const adminURL = document.getElementById('admin-url');
 const bodyForm = document.getElementById('body-form');
+const headersContainer = document.getElementById('headers-container');
+const addHeaderButton = document.getElementById('add-header');
 const body = document.getElementById('body');
 const reqMethod = document.getElementById('method');
 const methodDropdown = document.querySelector('.picker-field ul');
@@ -31,6 +36,21 @@ function logResponse(cols) {
   logTable.prepend(row);
 }
 
+function getHeaders() {
+  const headers = {};
+  headersContainer.querySelectorAll('.header').forEach((header) => {
+    const name = header.querySelector('.header-name').value;
+    const { value } = header.querySelector('.header-value');
+    if (name && value) headers[name] = value;
+  });
+  return headers;
+}
+
+headersContainer?.querySelector('#auth-token-header button')?.addEventListener('click', (evt) => {
+  evt.preventDefault();
+  evt.target.closest('.header').remove();
+});
+
 // toggles the request method dropdown
 reqMethod.addEventListener('click', () => {
   const expanded = reqMethod.getAttribute('aria-expanded') === 'true';
@@ -60,11 +80,26 @@ bodyForm.addEventListener('submit', async (e) => {
     body: body.value,
     headers: {
       'content-type': adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json',
+      ...getHeaders(),
     },
   });
   resp.text().then(() => {
     logResponse([resp.status, reqMethod.value, adminURL.value, resp.headers.get('x-error') || '']);
   });
+});
+
+addHeaderButton.addEventListener('click', () => {
+  const header = document.createElement('div');
+  header.className = 'header';
+  header.innerHTML = `
+    <input type="text" class="header-name" placeholder="Header name" required>
+    <input type="text" class="header-value" placeholder="Header value" required>
+    <button type="button" class="remove-header"><span class="icon icon-trash-delete-bin"></span></button>
+  `;
+  headersContainer.append(header);
+  decorateIcons(header);
+  swapIcons();
+  header.querySelector('.remove-header').addEventListener('click', () => header.remove());
 });
 
 /**
@@ -74,7 +109,10 @@ bodyForm.addEventListener('submit', async (e) => {
 adminForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   localStorage.setItem('admin-url', adminURL.value);
-  const resp = await fetch(adminURL.value);
+  const resp = await fetch(adminURL.value, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
   body.value = await resp.text();
   logResponse([resp.status, 'GET', adminURL.value, resp.headers.get('x-error') || '']);
 });
