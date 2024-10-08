@@ -72,14 +72,9 @@ header .experimental-ribbon {
     top: 30px;
     right: -105px;
     left: unset;
-    /* position: fixed; */
     width: 300px;
     border-radius: 0;
-    /* padding: 10px; */
-    /* top: 40px; */
-    /* left: -105px; */
     transform: rotate(45deg);
-    /* z-index: 1; */
   }
 }
 
