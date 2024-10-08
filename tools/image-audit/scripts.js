@@ -1,6 +1,194 @@
 /* eslint-disable class-methods-use-this */
+// eslint-disable-next-line import/extensions, import/no-relative-packages
+import ColorThief from '../../node_modules/colorthief/dist/color-thief.modern.mjs';
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
+
+// this should come from some standard library.
+// If you revisit it, the color-name library didn't have the names formatted well.
+const cssColors = [
+  { name: 'AliceBlue', rgb: [240, 248, 255], hsl: [208, 100, 97] },
+  { name: 'AntiqueWhite', rgb: [250, 235, 215], hsl: [34, 78, 91] },
+  { name: 'Aqua', rgb: [0, 255, 255], hsl: [180, 100, 50] },
+  { name: 'Aquamarine', rgb: [127, 255, 212], hsl: [160, 100, 75] },
+  { name: 'Azure', rgb: [240, 255, 255], hsl: [180, 100, 97] },
+  { name: 'Beige', rgb: [245, 245, 220], hsl: [60, 56, 91] },
+  { name: 'Bisque', rgb: [255, 228, 196], hsl: [33, 100, 88] },
+  { name: 'BlanchedAlmond', rgb: [255, 235, 205], hsl: [36, 100, 90] },
+  { name: 'BlueViolet', rgb: [138, 43, 226], hsl: [271, 76, 53] },
+  { name: 'Brown', rgb: [165, 42, 42], hsl: [0, 59, 41] },
+  { name: 'Burlywood', rgb: [222, 184, 135], hsl: [34, 57, 70] },
+  { name: 'CadetBlue', rgb: [95, 158, 160], hsl: [182, 25, 50] },
+  { name: 'Chartreuse', rgb: [127, 255, 0], hsl: [90, 100, 50] },
+  { name: 'Chocolate', rgb: [210, 105, 30], hsl: [25, 75, 47] },
+  { name: 'Coral', rgb: [255, 127, 80], hsl: [16, 100, 66] },
+  { name: 'CornflowerBlue', rgb: [100, 149, 237], hsl: [219, 79, 66] },
+  { name: 'Cornsilk', rgb: [255, 248, 220], hsl: [48, 100, 93] },
+  { name: 'Crimson', rgb: [220, 20, 60], hsl: [348, 83, 47] },
+  { name: 'DarkBlue', rgb: [0, 0, 139], hsl: [240, 100, 27] },
+  { name: 'DarkCyan', rgb: [0, 139, 139], hsl: [180, 100, 27] },
+  { name: 'DarkGoldenRod', rgb: [184, 134, 11], hsl: [43, 89, 38] },
+  { name: 'DarkGray', rgb: [169, 169, 169], hsl: [0, 0, 66] },
+  { name: 'DarkGreen', rgb: [0, 100, 0], hsl: [120, 100, 20] },
+  { name: 'DarkKhaki', rgb: [189, 183, 107], hsl: [56, 38, 58] },
+  { name: 'DarkMagenta', rgb: [139, 0, 139], hsl: [300, 100, 27] },
+  { name: 'DarkOliveGreen', rgb: [85, 107, 47], hsl: [82, 39, 30] },
+  { name: 'DarkOrange', rgb: [255, 140, 0], hsl: [33, 100, 50] },
+  { name: 'DarkOrchid', rgb: [153, 50, 204], hsl: [280, 61, 50] },
+  { name: 'DarkRed', rgb: [139, 0, 0], hsl: [0, 100, 27] },
+  { name: 'DarkSalmon', rgb: [233, 150, 122], hsl: [15, 72, 70] },
+  { name: 'DarkSeaGreen', rgb: [143, 188, 143], hsl: [120, 25, 65] },
+  { name: 'DarkSlateBlue', rgb: [72, 61, 139], hsl: [248, 39, 39] },
+  { name: 'DarkSlateGray', rgb: [47, 79, 79], hsl: [180, 25, 25] },
+  { name: 'DarkTurquoise', rgb: [0, 206, 209], hsl: [181, 100, 41] },
+  { name: 'DarkViolet', rgb: [148, 0, 211], hsl: [282, 100, 41] },
+  { name: 'DeepPink', rgb: [255, 20, 147], hsl: [328, 100, 54] },
+  { name: 'DeepSkyBlue', rgb: [0, 191, 255], hsl: [195, 100, 50] },
+  { name: 'DimGray', rgb: [105, 105, 105], hsl: [0, 0, 41] },
+  { name: 'DodgerBlue', rgb: [30, 144, 255], hsl: [210, 100, 56] },
+  { name: 'FireBrick', rgb: [178, 34, 34], hsl: [0, 68, 42] },
+  { name: 'FloralWhite', rgb: [255, 250, 240], hsl: [40, 100, 97] },
+  { name: 'ForestGreen', rgb: [34, 139, 34], hsl: [120, 61, 34] },
+  { name: 'Fuchsia', rgb: [255, 0, 255], hsl: [300, 100, 50] },
+  { name: 'Gainsboro', rgb: [220, 220, 220], hsl: [0, 0, 86] },
+  { name: 'GhostWhite', rgb: [248, 248, 255], hsl: [240, 100, 99] },
+  { name: 'Gold', rgb: [255, 215, 0], hsl: [51, 100, 50] },
+  { name: 'GoldenRod', rgb: [218, 165, 32], hsl: [43, 74, 49] },
+  { name: 'Gray', rgb: [128, 128, 128], hsl: [0, 0, 50] },
+  { name: 'GreenYellow', rgb: [173, 255, 47], hsl: [83, 100, 59] },
+  { name: 'HoneyDew', rgb: [240, 255, 240], hsl: [120, 100, 97] },
+  { name: 'HotPink', rgb: [255, 105, 180], hsl: [330, 100, 71] },
+  { name: 'IndianRed', rgb: [205, 92, 92], hsl: [0, 53, 58] },
+  { name: 'Indigo', rgb: [75, 0, 130], hsl: [275, 100, 25] },
+  { name: 'Ivory', rgb: [255, 255, 240], hsl: [60, 100, 97] },
+  { name: 'Khaki', rgb: [240, 230, 140], hsl: [54, 77, 75] },
+  { name: 'Lavender', rgb: [230, 230, 250], hsl: [240, 67, 94] },
+  { name: 'LavenderBlush', rgb: [255, 240, 245], hsl: [340, 100, 97] },
+  { name: 'LawnGreen', rgb: [124, 252, 0], hsl: [90, 100, 49] },
+  { name: 'LemonChiffon', rgb: [255, 250, 205], hsl: [54, 100, 90] },
+  { name: 'LightBlue', rgb: [173, 216, 230], hsl: [195, 53, 79] },
+  { name: 'LightCoral', rgb: [240, 128, 128], hsl: [0, 78, 72] },
+  { name: 'LightCyan', rgb: [224, 255, 255], hsl: [180, 100, 94] },
+  { name: 'LightGoldenRodYellow', rgb: [250, 250, 210], hsl: [60, 80, 90] },
+  { name: 'LightGreen', rgb: [144, 238, 144], hsl: [120, 73, 75] },
+  { name: 'LightGrey', rgb: [211, 211, 211], hsl: [0, 0, 83] },
+  { name: 'LightPink', rgb: [255, 182, 193], hsl: [351, 100, 86] },
+  { name: 'LightSalmon', rgb: [255, 160, 122], hsl: [17, 100, 74] },
+  { name: 'LightSeaGreen', rgb: [32, 178, 170], hsl: [177, 70, 41] },
+  { name: 'LightSkyBlue', rgb: [135, 206, 250], hsl: [203, 92, 75] },
+  { name: 'LightSlateGray', rgb: [119, 136, 153], hsl: [210, 14, 53] },
+  { name: 'LightSteelBlue', rgb: [176, 196, 222], hsl: [214, 41, 78] },
+  { name: 'LightYellow', rgb: [255, 255, 224], hsl: [60, 100, 94] },
+  { name: 'LimeGreen', rgb: [50, 205, 50], hsl: [120, 61, 50] },
+  { name: 'Linen', rgb: [250, 240, 230], hsl: [30, 67, 94] },
+  { name: 'Magenta', rgb: [255, 0, 255], hsl: [300, 100, 50] },
+  // next two are "special" colors that we use to indicate different states
+  { name: 'Transparency', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
+  { name: 'Unknown', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
+];
+
+const numberOfTopColors = 10; // used for selecting top colors
+// const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
+const saturationThreshold = 10; // used for sorting colors
+const colorThief = new ColorThief();
+const permittedProtocols = ['http', 'https', 'data'];
+/* url and sitemap utility */
+const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
+const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
+const CORS_ANONYMOUS = true;
+
+/**
+ * Sorts a set of color names into an array based on specific criteria.
+ *
+ * The sorting criteria are as follows:
+ * 1. Colors named 'Transparency' are pushed to the top.
+ * 2. Colors named 'Unknown' are pushed to the end.
+ * 3. Colors with low saturation are pushed to the end sorted by lightness.
+ * 4. Colors with high saturation are sorted by hue, and if hues are equal, by lightness.
+ *
+ * @param {Set<string>} colorSet - A set of color names to be sorted.
+ * @returns {string[]} - An array of sorted color names.
+ */
+function sortColorNameSetIntoArray(colorSet) {
+  const filteredColorNames = cssColors.filter((color) => colorSet.has(color.name));
+  filteredColorNames.sort((a, b) => {
+    if (a.name === 'Transparency') {
+      // push to the top
+      return -1;
+    }
+    if (b.name === 'Transparency') {
+      // push to the top
+      return 1;
+    }
+
+    if (a.name === 'Unknown') {
+      // push to the end
+      return 1;
+    }
+    if (b.name === 'Unknown') {
+      // push to the end
+      return -1;
+    }
+
+    // Check saturation first
+    const aIsLowSaturation = a.hsl[1] < saturationThreshold;
+    const bIsLowSaturation = b.hsl[1] < saturationThreshold;
+
+    if (aIsLowSaturation && bIsLowSaturation) {
+      // Both are low saturation, sort by lightness
+      return a.hsl[2] - b.hsl[2];
+    }
+    if (aIsLowSaturation) {
+      // a is low saturation, push it to the end
+      return 1;
+    }
+    if (bIsLowSaturation) {
+      // b is low saturation, push it to the end
+      return -1;
+    }
+
+    // Both are high saturation, sort by hue then by lightness
+    const hueDiff = a.hsl[0] - b.hsl[0];
+    if (hueDiff !== 0) {
+      return hueDiff; // Sort by hue
+    }
+    return a.hsl[2] - b.hsl[2];
+  });
+
+  const sortedColorNames = filteredColorNames.map((color) => color.name);
+  return sortedColorNames;
+}
+
+/**
+ * Creates a span element representing a color with optional clickability.
+ *
+ * @param {string} color - The color to be represented from the ccsColors list.
+ * @param {boolean} clickable - Determines if the formatting is for a clickable color.
+ * @returns {HTMLSpanElement} The span element representing the color.
+ */
+function getColorSpan(color, clickable) {
+  const colorSpan = document.createElement('span');
+
+  // Add title for hover text
+  colorSpan.title = color.replace(/([a-z])([A-Z])/g, '$1 $2'); // Set hover text
+
+  colorSpan.classList.add('color-span');
+
+  if (color === 'Unknown') {
+    colorSpan.classList.add('unknown');
+    colorSpan.textContent = '?'; // Display question mark
+  } else if (color === 'Transparency') {
+    colorSpan.classList.add('color-span', 'alpha');
+  } else {
+    colorSpan.style.backgroundColor = color; // Set background color if not "Unknown"
+  }
+
+  if (!clickable) {
+    colorSpan.style.cursor = 'default'; // Set cursor to pointer for colors
+  }
+
+  return colorSpan;
+}
 
 /* reporting utilities */
 /**
@@ -8,15 +196,15 @@ import { decorateIcons } from '../../scripts/aem.js';
  * @returns {Object[]} Sorted array of report rows.
  */
 function writeReportRows() {
-  const unique = window.audit;
   const entries = [];
-  unique.forEach((image) => {
+  window.unique.values().forEach((image) => {
     if (image && image.site) {
       image.site.forEach((site, i) => {
         entries.push({
           Site: site,
           'Image Source': new URL(image.src, image.origin).href,
           'Alt Text': image.alt[i],
+          'Top Colors': sortColorNameSetIntoArray(new Set(image.topColors)).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', '),
         });
       });
     }
@@ -52,8 +240,16 @@ function generateCSV(rows) {
  * @returns {string} Generated or extracted modal ID.
  */
 function getModalId(src) {
-  if (src.includes('_')) return src.split('_')[1].split('.')[0];
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+  let modalId = '';
+  const match = src.match(/_(.*?)\./);
+  if (match && match[1] && match[1].length > 0) {
+    // eslint-disable-next-line prefer-destructuring
+    modalId = match[1];
+  } else {
+    // TODO: URL and etag.
+    modalId = Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+  }
+  return modalId;
 }
 
 class RewrittenData {
@@ -95,6 +291,11 @@ class RewrittenData {
     return `<img src="${new URL(value, this.data.origin).href}" />`;
   }
 
+  topColors(value) {
+    if (!value) return '-';
+    return sortColorNameSetIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
+  }
+
   // rewrite data based on key
   rewrite(keys) {
     keys.forEach((key) => {
@@ -114,6 +315,7 @@ function displayModal(figure) {
   const id = getModalId(src);
   // check if a modal with this ID already exists
   let modal = document.getElementById(id);
+
   if (!modal) {
     // build new modal
     const [newModal, body] = buildModal();
@@ -121,20 +323,25 @@ function displayModal(figure) {
     modal = newModal;
     // define and populate modal content
     const table = document.createElement('table');
+
     table.innerHTML = '<tbody></tbody>';
     const rows = {
       fileType: 'Kind',
       count: 'Appearances',
       site: 'Where',
       dimensions: 'Dimensions',
+      topColors: 'Top Colors',
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
+
     // format data for display
-    const data = window.audit.find((img) => src.includes(img.src.slice(2)));
-    if (!data) return;
+    const data = window.unique.get(src);
+    if (!data) return; // shouldn't happen.
+
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
+
     Object.keys(rows).forEach((key) => {
       if (formattedData.data[key]) {
         const tr = document.createElement('tr');
@@ -161,21 +368,409 @@ function validateAlt(alt, count) {
   return true;
 }
 
+// Function to calculate the Euclidean distance between two colors
+function colorDistance(color1, color2) {
+  return Math.sqrt(
+    (color1[0] - color2[0]) ** 2
+    + (color1[1] - color2[1]) ** 2
+    + (color1[2] - color2[2]) ** 2,
+  );
+}
+
+// Function to find the nearest standard color
+function findNearestColor(color) {
+  return cssColors.reduce((nearestColor, standardColor) => {
+    const distance = colorDistance(color, standardColor.rgb);
+    return distance < colorDistance(color, nearestColor.rgb) ? standardColor : nearestColor;
+  }).name;
+}
+
 /**
- * Filters out duplicate images and compiles unique image data.
- * @param {Object[]} data - Array of image data objects.
- * @returns {Object[]} Array of unique image data objects.
+ * Checks if a given URL is valid based on its protocol.
+ *
+ * @param {string|URL|Object} url - The URL to validate. It can be a string,
+ * an instance of URL, or an object with `href`, `origin`, or `src` properties.
+ * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
  */
-function findUniqueImages(data) {
+function isUrlValid(url) {
+  let protocol = '';
+  if (url instanceof URL) {
+    protocol = url.protocol.replace(':', '').toLowerCase();
+  } else if (typeof url === 'string') {
+    try {
+      const newUrl = new URL(url);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
+    }
+  } else if (typeof url?.href === 'string') {
+    return isUrlValid(url.href);
+  } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
+    try {
+      const newUrl = new URL(url.src, url.origin);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
+    }
+  } else if (typeof url?.origin === 'string') {
+    return isUrlValid(url.origin);
+  } else {
+    return false;
+  }
+
+  return permittedProtocols.includes(protocol);
+}
+
+/**
+ * Filters and returns an array of valid URLs.
+ *
+ * @param {string[]} urls - An array of URLs to be validated.
+ * @returns {string[]} An array containing only the valid URLs.
+ */
+function cleanseUrls(urls) {
+  return urls.filter((url) => isUrlValid(url));
+}
+
+/**
+ * Adds an event listener to the specified action element that filters images in a gallery
+ * based on user selected criteria.
+ *
+ * @param {HTMLElement} action - The HTML element that is receiving the event listener.
+ *
+ * The function filters images in the gallery based on the following criteria:
+ * - Shape: Filters images by their aspect ratio (square, portrait, landscape, widescreen).
+ * - Color: Filters images by their top colors.
+ * - Missing Alt Text: Filters images that are missing alt text.
+ *
+ * The function updates the `aria-hidden` attribute of each figure element
+ * in the gallery to show or hide it based on the selected filters.
+ */
+function addFilterAction(action) {
+  action.addEventListener('change', () => {
+    const CANVAS = document.getElementById('canvas');
+    const GALLERY = CANVAS.querySelector('.gallery');
+    const ACTION_BAR = CANVAS.querySelector('.action-bar');
+    const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+
+    const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+    const figures = [...GALLERY.querySelectorAll('figure')];
+
+    const checkColors = checked.filter((c) => c.startsWith('color-'));
+    const checkShapes = checked.filter((c) => c.startsWith('shape-'));
+
+    figures.forEach((figure) => {
+      const aspect = parseFloat(figure.dataset.aspect, 10);
+
+      // eslint-disable-next-line no-nested-ternary
+      const shape = aspect === 1 ? 'square'
+        // eslint-disable-next-line no-nested-ternary
+        : aspect < 1 ? 'portrait'
+          : aspect > 1.7 ? 'widescreen' : 'landscape';
+
+      let hide = true; // hide figures by default
+
+      // check images against filter critera
+      if (checked.length === 0) { // no filters are selected
+        // show all figures
+        hide = false;
+      } else {
+        let hiddenChanged = false;
+
+        if (checked.includes('missing-alt')) {
+          // only show figures without alt text
+          hide = figure.dataset.alt === 'true';
+          hiddenChanged = true;
+        }
+
+        // shapes are subtractive against missing alt.
+        if (checkShapes.length > 0) {
+          // only one shape.
+          if (checkShapes.includes(`shape-${shape}`)) {
+            if (!hiddenChanged) {
+              hide = false;
+              hiddenChanged = true;
+            }
+          } else {
+            hide = true;
+            hiddenChanged = true;
+          }
+        }
+
+        // colors are subtractive against other matches.
+        if (checkColors.length > 0) {
+          let foundAnyColor = false;
+          if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
+            figure.dataset.topColors.split(',').forEach((color) => {
+              if (checked.includes(`color-${color}`)) {
+                foundAnyColor = true;
+              }
+            });
+          }
+
+          if (!foundAnyColor) {
+            hide = true;
+            hiddenChanged = true;
+          } else if (!hiddenChanged) {
+            hide = false;
+            hiddenChanged = true;
+          }
+        } else if (!hiddenChanged) {
+          hide = false;
+        }
+      }
+
+      figure.setAttribute('aria-hidden', hide);
+    });
+  });
+}
+
+/**
+ * Function to add colors as checkbox-style palettes in a compact grid
+ */
+function addColorsToFilterList() {
+  const colorPaletteContainer = document.getElementById('color-pallette');
+  colorPaletteContainer.innerHTML = ''; // Clear the container
+
+  // Create and append the "Top Color Filter" text
+  const topColorText = document.createElement('div');
+  topColorText.textContent = 'Top Color Filter:';
+  topColorText.style.marginBottom = '4px'; // Space between text and colors
+  topColorText.style.fontWeight = 'normal'; // Non-bold text
+  topColorText.style.textAlign = 'left'; // Left align the text
+  colorPaletteContainer.appendChild(topColorText); // Append text to the main container
+
+  // Create a container for the grid
+  const gridContainer = document.createElement('div');
+
+  const totalColors = window.usedColors.size;
+  const maxColumns = 10; // Maximum colors per row
+  let numRows = Math.ceil(totalColors / maxColumns); // Calculate the number of rows
+
+  // If there are 10 colors or less, set rows to 2 and adjust columns accordingly
+  if (totalColors <= maxColumns) {
+    numRows = 2;
+  }
+
+  const sortedColorNames = sortColorNameSetIntoArray(window.usedColors);
+
+  sortedColorNames.forEach((color) => {
+    // Create a label for the color checkbox
+    const label = document.createElement('label');
+    label.style.display = 'inline-block';
+    label.style.margin = '1px'; // Reduce spacing around each item
+
+    // Create a checkbox input
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.name = 'filter';
+    checkbox.value = `color-${color}`;
+    checkbox.id = `filter-color-${color}`;
+    checkbox.style.display = 'none'; // Hide the default checkbox
+
+    // Create a square for the color representation
+    const colorSpan = getColorSpan(color, true);
+
+    // Add a click event to toggle the checkbox and change border on click
+    label.addEventListener('click', () => {
+      checkbox.checked = !checkbox.checked; // Toggle the checkbox state
+      if (checkbox.checked) {
+        colorSpan.style.border = '2px solid black'; // Show a black border if checked
+      } else {
+        colorSpan.style.border = '1px solid #ccc'; // Reset border if unchecked
+      }
+    });
+    addFilterAction(checkbox, document);
+
+    // Append the hidden checkbox and color square to the label
+    label.appendChild(checkbox);
+    label.appendChild(colorSpan);
+
+    // Append the label (which contains the checkbox and color square) to the grid container
+    gridContainer.appendChild(label);
+  });
+
+  // Update the CSS grid layout dynamically based on the number of colors
+  gridContainer.style.display = 'grid';
+  gridContainer.style.gridTemplateColumns = `repeat(${Math.min(maxColumns, Math.ceil(totalColors / numRows))}, 1fr)`; // Adjust number of columns to form a square grid
+  gridContainer.style.gap = '1px'; // Minimal gap between items
+
+  // Append the grid container to the main color palette container
+  colorPaletteContainer.appendChild(gridContainer);
+}
+
+/**
+ * Utility to blindly add colors to the used color list.
+ * @param {string} color - The color to be added to the used colors list.
+ */
+function addUsedColor(color) {
+  if (!window.usedColors.has(color)) {
+    window.usedColors.add(color);
+    addColorsToFilterList();
+  }
+}
+
+/**
+ * Detects if an image element detects a substantial alpha channel.
+ *
+ * @param {HTMLImageElement} imgElement - The image element to check for an alpha channel.
+ * @param {function(boolean): void} callback - A callback function that is called with a
+ *                                             boolean value indicating whether the image
+ *                                             has an alpha channel.
+ */
+async function detectAlphaChannel(imgElement, callback) {
+  const ext = imgElement.src.split('.').pop().toLowerCase();
+  if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
+    callback(false);
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = imgElement.naturalWidth;
+  canvas.height = imgElement.naturalHeight;
+  ctx.drawImage(imgElement, 0, 0);
+
+  // Get the pixel data from the canvas
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data } = imageData;
+
+  let alphaPixelsCount = 0;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) {
+      alphaPixelsCount += 1;
+      // only detecting alpha if 1% of pixels have alpha. This trims small alpha borders.
+      if (alphaPixelsCount >= data.length * 0.01) {
+        callback(true);
+        return;
+      }
+    }
+  }
+
+  callback(false); // No alpha channel
+}
+
+/**
+ * Analyzes the colors in a loaded image and updates the provided values object with the top colors.
+ * If the image or values are null, or if an error occurs, it sets the top colors to 'Unknown'.
+ *
+ * @param {HTMLImageElement} loadedImg - The image element to analyze.
+ * @param {Object} values - The object to update with the top colors.
+ * @param {Array} values.topColors - The array to store the top colors.
+ */
+function parameterizeColors(loadedImg, values) {
+  try {
+    if (loadedImg == null || values == null) {
+      values.topColors = ['Unknown'];
+      addUsedColor('Unknown');
+      return;
+    }
+    const colors = numberOfTopColors > 1
+      ? colorThief.getPalette(loadedImg, numberOfTopColors)
+      : [colorThief.getColor(loadedImg)];
+
+    if (colors == null || colors.length === 0) {
+      values.topColors = ['Unknown'];
+      addUsedColor('Unknown');
+      return;
+    }
+
+    // RGB Values. Disabled for now.
+    // const rawColors = numberOfTopRawColors > 1
+    //  ? colorThief.getPalette(loadedImg, numberOfTopRawColors)
+    //  : [colorThief.getColor(loadedImg)];
+
+    const roundedColors = [...new Set(colors.map(findNearestColor))];
+    // Add each rounded color to the usedColors Set
+    roundedColors.forEach((color) => addUsedColor(color));
+    values.topColors = roundedColors;
+    // values.topColorsRaw = rawColors;
+  } catch (error) {
+    values.topColors = ['Unknown'];
+    addUsedColor('Unknown');
+  }
+}
+
+/**
+ * Utility to updates the dataset attributes of a given figure element with provided data.
+ * Should be called after any update to the sorting or filtering attributes.
+ *
+ * @param {HTMLElement} figure - The figure element to update.
+ * @param {Object} data - The data object containing information to update the figure with.
+ * @param {Array<string>} [data.topColors] - An array of top colors to set in the dataset.
+ * @param {string} data.alt - The alt text to validate and set in the dataset.
+ * @param {number} data.count - The count to set in the dataset.
+ * @param {string} data.aspectRatio - The aspect ratio to set in the dataset.
+ */
+function updateFigureData(figure, data) {
+  if (figure == null) return;
+
+  if ((data.topColors != null && data.topColors.length > 0)) {
+    figure.dataset.topColors = data.topColors.join(',');
+  }
+
+  figure.dataset.alt = validateAlt(data.alt, data.count);
+  figure.dataset.aspect = data.aspectRatio;
+  figure.dataset.count = data.count;
+}
+
+/**
+ * Finds and loads unique images from a batch of images with a specified concurrency limit.
+ *
+ * @param {Array} individualBatch - An array of image objects to process.
+ * @param {number} concurrency - The maximum number of concurrent image loads.
+ * @returns {Promise<Array>} A promise that resolves to an array of unique image values.
+ *
+ * @typedef {Object} ImageObject
+ * @property {string} src - The source URL of the image.
+ * @property {string} origin - The origin URL of the image.
+ * @property {string} site - The site where the image is used.
+ * @property {string} alt - The alt text of the image.
+ * @property {number} width - The width of the image.
+ * @property {number} height - The height of the image.
+ * @property {number} aspectRatio - The aspect ratio of the image.
+ * @property {string} fileType - The file type of the image.
+ *
+ * @typedef {Object} ImageValues
+ * @property {string} src - The source URL of the image.
+ * @property {string} origin - The origin URL of the image.
+ * @property {number} count - The count of how many times the image is used.
+ * @property {Array<string>} site - An array of sites where the image is used.
+ * @property {Array<string>} alt - An array of alt texts for the image.
+ * @property {number} width - The width of the image.
+ * @property {number} height - The height of the image.
+ * @property {number} aspectRatio - The aspect ratio of the image.
+ * @property {string} fileType - The file type of the image.
+ * @property {Array<string>} topColors - An array of top colors in the image.
+ * @property {HTMLImageElement} loadedImg - The loaded image element.
+ */
+async function findAndLoadUniqueImages(individualBatch, concurrency) {
   // use a map to track unique images by their src attribute
-  const unique = new Map();
-  data.forEach((img) => {
+  const promises = []; // Array to hold promises
+  const batchUnique = new Map();
+
+  individualBatch.filter((img) => isUrlValid(img.origin));
+
+  individualBatch.forEach(async (img) => {
     const {
       src, origin, site, alt, width, height, aspectRatio, fileType,
     } = img;
     // if the image src is not already in the map, init a new entry
-    if (!unique.has(src)) {
-      unique.set(src, {
+    if (!window.unique.has(src)) {
+      if (promises.length >= concurrency) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.race(promises);
+        // Remove the completed promises
+        promises.splice(0, promises.findIndex((p) => p.isFulfilled) + 1);
+      }
+
+      const { href } = new URL(src, origin);
+      // TODO: Should this just get put into the DOM instead of the lazy load one?
+      const loadedImg = new Image(width, height);
+      if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
+      loadedImg.src = href; // start loading the image
+      loadedImg.dataset.src = src;
+
+      const values = {
         src,
         origin,
         count: 0,
@@ -185,16 +780,50 @@ function findUniqueImages(data) {
         height,
         aspectRatio,
         fileType,
+        topColors: [],
+        loadedImg,
+      };
+
+      values.loadedImg = loadedImg;
+
+      const promise = new Promise((resolve) => {
+        loadedImg.onload = () => {
+          parameterizeColors(loadedImg, values);
+          updateFigureData(loadedImg.parentElement, values);
+          detectAlphaChannel(loadedImg, (hasAlpha) => {
+            if (hasAlpha) {
+              values.topColors.push('Transparency');
+              addUsedColor('Transparency');
+              updateFigureData(loadedImg.parentElement, values);
+            }
+          });
+          resolve();
+        };
+        loadedImg.onerror = (error) => {
+          values.topColors = ['Unknown'];
+          addUsedColor('Unknown');
+          updateFigureData(loadedImg.parentElement, values);
+          // eslint-disable-next-line no-console
+          console.error(`Error loading img file at ${href}`, error);
+          // TODO: Show broken file image?
+          resolve();
+        };
       });
+
+      promises.push(promise);
+      window.unique.set(src, values);
+      batchUnique.set(src, values);
     }
     // update the existing entry with additional image data
-    const entry = unique.get(src);
+    const entry = window.unique.get(src);
     entry.count += 1;
     entry.site.push(site);
     entry.alt.push(alt);
+    updateFigureData(entry.loadedImg.parentElement, entry);
   });
-  // convert the map values to an array
-  return [...unique.values()];
+
+  await Promise.all(promises);
+  return Array.from(batchUnique.values());
 }
 
 /**
@@ -206,48 +835,17 @@ function displayImages(images) {
   images.forEach((data) => {
     // create a new figure to hold the image and its metadata
     const figure = document.createElement('figure');
-    figure.dataset.alt = validateAlt(data.alt, data.count);
-    figure.dataset.aspect = data.aspectRatio;
-    figure.dataset.count = data.count;
-    // build image
-    const { href } = new URL(data.src, data.origin);
-    const img = document.createElement('img');
-    img.dataset.src = href;
-    img.width = data.width;
-    img.height = data.height;
-    img.loading = 'lazy';
-    figure.append(img);
-    // load the image when it comes into view
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.timeoutId = setTimeout(() => {
-            img.src = img.dataset.src;
-            observer.disconnect();
-          }, 500); // delay image loading
-        } else {
-          // cancel loading delay if image is scrolled out of view
-          clearTimeout(entry.target.timeoutId);
-        }
-      });
-    }, { threshold: 0 });
-    observer.observe(figure);
+    updateFigureData(figure, data);
+
+    figure.append(data.loadedImg);
+
     // build info button
     const info = document.createElement('button');
     info.setAttribute('aria-label', 'More information');
     info.setAttribute('type', 'button');
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
-    // check if image already exists in the gallery
-    const existingImg = gallery.querySelector(`figure img[src="${href}"], figure [data-src="${href}"]`);
-    if (existingImg) {
-      const existingFigure = existingImg.parentElement;
-      const existingCount = parseInt(existingFigure.dataset.count, 10);
-      if (existingCount !== data.count) {
-        // if count has changed, replace existing figure with the new one
-        gallery.replaceChild(figure, existingFigure);
-      }
-    } else gallery.append(figure);
+    gallery.append(figure);
   });
 }
 
@@ -346,16 +944,36 @@ async function fetchBatch(batch, concurrency, counter) {
   return results;
 }
 
+async function handleBatch(
+  batch,
+  concurrency,
+  pagesCounter,
+  data,
+  main,
+  results,
+  imagesCounter,
+  gallery,
+) {
+  const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+  data.push(...batchData);
+
+  // Display images as they are fetched
+  main.dataset.canvas = true;
+  results.removeAttribute('aria-hidden');
+  const uniqueBatchData = await findAndLoadUniqueImages(batchData, concurrency);
+  updateCounter(imagesCounter, uniqueBatchData.length);
+  displayImages(uniqueBatchData);
+  decorateIcons(gallery);
+}
+
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
  * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
- * @param {number} [delay = 2000] - Delay (in milliseconds) between each batch.
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concurrency = 5) {
-  window.audit = [];
+async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -364,7 +982,7 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
 
-  // reset counters
+  // Reset counters
   const imagesCounter = document.getElementById('images-counter');
   updateCounter(imagesCounter);
   const pagesCounter = document.getElementById('pages-counter');
@@ -376,42 +994,43 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   updateCounter(elapsed);
   const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
 
-  // initialize concurrent tasks
+  // Collect promises for all batches
+  const batchPromises = [];
   for (let i = 0; i < urls.length; i += batchSize) {
-    // get the next batch of URLs
-    const batch = urls.slice(i, i + batchSize);
-    // eslint-disable-next-line no-await-in-loop
-    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
-    data.push(...batchData);
-
-    // display images as they are fetched
-    main.dataset.canvas = true;
-    results.removeAttribute('aria-hidden');
-
-    const uniqueBatchData = findUniqueImages(data);
-    window.audit = uniqueBatchData;
-    updateCounter(imagesCounter, uniqueBatchData.length);
-    displayImages(uniqueBatchData);
-    decorateIcons(gallery);
-
-    if (i + batchSize < urls.length) {
+    if (batchPromises.length >= concurrency) {
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { // wait before continuing to the next batch
-        setTimeout(resolve, delay);
-      });
+      await Promise.race(batchPromises);
+      // Remove the completed promises
+      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled) + 1);
     }
+    const batch = urls.slice(i, i + batchSize);
 
-    batchData.length = 0;
+    // Process each batch and handle the delay between batches asynchronously
+    const promise = handleBatch(
+      batch,
+      concurrency,
+      pagesCounter,
+      data,
+      main,
+      results,
+      imagesCounter,
+      gallery,
+    );
+
+    batchPromises.push(promise);
   }
-  data.length = 0;
 
+  // Wait for all batches to finish processing
+  await Promise.all(batchPromises);
+
+  // After all batches are done
+  data.length = 0;
+  addColorsToFilterList();
   download.disabled = false;
   clearInterval(timer);
+
   return data;
 }
-
-/* url and sitemap utility */
-const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 
 /**
  * Determines the type of a URL based on its hostname and pathname.
@@ -486,7 +1105,7 @@ async function fetchSitemap(sitemap) {
         const nestedUrls = await fetchSitemap(originSwapped);
         allUrls.push(...nestedUrls);
       }
-      return allUrls;
+      return cleanseUrls(allUrls);
     }
     if (xml.querySelector('url')) {
       const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
@@ -495,7 +1114,7 @@ async function fetchSitemap(sitemap) {
         const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
         return { href: originSwapped, plain };
       });
-      return urls;
+      return cleanseUrls(urls);
     }
   }
   return [];
@@ -503,6 +1122,11 @@ async function fetchSitemap(sitemap) {
 
 /* setup */
 async function processForm(sitemap) {
+  const colorPaletteContainer = document.getElementById('color-pallette');
+  colorPaletteContainer.innerHTML = ''; // Clear the container
+  window.usedColors.clear();
+  window.unique.clear();
+
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(urls);
@@ -573,6 +1197,7 @@ function registerListeners(doc) {
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
+
     if (figure) displayModal(figure);
   });
 
@@ -613,40 +1238,14 @@ function registerListeners(doc) {
     });
   });
 
-  FILTER_ACTIONS.forEach((action) => {
-    action.addEventListener('change', () => {
-      const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-      const figures = [...GALLERY.querySelectorAll('figure')];
-
-      figures.forEach((figure) => {
-        const hasAlt = figure.dataset.alt === 'true';
-        const aspect = parseFloat(figure.dataset.aspect, 10);
-        // eslint-disable-next-line no-nested-ternary
-        const shape = aspect === 1 ? 'square'
-          // eslint-disable-next-line no-nested-ternary
-          : aspect < 1 ? 'portrait'
-            : aspect > 1.7 ? 'widescreen' : 'landscape';
-
-        let hide = true; // hide figures by default
-
-        // check images against filter critera
-        if (checked.includes('missing-alt') && !checked.some((f) => f !== 'missing-alt')) { // only 'missing-alt' is selected
-          // only show figures without alt text
-          hide = hasAlt;
-        } else if (checked.includes('missing-alt') && checked.some((f) => f !== 'missing-alt')) { // 'missing-alt' is selected along with shape(s)
-          // show figures without alt text that match any selected shape(s)
-          hide = !(checked.includes(shape) && !hasAlt);
-        } else if (!checked.includes('missing-alt') && checked.includes(shape)) { // only shapes are selected
-          // show figures that match the selected shape(s)
-          hide = false;
-        } else if (checked.length === 0) { // no filters are selected
-          // show all figures
-          hide = false;
-        }
-        figure.setAttribute('aria-hidden', hide);
-      });
-    });
-  });
+  FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
 }
 
+function setupWindowVariables() {
+  window.usedColors = new Set();
+  // key is the data-src, value is the data object about the value
+  window.unique = new Map();
+}
+
+setupWindowVariables();
 registerListeners(document);
