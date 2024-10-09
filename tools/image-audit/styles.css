@@ -2,6 +2,11 @@
   display: none;
 }
 
+.image-audit .swatch {
+  display: inline-block;
+  border: var(--border-s) solid var(--transparent-black-100);
+}
+
 .image-audit .gallery button {
   display: flex;
   align-items: center;
@@ -75,6 +80,11 @@
   border-bottom: var(--border-s) solid var(--gray-300);
 }
 
+.image-audit dialog .swatch {
+  width: 0.75em;
+  height: 0.75em;
+}
+
 .image-audit i.symbol-square::after {
   inset: 0;
   border: var(--border-m) solid;
@@ -99,6 +109,61 @@
   border-radius: var(--rounding-s);
 }
 
+.image-audit .palette-wrapper {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1ch;
+}
+
+.image-audit #palette {
+  gap: var(--spacing-xs);
+}
+
+.image-audit #palette .swatch {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border: var(--border-s) solid var(--transparent-black-100);
+  border-radius: 0;
+  padding: 0;
+}
+
+.image-audit #palette .swatch.transparent {
+  border: var(--border-s) solid var(--gray-300);
+  background-color: var(--layer-pasteboard);
+  background-image:
+    linear-gradient(45deg, var(--color-background) 25%, transparent 25%), 
+    linear-gradient(135deg, var(--color-background) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-background) 75%),
+    linear-gradient(135deg, transparent 75%, var(--color-background) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 0, 8px -8px, 0 8px;
+}
+
+.image-audit #palette .swatch.unknown::after {
+  content: '?';
+  display: block;
+  position: absolute;
+  inset: 0;
+  line-height: 30px;
+}
+
+@media (width >= 900px) {
+  .image-audit #palette .swatch {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .image-audit #palette .swatch.unknown::after {
+    line-height: 24px;
+  }
+}
+
+.image-audit #palette input:checked + .swatch {
+  border: var(--border-m) solid white;
+  outline: var(--border-m) solid black;
+}
+
 .image-audit .canvas {
   position: relative;
 }
@@ -111,50 +176,4 @@
 
 .image-audit .canvas .action-bar button[aria-selected='true'] {
   background-color: var(--gray-300);
-}
-
-.image-audit .color-span {
-  display: inline-block; /* Ensure inline-block display */
-  width: 20px; /* Fixed width */
-  height: 20px; /* Fixed height */
-  border-radius: 3px; /* Slight rounding */
-  border: 1px solid #ccc; /* Border for visibility */
-  cursor: pointer; /* Cursor changes to pointer on hover */
-  position: relative; /* Set position for tooltip */
-  transition: background-color 0.3s; /* Smooth background color transition */
-}
-
-.image-audit .color-span.unknown {
-  display: flex; /* Flex display for centering */
-  justify-content: center; /* Center horizontally */
-  align-items: center; /* Center vertically */
-  font-size: 14px; /* Font size for '?' */
-  line-height: 20px; /* Match line height */
-  color: #555; /* Text color for '?' */
-  background-color: transparent; /* No background color */
-  padding: 0; /* No padding */
-  box-sizing: border-box; /* Include borders in total size */
-}
-
-.image-audit .color-span.alpha {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
-  border: 1px solid #ccc;
-  position: relative;
-  cursor: pointer;
-  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc),
-                    linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc);
-  background-size: 10px 10px; /* Size of individual checkerboard squares */
-  background-position: 0 0, 5px 5px; /* Offset for the checkerboard pattern */
-}
-
-.image-audit .color-span:hover::after {
-  opacity: 1; /* Show tooltip on hover */
-  visibility: visible; /* Make tooltip visible */
-}
-
-.image-audit .color-span:hover {
-  background-color: rgba(0, 0, 0, 0.1); /* Optional hover effect */
 }
