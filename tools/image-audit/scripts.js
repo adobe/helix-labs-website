@@ -3,6 +3,15 @@
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
 
+// eslint-disable-next-line import/no-relative-packages
+// import pixelmatch from '../../node_modules/pixelmatch/index.js';
+// eslint-disable-next-line import/no-relative-packages
+// import ImageHash from '../../node_modules/imagehash-web/dist/imagehash-web.min.js';
+
+// eslint-disable-next-line import/no-unresolved, import/order
+import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
+// import ImageHash from 'https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1/dist/imagehash-web.min.js';
+
 // this should come from some standard library.
 // If you revisit it, the color-name library didn't have the names formatted well.
 const cssColors = [
@@ -96,7 +105,16 @@ const permittedProtocols = ['http', 'https', 'data'];
 const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 const CORS_ANONYMOUS = true;
+
+// trims sha and alpha detection to this many pixels.
 const maxPixelsToEval = 250000; // 500x500 pixels
+// Matching threshold for two images, ranges from 0 to 1.
+// Smaller values make the comparison more sensitive.
+const imageMatchingThreshold = 0.1;
+
+// Percentage of pixels can be different between two images ot be identified the same
+// 0.01 - 1% different pixels
+const differentPixelPercent = 0.01;
 
 /**
  * Sorts a set of color names into an array based on specific criteria.
@@ -275,7 +293,9 @@ class IdentityCluster {
 
     identity.cluster = this;
     this.identities.set(identity.id, identity);
-    window.identityToClusterMap.set(identity.id, this);
+    if (identity.strong) {
+      window.strongIdentityToClusterMap.set(identity.id, this);
+    }
   }
 
   getAllIdentitiesOf(type) {
@@ -300,6 +320,9 @@ class IdentityCluster {
 
   // Method to recluster (merge) if types match, always makes this cluster THE cluster.
   mergeCluster(otherCluster) {
+    if (otherCluster === this) {
+      return;
+    }
     if (this.type === otherCluster.type) {
       // Merge identities from the other cluster into this one
       otherCluster.identities.forEach((value) => {
@@ -387,7 +410,7 @@ class IdentityCluster {
     }
 
     this.identities.forEach((identity) => {
-      window.identityToClusterMap.delete(identity.id);
+      window.strongIdentityToClusterMap.delete(identity.id);
     });
 
     this.identities.clear();
@@ -886,24 +909,30 @@ function updateFigureData(clusterId) {
 
   // TODO: Different copies can have different aspect ratios.
   const identity = window.clusterMap.get(clusterId).getFirstIdentityOf('url-page-img-identity');
-  if (identity.identityData.aspectRatio) {
+  if (identity && identity.identityData.aspectRatio) {
     const shape = aspectRatoToShape(identity.identityData.aspectRatio);
     figure.dataset.shape = shape;
   }
 }
 
 function identifyAndMergeClusters(clusterId, identityId, type, strong) {
-  // TODO: Should non-strong identities cause cluster merges?
   const currentCluster = window.clusterMap.get(clusterId);
-  const existingCluster = window.identityToClusterMap.get(identityId);
-  if (existingCluster) {
-    if (existingCluster === currentCluster) {
+  if (currentCluster.identities.has(identityId)) {
+    return;
+  }
+
+  if (strong) {
+    const existingCluster = window.strongIdentityToClusterMap.get(identityId);
+    if (existingCluster) {
+      if (existingCluster === currentCluster) {
+        return;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(`Merging ${currentCluster.id} into ${existingCluster.id} because of identity ${identityId}`);
+      existingCluster.mergeCluster(currentCluster);
       return;
     }
-
-    console.log(`Merging ${currentCluster.id} into ${existingCluster.id} because of identity ${identityId}`);
-    existingCluster.mergeCluster(currentCluster);
-    return;
   }
 
   const identity = new Identity(identityId, type, strong);
@@ -969,7 +998,6 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
   const cluster = window.clusterMap.get(clusterId);
   const url = new URL(cluster.elementForCluster.src); // Get the image URL
   const { loadedImg } = cluster;
-  let strong;
 
   const identificationParts = additionalTokensToSum.slice();
 
@@ -980,7 +1008,6 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
     // eslint-disable-next-line prefer-destructuring
     identificationParts.push(':eds:');
     identificationParts.push(url.href.split('://')[1]);
-    strong = false;
   } else {
     try {
       // TODO: Lets cache these fields so we limit the amount of time they could change during.
@@ -999,11 +1026,9 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
         // high fidelity identifier
         identificationParts.push('et');
         identificationParts.push(etag);
-        strong = true;
       } else if (digest) {
         identificationParts.push('dg');
         identificationParts.push(digest);
-        strong = true;
       } else {
         // try to join what we do know. Lower fidelity identifier
         identificationParts.push(url.href); // Start with the URL or other primary identifier
@@ -1012,11 +1037,9 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
         // Check each field and add it to the array if it exists
         if (lastModified) {
           identificationParts.push(lastModified);
-          strong = true;
         }
         if (contentLength) {
           identificationParts.push(contentLength);
-          // if it's not already strong, this doesn't make it a strong match, so strong = false;
         }
         if (!lastModified && !contentLength) {
           // use what we've got
@@ -1026,7 +1049,6 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
           if (loadedImg.height) {
             identificationParts.push(loadedImg.height);
           }
-          strong = false;
         }
       }
     } catch (error) {
@@ -1041,11 +1063,10 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
       if (loadedImg.height) {
         identificationParts.push(loadedImg.height);
       }
-      strong = false;
     }
   }
   const hash = `${type.split('-').map((chunk) => chunk.charAt(0)).join('')}:${await createHash(identificationParts.join('::'))}`;
-  identifyAndMergeClusters(clusterId, hash, type, strong);
+  identifyAndMergeClusters(clusterId, hash, type, true);
   return hash;
 }
 
@@ -1107,6 +1128,107 @@ async function identityImgUrlAndSiteUrl(clusterId, values) {
   identity.identityData.instance = values.instance;
 }
 
+const hammingDistanceThreshold = 20;
+
+async function identifyByPerceptualImage(clusterId, canvas, ctx) {
+  // eslint-disable-next-line no-undef
+
+  // getting the element and holding it here in case re-clustering switches it --
+  // it is atomic with the hash.
+  const { elementForCluster } = window.clusterMap.get(clusterId);
+  const { src } = elementForCluster;
+
+  let hash = null;
+  let identityId = null;
+  if (window.perceptualHashMap.has(src)) {
+    hash = window.perceptualHashMap.get(src).hash;
+    identityId = window.perceptualHashMap.get(src).identityId;
+  } else {
+    // eslint-disable-next-line no-undef
+    hash = await phash(elementForCluster, 8);
+    identityId = `ph:${hash.toBase64()}`;
+    window.perceptualHashMap.set(src, { hash, identityId, clusterId });
+  }
+
+  identifyAndMergeClusters(clusterId, identityId, 'phash-identity', false);
+  const identity = window.clusterMap.get(clusterId).identities.get(identityId);
+  identity.identityData.phash = hash;
+
+  // Find matching clusterIds within the Hamming distance threshold
+  const matchingClusterIds = [];
+
+  // TODO: Isn't there a better map type for this?
+  window.perceptualHashMap.forEach((otherClusterId, otherHash) => {
+    if (
+      otherClusterId === clusterId
+      || window.clusterMap.get(clusterId).elementForCluster.src
+      === window.clusterMap.get(otherClusterId).elementForCluster.src
+    ) {
+      // no need to merge already duplicate things which will be merged anyway.
+      return;
+    }
+    if (window.clusterMap.get(otherClusterId).id !== otherClusterId) {
+      // cleanup from reclustering. No need to test this one.
+      window.perceptualHashMap.delete(otherHash);
+      return;
+    }
+    const distance = hash.hammingDistance(otherHash);
+    if (distance <= hammingDistanceThreshold) {
+      matchingClusterIds.push(otherClusterId);
+    }
+  });
+
+  if (matchingClusterIds.length > 0) {
+    const promises = matchingClusterIds.map(async (otherClusterId) => {
+      // Create a new canvas and context for the other cluster's image
+      const otherCanvas = document.createElement('canvas');
+      const otherCtx = otherCanvas.getContext('2d');
+      otherCanvas.width = canvas.width; // Ensure it's the same width
+      otherCanvas.height = canvas.height; // Ensure it's the same height
+
+      // Draw the other cluster's image onto the new canvas
+      otherCtx.drawImage(
+        window.clusterMap.get(otherClusterId).elementForCluster,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+
+      // Get the pixel data for both images
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const otherImgData = otherCtx.getImageData(0, 0, otherCanvas.width, otherCanvas.height).data;
+
+      // Create an output array for pixelmatch results
+      const output = new Uint8Array(canvas.width * canvas.height * 4); // RGBA
+
+      const numberDiffPixels = pixelmatch(
+        imgData,
+        otherImgData,
+        output,
+        canvas.width,
+        canvas.height,
+        {
+          threshold: imageMatchingThreshold, // Similarity threshold
+          includeAA: true,
+        },
+      );
+
+      // If the images match within the specified threshold, merge clusters
+      if (numberDiffPixels <= (imgData.length * differentPixelPercent)) {
+        if (window.clusterMap.get(clusterId) !== window.clusterMap.get(otherClusterId)) {
+          // eslint-disable-next-line no-console
+          console.log(`Merging cluster ${clusterId} into cluster ${otherClusterId} because of perceptual similarity with ${numberDiffPixels} different pixels`);
+          window.clusterMap.get(otherClusterId).mergeCluster(window.clusterMap.get(clusterId));
+        }
+      }
+    });
+
+    // Wait for all comparisons to finish
+    await Promise.all(promises);
+  }
+}
+
 async function loadDomOnlyImageFunctions(clusterId, values) {
   identifyImgUrl(clusterId, values).then(() => { updateFigureData(clusterId); });
   identityImgUrlAndSiteUrl(clusterId, values).then(() => { updateFigureData(clusterId); });
@@ -1121,7 +1243,7 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
   canvas.width = values.width;
   canvas.height = values.height;
 
-  ctx.drawImage(elementForCluster, 0, 0);
+  ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
   requestAnimationFrame(async () => {
     identityImgSha(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
@@ -1129,6 +1251,10 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
 
   requestAnimationFrame(() => {
     detectAlphaChannel(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
+  });
+
+  requestAnimationFrame(() => {
+    identifyByPerceptualImage(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
   });
 }
 
@@ -1528,9 +1654,10 @@ function setupWindowVariables() {
 
   // string identity id
   // value is the cluster object.
-  window.identityToClusterMap = new Map();
+  window.strongIdentityToClusterMap = new Map();
   window.imageCount = 0;
   window.clusterCount = 0;
+  window.perceptualHashMap = new Map();
 }
 
 async function processForm(sitemap) {

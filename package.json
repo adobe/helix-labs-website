@@ -20,12 +20,16 @@
   "homepage": "https://github.com/adobe/aem-boilerplate#readme",
   "devDependencies": {
     "@babel/eslint-parser": "7.24.8",
+    "colorthief": "^2.4.0",
+    "crypto-js": "^4.2.0",
     "eslint": "8.57.0",
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-plugin-import": "2.29.1",
     "stylelint": "16.7.0",
-    "stylelint-config-standard": "36.0.1",
-    "colorthief": "^2.4.0",
-    "crypto-js": "^4.2.0"
+    "stylelint-config-standard": "36.0.1"
+  },
+  "dependencies": {
+    "imagehash-web": "^3.0.1",
+    "pixelmatch": "^6.0.0"
   }
 }
