@@ -114,26 +114,23 @@
 }
 
 .image-audit .color-span {
-  display: inline-block; /* Ensure inline-block display */
-  width: 20px; /* Fixed width */
-  height: 20px; /* Fixed height */
-  border-radius: 3px; /* Slight rounding */
-  border: 1px solid #ccc; /* Border for visibility */
-  cursor: pointer; /* Cursor changes to pointer on hover */
-  position: relative; /* Set position for tooltip */
-  transition: background-color 0.3s; /* Smooth background color transition */
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.3s;
 }
 
 .image-audit .color-span.unknown {
-  display: flex; /* Flex display for centering */
-  justify-content: center; /* Center horizontally */
-  align-items: center; /* Center vertically */
-  font-size: 14px; /* Font size for '?' */
-  line-height: 20px; /* Match line height */
-  color: #555; /* Text color for '?' */
-  background-color: transparent; /* No background color */
-  padding: 0; /* No padding */
-  box-sizing: border-box; /* Include borders in total size */
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px;
+  background-color: transparent;
+  vertical-align: top;
 }
 
 .image-audit .color-span.alpha {
