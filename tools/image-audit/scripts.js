@@ -113,8 +113,8 @@ const maxPixelsToEval = 250000; // 500x500 pixels
 const imageMatchingThreshold = 0.1;
 
 // Percentage of pixels can be different between two images ot be identified the same
-// 0.01 - 1% different pixels
-const differentPixelPercent = 0.01;
+// 0.001 - .1% different pixels
+const differentPixelPercent = 0.005;
 
 /**
  * Sorts a set of color names into an array based on specific criteria.
@@ -321,6 +321,10 @@ class IdentityCluster {
   // Method to recluster (merge) if types match, always makes this cluster THE cluster.
   mergeCluster(otherCluster) {
     if (otherCluster === this) {
+      return;
+    }
+    if (this.replacedBy) {
+      this.replacedBy.mergeCluster(otherCluster);
       return;
     }
     if (this.type === otherCluster.type) {
@@ -997,7 +1001,7 @@ async function identityImgSha(clusterId, canvas, ctx) {
 async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) {
   const cluster = window.clusterMap.get(clusterId);
   const url = new URL(cluster.elementForCluster.src); // Get the image URL
-  const { loadedImg } = cluster;
+  const { elementForCluster } = cluster;
 
   const identificationParts = additionalTokensToSum.slice();
 
@@ -1007,7 +1011,7 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
     // no need to include the host. The path contains an immutable reference.
     // eslint-disable-next-line prefer-destructuring
     identificationParts.push(':eds:');
-    identificationParts.push(url.href.split('://')[1]);
+    identificationParts.push(url.href.split('://')[1].toLowerCase());
   } else {
     try {
       // TODO: Lets cache these fields so we limit the amount of time they could change during.
@@ -1043,25 +1047,25 @@ async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) 
         }
         if (!lastModified && !contentLength) {
           // use what we've got
-          if (loadedImg.width) {
-            identificationParts.push(loadedImg.width);
+          if (elementForCluster.width) {
+            identificationParts.push(elementForCluster.width);
           }
-          if (loadedImg.height) {
-            identificationParts.push(loadedImg.height);
+          if (elementForCluster.height) {
+            identificationParts.push(elementForCluster.height);
           }
         }
       }
     } catch (error) {
-      identificationParts.clear();
+      identificationParts.length = 0;
       identificationParts.push(...additionalTokensToSum);
       identificationParts.push('er');
       identificationParts.push(url.href); // Start with the URL or other primary identifier
       // use what we've got
-      if (loadedImg.width) {
-        identificationParts.push(loadedImg.width);
+      if (elementForCluster.width) {
+        identificationParts.push(elementForCluster.width);
       }
-      if (loadedImg.height) {
-        identificationParts.push(loadedImg.height);
+      if (elementForCluster.height) {
+        identificationParts.push(elementForCluster.height);
       }
     }
   }
@@ -1136,7 +1140,7 @@ async function identifyByPerceptualImage(clusterId, canvas, ctx) {
   // getting the element and holding it here in case re-clustering switches it --
   // it is atomic with the hash.
   const { elementForCluster } = window.clusterMap.get(clusterId);
-  const { src } = elementForCluster;
+  const src = elementForCluster.src.toLowerCase();
 
   let hash = null;
   let identityId = null;
@@ -1158,18 +1162,11 @@ async function identifyByPerceptualImage(clusterId, canvas, ctx) {
   const matchingClusterIds = [];
 
   // TODO: Isn't there a better map type for this?
-  window.perceptualHashMap.forEach((otherClusterId, otherHash) => {
-    if (
-      otherClusterId === clusterId
-      || window.clusterMap.get(clusterId).elementForCluster.src
-      === window.clusterMap.get(otherClusterId).elementForCluster.src
-    ) {
+  window.perceptualHashMap.forEach((data, otherSrc) => {
+    const otherClusterId = data.clusterId;
+    const otherHash = data.hash;
+    if (otherClusterId === clusterId || src === otherSrc) {
       // no need to merge already duplicate things which will be merged anyway.
-      return;
-    }
-    if (window.clusterMap.get(otherClusterId).id !== otherClusterId) {
-      // cleanup from reclustering. No need to test this one.
-      window.perceptualHashMap.delete(otherHash);
       return;
     }
     const distance = hash.hammingDistance(otherHash);
@@ -1218,7 +1215,7 @@ async function identifyByPerceptualImage(clusterId, canvas, ctx) {
       if (numberDiffPixels <= (imgData.length * differentPixelPercent)) {
         if (window.clusterMap.get(clusterId) !== window.clusterMap.get(otherClusterId)) {
           // eslint-disable-next-line no-console
-          console.log(`Merging cluster ${clusterId} into cluster ${otherClusterId} because of perceptual similarity with ${numberDiffPixels} different pixels`);
+          console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels`);
           window.clusterMap.get(otherClusterId).mergeCluster(window.clusterMap.get(clusterId));
         }
       }
@@ -1657,6 +1654,8 @@ function setupWindowVariables() {
   window.strongIdentityToClusterMap = new Map();
   window.imageCount = 0;
   window.clusterCount = 0;
+
+  // string url to object with { hash, identityId, and clusterId }
   window.perceptualHashMap = new Map();
 }
 
