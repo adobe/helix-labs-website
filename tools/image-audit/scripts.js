@@ -3,14 +3,8 @@
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
 
-// eslint-disable-next-line import/no-relative-packages
-// import pixelmatch from '../../node_modules/pixelmatch/index.js';
-// eslint-disable-next-line import/no-relative-packages
-// import ImageHash from '../../node_modules/imagehash-web/dist/imagehash-web.min.js';
-
 // eslint-disable-next-line import/no-unresolved, import/order
 import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
-// import ImageHash from 'https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1/dist/imagehash-web.min.js';
 
 // this should come from some standard library.
 // If you revisit it, the color-name library didn't have the names formatted well.
@@ -108,13 +102,20 @@ const CORS_ANONYMOUS = true;
 
 // trims sha and alpha detection to this many pixels.
 const maxPixelsToEval = 250000; // 500x500 pixels
+
+const hammingDistanceThreshold = 20;
+
 // Matching threshold for two images, ranges from 0 to 1.
 // Smaller values make the comparison more sensitive.
 const imageMatchingThreshold = 0.1;
 
 // Percentage of pixels can be different between two images ot be identified the same
+// 0.001 -> .1% different pixels
+const exactMatchDifferentPixelPercent = 0.004;
+
+// Percentage of pixels can be different between two images ot be identified the same
 // 0.001 - .1% different pixels
-const differentPixelPercent = 0.005;
+const similarityDifferentPixelPercent = 0.01;
 
 /**
  * Sorts a set of color names into an array based on specific criteria.
@@ -131,46 +132,22 @@ const differentPixelPercent = 0.005;
 function sortColorNameSetIntoArray(colorSet) {
   const filteredColorNames = cssColors.filter((color) => colorSet.has(color.name));
   filteredColorNames.sort((a, b) => {
-    if (a.name === 'Transparency') {
-      // push to the top
-      return -1;
-    }
-    if (b.name === 'Transparency') {
-      // push to the top
-      return 1;
-    }
-
-    if (a.name === 'Unknown') {
-      // push to the end
-      return 1;
-    }
-    if (b.name === 'Unknown') {
-      // push to the end
-      return -1;
-    }
+    if (a.name === 'Transparency') return -1;
+    if (b.name === 'Transparency') return 1;
+    if (a.name === 'Unknown') return 1;
+    if (b.name === 'Unknown') return -1;
 
     // Check saturation first
     const aIsLowSaturation = a.hsl[1] < saturationThreshold;
     const bIsLowSaturation = b.hsl[1] < saturationThreshold;
 
-    if (aIsLowSaturation && bIsLowSaturation) {
-      // Both are low saturation, sort by lightness
-      return a.hsl[2] - b.hsl[2];
-    }
-    if (aIsLowSaturation) {
-      // a is low saturation, push it to the end
-      return 1;
-    }
-    if (bIsLowSaturation) {
-      // b is low saturation, push it to the end
-      return -1;
-    }
+    if (aIsLowSaturation && bIsLowSaturation) return a.hsl[2] - b.hsl[2];
+    if (aIsLowSaturation) return 1;
+    if (bIsLowSaturation) return -1;
 
     // Both are high saturation, sort by hue then by lightness
     const hueDiff = a.hsl[0] - b.hsl[0];
-    if (hueDiff !== 0) {
-      return hueDiff; // Sort by hue
-    }
+    if (hueDiff !== 0) return hueDiff; // Sort by hue
     return a.hsl[2] - b.hsl[2];
   });
 
@@ -195,9 +172,9 @@ function getColorSpan(color, clickable) {
 
   if (color === 'Unknown') {
     colorSpan.classList.add('unknown');
-    colorSpan.textContent = '?'; // Display question mark
+    colorSpan.style.backgroundImage = "url('/icons/question.svg')";
   } else if (color === 'Transparency') {
-    colorSpan.classList.add('color-span', 'alpha');
+    colorSpan.classList.add('alpha');
   } else {
     colorSpan.style.backgroundColor = color; // Set background color if not "Unknown"
   }
@@ -333,6 +310,14 @@ class IdentityCluster {
         this.addIdentity(value); // Merge the key-value pairs
       });
 
+      this.getAllIdentitiesOf('similar-img-identity').forEach((identity) => {
+        // no longer needed.
+        if (identity.identityData.similarClusterId === this.id
+          || identity.identityData.similarClusterId === otherCluster.id) {
+          this.identities.delete(identity.id);
+        }
+      });
+
       // Merge related clusters from the other cluster into this one
       otherCluster.relatedClusters.forEach((cluster) => {
         // break relationship
@@ -414,7 +399,9 @@ class IdentityCluster {
     }
 
     this.identities.forEach((identity) => {
-      window.strongIdentityToClusterMap.delete(identity.id);
+      if (this.identities.strong) {
+        window.strongIdentityToClusterMap.delete(identity.id);
+      }
     });
 
     this.identities.clear();
@@ -721,40 +708,20 @@ function addFilterAction(action) {
   });
 }
 
-/**
- * Function to add colors as checkbox-style palettes in a compact grid
- */
 function addColorsToFilterList() {
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
 
-  // Create and append the "Top Color Filter" text
-  const topColorText = document.createElement('div');
-  topColorText.textContent = 'Top Color Filter:';
-  topColorText.style.marginBottom = '4px'; // Space between text and colors
-  topColorText.style.fontWeight = 'normal'; // Non-bold text
-  topColorText.style.textAlign = 'left'; // Left align the text
-  colorPaletteContainer.appendChild(topColorText); // Append text to the main container
-
-  // Create a container for the grid
-  const gridContainer = document.createElement('div');
-
-  const totalColors = window.usedColors.size;
-  const maxColumns = 10; // Maximum colors per row
-  let numRows = Math.ceil(totalColors / maxColumns); // Calculate the number of rows
-
-  // If there are 10 colors or less, set rows to 2 and adjust columns accordingly
-  if (totalColors <= maxColumns) {
-    numRows = 2;
-  }
-
   const sortedColorNames = sortColorNameSetIntoArray(window.usedColors);
 
   sortedColorNames.forEach((color) => {
+    // Create a list item (li) for each color
+    const listItem = document.createElement('li');
+    listItem.className = 'color-list-item'; // Corrected class name for styling
+
     // Create a label for the color checkbox
     const label = document.createElement('label');
-    label.style.display = 'inline-block';
-    label.style.margin = '1px'; // Reduce spacing around each item
+    label.className = 'color-label'; // Corrected class name for styling
 
     // Create a checkbox input
     const checkbox = document.createElement('input');
@@ -762,6 +729,7 @@ function addColorsToFilterList() {
     checkbox.name = 'filter';
     checkbox.value = `color-${color}`;
     checkbox.id = `filter-color-${color}`;
+    checkbox.className = 'color-checkbox'; // Corrected class name for styling
     checkbox.style.display = 'none'; // Hide the default checkbox
 
     // Create a square for the color representation
@@ -770,11 +738,7 @@ function addColorsToFilterList() {
     // Add a click event to toggle the checkbox and change border on click
     label.addEventListener('click', () => {
       checkbox.checked = !checkbox.checked; // Toggle the checkbox state
-      if (checkbox.checked) {
-        colorSpan.style.border = '2px solid black'; // Show a black border if checked
-      } else {
-        colorSpan.style.border = '1px solid #ccc'; // Reset border if unchecked
-      }
+      colorSpan.style.border = checkbox.checked ? '2px solid black' : '1px solid #ccc'; // Toggle border based on checkbox state
     });
     addFilterAction(checkbox, document);
 
@@ -782,17 +746,12 @@ function addColorsToFilterList() {
     label.appendChild(checkbox);
     label.appendChild(colorSpan);
 
-    // Append the label (which contains the checkbox and color square) to the grid container
-    gridContainer.appendChild(label);
+    // Append the label to the list item
+    listItem.appendChild(label);
+
+    // Append the list item to the main color palette container
+    colorPaletteContainer.appendChild(listItem);
   });
-
-  // Update the CSS grid layout dynamically based on the number of colors
-  gridContainer.style.display = 'grid';
-  gridContainer.style.gridTemplateColumns = `repeat(${Math.min(maxColumns, Math.ceil(totalColors / numRows))}, 1fr)`; // Adjust number of columns to form a square grid
-  gridContainer.style.gap = '1px'; // Minimal gap between items
-
-  // Append the grid container to the main color palette container
-  colorPaletteContainer.appendChild(gridContainer);
 }
 
 /**
@@ -958,7 +917,7 @@ async function createHash(value) {
     if (typeof value === 'string') {
       hashBuffer = await crypto.subtle.digest('SHA-1', new Uint8Array(encoder.encode(smallerValue)));
     } else {
-      hashBuffer = await crypto.subtle.digest('SHA-256', new Uint8Array(encoder.encode(Uint8Array(smallerValue))));
+      hashBuffer = await crypto.subtle.digest('SHA-256', new Uint8Array(encoder.encode(new Uint8Array(smallerValue))));
     }
 
     const hashArray = Array.from(new Uint8Array(hashBuffer)); // Convert buffer to byte array
@@ -1132,8 +1091,6 @@ async function identityImgUrlAndSiteUrl(clusterId, values) {
   identity.identityData.instance = values.instance;
 }
 
-const hammingDistanceThreshold = 20;
-
 async function identifyByPerceptualImage(clusterId, canvas, ctx) {
   // eslint-disable-next-line no-undef
 
@@ -1179,7 +1136,7 @@ async function identifyByPerceptualImage(clusterId, canvas, ctx) {
     const promises = matchingClusterIds.map(async (otherClusterId) => {
       // Create a new canvas and context for the other cluster's image
       const otherCanvas = document.createElement('canvas');
-      const otherCtx = otherCanvas.getContext('2d');
+      const otherCtx = otherCanvas.getContext('2d', { willReadFrequently: true });
       otherCanvas.width = canvas.width; // Ensure it's the same width
       otherCanvas.height = canvas.height; // Ensure it's the same height
 
@@ -1212,12 +1169,23 @@ async function identifyByPerceptualImage(clusterId, canvas, ctx) {
       );
 
       // If the images match within the specified threshold, merge clusters
-      if (numberDiffPixels <= (imgData.length * differentPixelPercent)) {
+      if (numberDiffPixels <= (imgData.length * exactMatchDifferentPixelPercent)) {
         if (window.clusterMap.get(clusterId) !== window.clusterMap.get(otherClusterId)) {
           // eslint-disable-next-line no-console
-          console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels`);
+          console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
           window.clusterMap.get(otherClusterId).mergeCluster(window.clusterMap.get(clusterId));
         }
+      } else if (numberDiffPixels <= (imgData.length * similarityDifferentPixelPercent)
+        && window.clusterMap.get(clusterId).id !== window.clusterMap.get(otherClusterId).id) {
+        const hereToThere = new Identity(`sim:${otherClusterId}`, 'similar-img-identity', false);
+        hereToThere.identityData.similarClusterId = otherClusterId;
+        window.clusterMap.get(clusterId).addIdentity(hereToThere);
+
+        const thereToHere = new Identity(`sim:${clusterId}`, 'similar-img-identity', false);
+        thereToHere.identityData.similarClusterId = clusterId;
+        window.clusterMap.get(otherClusterId).addIdentity(thereToHere);
+        // eslint-disable-next-line no-console
+        console.log(`Marking cluster ${clusterId} with url ${src} as similar to cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
       }
     });
 
@@ -1256,8 +1224,9 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
 }
 
 async function imageOnLoad(clusterId, values) {
-  loadDomOnlyImageFunctions(clusterId, values);
-  loadCanvasRenderedImageFunctions(clusterId, values);
+  const domPromise = loadDomOnlyImageFunctions(clusterId, values);
+  const canvasPromise = loadCanvasRenderedImageFunctions(clusterId, values);
+  await Promise.all([domPromise, canvasPromise]);
 }
 
 async function imageOnError(clusterId, values, href, error) {
