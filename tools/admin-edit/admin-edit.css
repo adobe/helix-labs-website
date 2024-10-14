@@ -15,6 +15,17 @@
   gap: var(--spacing-s);
 }
 
+.admin-edit #headers-container .header {
+  display: flex;
+  gap: var(--spacing-s);
+  flex-direction: row;
+}
+
+.admin-edit #headers-container button {
+  flex: 0 0 44px;
+  cursor: pointer;
+}
+
 @media (width >= 720px) {
   .admin-edit #admin-form {
     grid-template-columns: 1fr max-content;
@@ -55,4 +66,9 @@
 
 .admin-edit .status-light.http3::before {
   color: var(--yellow-900);
+}
+
+.admin-edit .headers-container {
+  display: flex;
+  gap: var(--spacing-s);
 }
