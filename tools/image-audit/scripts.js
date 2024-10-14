@@ -821,8 +821,7 @@ async function parameterizeColors(clusterId) {
       : [colorThief.getColor(elementForCluster)];
 
     if (colors === null || colors.length === 0) {
-      cluster.clusterData.topColors.push('Unknown');
-      addUsedColor('Unknown');
+      // can be all alpha.
       return;
     }
 
@@ -832,12 +831,6 @@ async function parameterizeColors(clusterId) {
     //  : [colorThief.getColor(elementForCluster)];
 
     const roundedColors = [...new Set(colors.map(findNearestColor))];
-    // Add each rounded color to the usedColors Set
-    if (roundedColors.length === 0) {
-      cluster.clusterData.topColors.push('Unknown');
-      addUsedColor('Unknown');
-      return;
-    }
 
     roundedColors.forEach((color) => {
       cluster.clusterData.topColors.push(color);
