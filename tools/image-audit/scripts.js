@@ -2,158 +2,12 @@
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
+import { Identity, IdentityCluster, IdentityProcessor } from './identity.js';
 
-// eslint-disable-next-line import/no-unresolved, import/order
-import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
-
-// this should come from some standard library.
-// If you revisit it, the color-name library didn't have the names formatted well.
-const cssColors = [
-  { name: 'AliceBlue', rgb: [240, 248, 255], hsl: [208, 100, 97] },
-  { name: 'AntiqueWhite', rgb: [250, 235, 215], hsl: [34, 78, 91] },
-  { name: 'Aqua', rgb: [0, 255, 255], hsl: [180, 100, 50] },
-  { name: 'Aquamarine', rgb: [127, 255, 212], hsl: [160, 100, 75] },
-  { name: 'Azure', rgb: [240, 255, 255], hsl: [180, 100, 97] },
-  { name: 'Beige', rgb: [245, 245, 220], hsl: [60, 56, 91] },
-  { name: 'Bisque', rgb: [255, 228, 196], hsl: [33, 100, 88] },
-  { name: 'BlanchedAlmond', rgb: [255, 235, 205], hsl: [36, 100, 90] },
-  { name: 'BlueViolet', rgb: [138, 43, 226], hsl: [271, 76, 53] },
-  { name: 'Brown', rgb: [165, 42, 42], hsl: [0, 59, 41] },
-  { name: 'Burlywood', rgb: [222, 184, 135], hsl: [34, 57, 70] },
-  { name: 'CadetBlue', rgb: [95, 158, 160], hsl: [182, 25, 50] },
-  { name: 'Chartreuse', rgb: [127, 255, 0], hsl: [90, 100, 50] },
-  { name: 'Chocolate', rgb: [210, 105, 30], hsl: [25, 75, 47] },
-  { name: 'Coral', rgb: [255, 127, 80], hsl: [16, 100, 66] },
-  { name: 'CornflowerBlue', rgb: [100, 149, 237], hsl: [219, 79, 66] },
-  { name: 'Cornsilk', rgb: [255, 248, 220], hsl: [48, 100, 93] },
-  { name: 'Crimson', rgb: [220, 20, 60], hsl: [348, 83, 47] },
-  { name: 'DarkBlue', rgb: [0, 0, 139], hsl: [240, 100, 27] },
-  { name: 'DarkCyan', rgb: [0, 139, 139], hsl: [180, 100, 27] },
-  { name: 'DarkGoldenRod', rgb: [184, 134, 11], hsl: [43, 89, 38] },
-  { name: 'DarkGray', rgb: [169, 169, 169], hsl: [0, 0, 66] },
-  { name: 'DarkGreen', rgb: [0, 100, 0], hsl: [120, 100, 20] },
-  { name: 'DarkKhaki', rgb: [189, 183, 107], hsl: [56, 38, 58] },
-  { name: 'DarkMagenta', rgb: [139, 0, 139], hsl: [300, 100, 27] },
-  { name: 'DarkOliveGreen', rgb: [85, 107, 47], hsl: [82, 39, 30] },
-  { name: 'DarkOrange', rgb: [255, 140, 0], hsl: [33, 100, 50] },
-  { name: 'DarkOrchid', rgb: [153, 50, 204], hsl: [280, 61, 50] },
-  { name: 'DarkRed', rgb: [139, 0, 0], hsl: [0, 100, 27] },
-  { name: 'DarkSalmon', rgb: [233, 150, 122], hsl: [15, 72, 70] },
-  { name: 'DarkSeaGreen', rgb: [143, 188, 143], hsl: [120, 25, 65] },
-  { name: 'DarkSlateBlue', rgb: [72, 61, 139], hsl: [248, 39, 39] },
-  { name: 'DarkSlateGray', rgb: [47, 79, 79], hsl: [180, 25, 25] },
-  { name: 'DarkTurquoise', rgb: [0, 206, 209], hsl: [181, 100, 41] },
-  { name: 'DarkViolet', rgb: [148, 0, 211], hsl: [282, 100, 41] },
-  { name: 'DeepPink', rgb: [255, 20, 147], hsl: [328, 100, 54] },
-  { name: 'DeepSkyBlue', rgb: [0, 191, 255], hsl: [195, 100, 50] },
-  { name: 'DimGray', rgb: [105, 105, 105], hsl: [0, 0, 41] },
-  { name: 'DodgerBlue', rgb: [30, 144, 255], hsl: [210, 100, 56] },
-  { name: 'FireBrick', rgb: [178, 34, 34], hsl: [0, 68, 42] },
-  { name: 'FloralWhite', rgb: [255, 250, 240], hsl: [40, 100, 97] },
-  { name: 'ForestGreen', rgb: [34, 139, 34], hsl: [120, 61, 34] },
-  { name: 'Fuchsia', rgb: [255, 0, 255], hsl: [300, 100, 50] },
-  { name: 'Gainsboro', rgb: [220, 220, 220], hsl: [0, 0, 86] },
-  { name: 'GhostWhite', rgb: [248, 248, 255], hsl: [240, 100, 99] },
-  { name: 'Gold', rgb: [255, 215, 0], hsl: [51, 100, 50] },
-  { name: 'GoldenRod', rgb: [218, 165, 32], hsl: [43, 74, 49] },
-  { name: 'Gray', rgb: [128, 128, 128], hsl: [0, 0, 50] },
-  { name: 'GreenYellow', rgb: [173, 255, 47], hsl: [83, 100, 59] },
-  { name: 'HoneyDew', rgb: [240, 255, 240], hsl: [120, 100, 97] },
-  { name: 'HotPink', rgb: [255, 105, 180], hsl: [330, 100, 71] },
-  { name: 'IndianRed', rgb: [205, 92, 92], hsl: [0, 53, 58] },
-  { name: 'Indigo', rgb: [75, 0, 130], hsl: [275, 100, 25] },
-  { name: 'Ivory', rgb: [255, 255, 240], hsl: [60, 100, 97] },
-  { name: 'Khaki', rgb: [240, 230, 140], hsl: [54, 77, 75] },
-  { name: 'Lavender', rgb: [230, 230, 250], hsl: [240, 67, 94] },
-  { name: 'LavenderBlush', rgb: [255, 240, 245], hsl: [340, 100, 97] },
-  { name: 'LawnGreen', rgb: [124, 252, 0], hsl: [90, 100, 49] },
-  { name: 'LemonChiffon', rgb: [255, 250, 205], hsl: [54, 100, 90] },
-  { name: 'LightBlue', rgb: [173, 216, 230], hsl: [195, 53, 79] },
-  { name: 'LightCoral', rgb: [240, 128, 128], hsl: [0, 78, 72] },
-  { name: 'LightCyan', rgb: [224, 255, 255], hsl: [180, 100, 94] },
-  { name: 'LightGoldenRodYellow', rgb: [250, 250, 210], hsl: [60, 80, 90] },
-  { name: 'LightGreen', rgb: [144, 238, 144], hsl: [120, 73, 75] },
-  { name: 'LightGrey', rgb: [211, 211, 211], hsl: [0, 0, 83] },
-  { name: 'LightPink', rgb: [255, 182, 193], hsl: [351, 100, 86] },
-  { name: 'LightSalmon', rgb: [255, 160, 122], hsl: [17, 100, 74] },
-  { name: 'LightSeaGreen', rgb: [32, 178, 170], hsl: [177, 70, 41] },
-  { name: 'LightSkyBlue', rgb: [135, 206, 250], hsl: [203, 92, 75] },
-  { name: 'LightSlateGray', rgb: [119, 136, 153], hsl: [210, 14, 53] },
-  { name: 'LightSteelBlue', rgb: [176, 196, 222], hsl: [214, 41, 78] },
-  { name: 'LightYellow', rgb: [255, 255, 224], hsl: [60, 100, 94] },
-  { name: 'LimeGreen', rgb: [50, 205, 50], hsl: [120, 61, 50] },
-  { name: 'Linen', rgb: [250, 240, 230], hsl: [30, 67, 94] },
-  { name: 'Magenta', rgb: [255, 0, 255], hsl: [300, 100, 50] },
-  // next two are "special" colors that we use to indicate different states
-  { name: 'Transparency', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
-  { name: 'Unknown', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
-];
-
-const numberOfTopColors = 10; // used for selecting top colors
-// const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
-const saturationThreshold = 10; // used for sorting colors
-// eslint-disable-next-line no-undef
-const colorThief = new ColorThief();
 const permittedProtocols = ['http', 'https', 'data'];
 /* url and sitemap utility */
 const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
-const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 const CORS_ANONYMOUS = true;
-
-// trims sha and alpha detection to this many pixels.
-const maxPixelsToEval = 250000; // 500x500 pixels
-
-const hammingDistanceThreshold = 20;
-
-// Matching threshold for two images, ranges from 0 to 1.
-// Smaller values make the comparison more sensitive.
-const imageMatchingThreshold = 0.1;
-
-// Percentage of pixels can be different between two images ot be identified the same
-// 0.001 -> .1% different pixels
-const exactMatchDifferentPixelPercent = 0.004;
-
-// Percentage of pixels can be different between two images ot be identified the same
-// 0.001 - .1% different pixels
-const similarityDifferentPixelPercent = 0.01;
-
-/**
- * Sorts a set of color names into an array based on specific criteria.
- *
- * The sorting criteria are as follows:
- * 1. Colors named 'Transparency' are pushed to the top.
- * 2. Colors named 'Unknown' are pushed to the end.
- * 3. Colors with low saturation are pushed to the end sorted by lightness.
- * 4. Colors with high saturation are sorted by hue, and if hues are equal, by lightness.
- *
- * @param {Set<string>} colorSet - A set of color names to be sorted.
- * @returns {string[]} - An array of sorted color names.
- */
-function sortColorNameSetIntoArray(colorSet) {
-  const filteredColorNames = cssColors.filter((color) => colorSet.has(color.name));
-  filteredColorNames.sort((a, b) => {
-    if (a.name === 'Transparency') return -1;
-    if (b.name === 'Transparency') return 1;
-    if (a.name === 'Unknown') return 1;
-    if (b.name === 'Unknown') return -1;
-
-    // Check saturation first
-    const aIsLowSaturation = a.hsl[1] < saturationThreshold;
-    const bIsLowSaturation = b.hsl[1] < saturationThreshold;
-
-    if (aIsLowSaturation && bIsLowSaturation) return a.hsl[2] - b.hsl[2];
-    if (aIsLowSaturation) return 1;
-    if (bIsLowSaturation) return -1;
-
-    // Both are high saturation, sort by hue then by lightness
-    const hueDiff = a.hsl[0] - b.hsl[0];
-    if (hueDiff !== 0) return hueDiff; // Sort by hue
-    return a.hsl[2] - b.hsl[2];
-  });
-
-  const sortedColorNames = filteredColorNames.map((color) => color.name);
-  return sortedColorNames;
-}
 
 /**
  * Creates a span element representing a color with optional clickability.
@@ -193,18 +47,18 @@ function getColorSpan(color, clickable) {
  */
 function writeReportRows() {
   const entries = [];
-  // todo: Should probably test each entry for duplication here.
-  window.entryIdentityValues.values().forEach((image) => {
-    if (image && image.site) {
-      image.site.forEach((site, i) => {
-        entries.push({
-          Site: site,
-          'Image Source': new URL(image.src, image.origin).href,
-          'Alt Text': image.alt[i],
-          'Top Colors': sortColorNameSetIntoArray(new Set(image.topColors)).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', '),
-        });
-      });
-    }
+  window.identityProcessor.getAllClusters().values().forEach((cluster) => {
+    const upii = cluster.getFirstIdentityOf('url-page-img-identity');
+    const ci = cluster.getSingletonOf('color-identity');
+
+    entries.push({
+      Site: upii.identityData.site,
+      'Image Source': new URL(upii.identityData.src, upii.identityData.origin).href,
+      'Alt Text': upii.identityData.alt,
+      'Top Colors': (window.identityProcessor.sortColorNamesIntoArray(
+        ci.identityData.topColors,
+      )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', '),
+    });
   });
   // sort the entries array alphabetically by the 'Site' property
   const sorted = entries.sort((a, b) => a.Site.localeCompare(b.Site));
@@ -228,192 +82,6 @@ function generateCSV(rows) {
   // create a Blob from the CSV string
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   return blob;
-}
-
-class Identity {
-  constructor(id, type, strong) {
-    if (id instanceof Promise) {
-      throw new Error('Identity constructor does not support promises');
-    }
-    this.id = id;
-    this.type = type;
-    this.strong = strong;
-    this.identityData = {};
-  }
-}
-
-class IdentityCluster {
-  constructor(originatingIdentity, elementForCluster, figureForCluster, type) {
-    this.identities = new Map();
-    this.identities.set(originatingIdentity.id, originatingIdentity);
-    this.relatedClusters = new Set();
-    this.figureForCluster = figureForCluster;
-    this.type = type;
-    window.clusterCount += 1;
-    this.id = `c:${window.clusterCount}`;
-    this.elementForCluster = elementForCluster;
-    this.clusterData = {};
-    if (type === 'image') {
-      this.clusterData.topColors = [];
-    }
-    elementForCluster.dataset.src = this.id;
-    this.replacedBy = null;
-    this.addIdentity(originatingIdentity);
-  }
-
-  // Method to add a single identity to the identities set
-  addIdentity(identity) {
-    if (this.replacedBy) {
-      this.replacedBy.addIdentity(identity);
-      return;
-    }
-
-    identity.cluster = this;
-    this.identities.set(identity.id, identity);
-    if (identity.strong) {
-      window.strongIdentityToClusterMap.set(identity.id, this);
-    }
-  }
-
-  getAllIdentitiesOf(type) {
-    return Array.from(this.identities.values())
-      .filter((identity) => identity && identity.type === type) || [];
-  }
-
-  getFirstIdentityOf(type) {
-    return Array.from(this.identities.values())
-      .find((identity) => identity && identity.type === type) || null;
-  }
-
-  relateCluster(cluster) {
-    if (this.replacedBy) {
-      this.replacedBy.relateCluster(cluster);
-      return;
-    }
-
-    this.relatedClusters.add(cluster);
-    cluster.relatedClusters.add(this);
-  }
-
-  // Method to recluster (merge) if types match, always makes this cluster THE cluster.
-  mergeCluster(otherCluster) {
-    if (otherCluster === this) {
-      return;
-    }
-    if (this.replacedBy) {
-      this.replacedBy.mergeCluster(otherCluster);
-      return;
-    }
-    if (this.type === otherCluster.type) {
-      // Merge identities from the other cluster into this one
-      otherCluster.identities.forEach((value) => {
-        this.addIdentity(value); // Merge the key-value pairs
-      });
-
-      this.getAllIdentitiesOf('similar-img-identity').forEach((identity) => {
-        // no longer needed.
-        if (identity.identityData.similarClusterId === this.id
-          || identity.identityData.similarClusterId === otherCluster.id) {
-          this.identities.delete(identity.id);
-        }
-      });
-
-      // Merge related clusters from the other cluster into this one
-      otherCluster.relatedClusters.forEach((cluster) => {
-        // break relationship
-        otherCluster.relatedClusters.remove(cluster);
-        cluster.relatedClusters.remove(otherCluster);
-        // attach cluster to this cluster
-        this.relateCluster(cluster);
-      });
-
-      this.mergeClusterData(otherCluster);
-      // Clear the other cluster
-      otherCluster.destruct();
-      otherCluster.replacedBy = this;
-      otherCluster.identities = this.identities;
-      otherCluster.relatedClusters = this.relatedClusters;
-      otherCluster.figureForCluster = this.figureForCluster;
-      otherCluster.elementForCluster = this.elementForCluster;
-      otherCluster.clusterData = this.clusterData;
-      // keeps a reference from the old cluster to the new cluster
-      window.clusterMap.set(otherCluster.id, this);
-      // otherCluster.id = this.id;
-    }
-  }
-
-  mergeClusterData(otherCluster) {
-    const source = otherCluster.clusterData;
-
-    // Iterate over own properties of the source object
-    Object.entries(source).forEach(([key, sourceValue]) => {
-      const targetValue = this.clusterData[key];
-
-      // If the value is an array, merge them without adding duplicates
-      if (Array.isArray(targetValue) && Array.isArray(sourceValue)) {
-        const sourceSet = new Set(sourceValue); // Create a Set from the source array
-        sourceSet.forEach((item) => {
-          if (!targetValue.includes(item)) {
-            targetValue.push(item);
-          }
-        });
-        this.clusterData[key] = targetValue;
-      } else if (targetValue instanceof Set && sourceValue instanceof Set) {
-        // Merge sets
-        sourceValue.forEach((val) => targetValue.add(val));
-        this.clusterData[key] = targetValue;
-      } else if (targetValue instanceof Map && sourceValue instanceof Map) {
-        // Merge maps
-        sourceValue.forEach((val, mapKey) => {
-          if (!targetValue.has(mapKey)) targetValue.set(mapKey, val);
-        });
-        this.clusterData[key] = targetValue;
-      } else if (targetValue !== undefined) {
-        // Prefer the target value in case of conflict
-        this.clusterData[key] = targetValue;
-      } else {
-        this.clusterData[key] = sourceValue;
-      }
-    });
-  }
-
-  getAll(identityType, propertyKey) {
-    const values = [];
-    this.getAllIdentitiesOf(identityType).forEach((identity) => {
-      const propertyValue = identity.identityData[propertyKey];
-
-      if (Array.isArray(propertyValue)) {
-        values.push(...propertyValue);
-      } else if (propertyValue instanceof Set) {
-        values.push(...Array.from(propertyValue));
-      } else if (propertyValue) {
-        values.push(propertyValue);
-      }
-    });
-    return values;
-  }
-
-  destruct() {
-    if (this.replacedBy) {
-      return;
-    }
-
-    this.identities.forEach((identity) => {
-      if (this.identities.strong) {
-        window.strongIdentityToClusterMap.delete(identity.id);
-      }
-    });
-
-    this.identities.clear();
-    this.relatedClusters.clear();
-    this.figureForCluster?.parentElement?.removeChild(this.figureForCluster);
-    this.figureForCluster.removeChild(this.elementForCluster);
-    this.figureForCluster = null;
-    this.elementForCluster = null;
-    this.clusterData = {};
-
-    window.clusterMap.delete(this.id);
-  }
 }
 
 class RewrittenData {
@@ -460,7 +128,7 @@ class RewrittenData {
 
   topColors(value) {
     if (!value) return '-';
-    return sortColorNameSetIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
+    return window.identityProcessor.sortColorNamesIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
   // rewrite data based on key
@@ -501,22 +169,25 @@ function displayModal(figure) {
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
+    const { identityProcessor } = window;
+    const cluster = identityProcessor.getCluster(clusterId);
 
-    const site = window.clusterMap.get(clusterId).getAll('url-page-img-identity', 'site');
-    const alt = window.clusterMap.get(clusterId).getAll('url-page-img-identity', 'alt');
+    const site = cluster.getAll('url-page-img-identity', 'site');
+    const alt = cluster.getAll('url-page-img-identity', 'alt');
     // todo: this should be done as multiple entries of width, height, src. This is a quick fix.
-    const identity = window.clusterMap.get(clusterId).getFirstIdentityOf('url-page-img-identity');
+    const identity = cluster.getFirstIdentityOf('url-page-img-identity');
+    const colorIdentity = cluster.getSingletonOf('color-identity');
 
     const data = {
-      fileType: window.clusterMap.get(clusterId).elementForCluster.src.split('.').pop(),
+      fileType: identityProcessor.getCluster(clusterId).elementForCluster.src.split('.').pop(),
       count: site.count,
       site,
       alt,
       width: identity.identityData.width,
       height: identity.identityData.width,
-      topColors: window.clusterMap.get(clusterId).clusterData.topColors,
+      topColors: colorIdentity.identityData.topColors,
       aspectRatio: identity.identityData.aspectRatio,
-      src: window.clusterMap.get(clusterId).elementForCluster.src,
+      src: identityProcessor.getCluster(clusterId).elementForCluster.src,
     };
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
@@ -545,23 +216,6 @@ function validateAlt(alt, count) {
   if (alt.length === 0 || alt.length !== count) return false;
   if (alt.some((item) => item === '')) return false;
   return true;
-}
-
-// Function to calculate the Euclidean distance between two colors
-function colorDistance(color1, color2) {
-  return Math.sqrt(
-    (color1[0] - color2[0]) ** 2
-    + (color1[1] - color2[1]) ** 2
-    + (color1[2] - color2[2]) ** 2,
-  );
-}
-
-// Function to find the nearest standard color
-function findNearestColor(color) {
-  return cssColors.reduce((nearestColor, standardColor) => {
-    const distance = colorDistance(color, standardColor.rgb);
-    return distance < colorDistance(color, nearestColor.rgb) ? standardColor : nearestColor;
-  }).name;
 }
 
 /**
@@ -708,11 +362,9 @@ function addFilterAction(action) {
   });
 }
 
-function addColorsToFilterList() {
+function addColorsToFilterList(sortedColorNames) {
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
-
-  const sortedColorNames = sortColorNameSetIntoArray(window.usedColors);
 
   sortedColorNames.forEach((color) => {
     // Create a list item (li) for each color
@@ -755,464 +407,74 @@ function addColorsToFilterList() {
 }
 
 /**
- * Utility to blindly add colors to the used color list.
- * @param {string} color - The color to be added to the used colors list.
- */
-function addUsedColor(color) {
-  if (!window.usedColors.has(color)) {
-    window.usedColors.add(color);
-    addColorsToFilterList();
-  }
-}
-
-async function detectAlphaChannel(clusterId, canvas, ctx) {
-  if (window.clusterMap.get(clusterId).clusterData.alphaDetectionComplete) {
-    return;
-  }
-  window.clusterMap.get(clusterId).clusterData.alphaDetectionComplete = true;
-
-  const ext = window.clusterMap.get(clusterId).elementForCluster.src.split('.').pop().toLowerCase();
-  if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
-    return;
-  }
-
-  // Get the pixel data from the canvas
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const { data } = imageData;
-
-  let alphaPixelsCount = 0;
-  for (let i = 3; i < data.length; i += 4) {
-    if (data[i] < 255) {
-      if (i % 1000 === 0) { // yield every 1000 pixels
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => { setTimeout(resolve, 0); });
-      }
-      alphaPixelsCount += 1;
-      // only detecting alpha if 1% of pixels have alpha. This trims small alpha borders.
-      if (alphaPixelsCount >= Math.min(data.length, maxPixelsToEval) * 0.01) {
-        window.clusterMap.get(clusterId).clusterData.topColors.push('Transparency');
-        addUsedColor('Transparency');
-        return;
-      }
-      if (i >= maxPixelsToEval) {
-        return;
-      }
-    }
-  }
-}
-
-async function parameterizeColors(clusterId) {
-  // colors are for the entire cluster.
-  const cluster = window.clusterMap.get(clusterId);
-  if (cluster.clusterData.colorsDetected) {
-    return;
-  }
-  cluster.clusterData.colorsDetected = true;
-
-  const { elementForCluster } = cluster;
-  try {
-    if (elementForCluster === null) {
-      cluster.clusterData.topColors.push('Unknown');
-      addUsedColor('Unknown');
-      return;
-    }
-    const colors = numberOfTopColors > 1
-      ? colorThief.getPalette(elementForCluster, numberOfTopColors)
-      : [colorThief.getColor(elementForCluster)];
-
-    if (colors === null || colors.length === 0) {
-      // can be all alpha.
-      return;
-    }
-
-    // RGB Values. Disabled for now.
-    // const rawColors = numberOfTopRawColors > 1
-    //  ? colorThief.getPalette(elementForCluster, numberOfTopRawColors)
-    //  : [colorThief.getColor(elementForCluster)];
-
-    const roundedColors = [...new Set(colors.map(findNearestColor))];
-
-    roundedColors.forEach((color) => {
-      cluster.clusterData.topColors.push(color);
-      addUsedColor(color);
-    });
-  } catch (error) {
-    cluster.clusterData.topColors.push('Unknown');
-    addUsedColor('Unknown');
-  }
-}
-
-/**
  * Utility to updates the dataset attributes of a given figure element with provided data.
  * Should be called after any update to the sorting or filtering attributes.
  *
  * @param {HTMLElement} figure - The figure element to update.
  */
 function updateFigureData(clusterId) {
-  const cluster = window.clusterMap.get(clusterId);
+  const { identityProcessor } = window;
+  const cluster = identityProcessor.getCluster(clusterId);
   const figure = cluster.figureForCluster;
-  if (figure === null) return;
+  if (!figure || !figure.dataset) return;
 
-  if (cluster.clusterData.topColors.length > 0) {
-    figure.dataset.topColors = cluster.clusterData.topColors.join(',');
+  const colorIdentity = cluster.getSingletonOf('color-identity');
+
+  if (colorIdentity && colorIdentity.identityData.topColors.length > 0) {
+    figure.dataset.topColors = colorIdentity.identityData.topColors.join(',');
   }
 
-  const altText = window.clusterMap.get(clusterId).getAll('url-page-img-identity', 'alt');
-  const sites = window.clusterMap.get(clusterId).getAll('url-page-img-identity', 'site');
+  const altText = cluster.getAll('url-page-img-identity', 'alt');
+  const sites = cluster.getAll('url-page-img-identity', 'site');
 
   figure.dataset.alt = validateAlt(altText, sites.length);
   figure.dataset.count = sites.length;
 
   // TODO: Different copies can have different aspect ratios.
-  const identity = window.clusterMap.get(clusterId).getFirstIdentityOf('url-page-img-identity');
+  const identity = cluster.getFirstIdentityOf('url-page-img-identity');
   if (identity && identity.identityData.aspectRatio) {
     const shape = aspectRatoToShape(identity.identityData.aspectRatio);
     figure.dataset.shape = shape;
   }
 }
 
-function identifyAndMergeClusters(clusterId, identityId, type, strong) {
-  const currentCluster = window.clusterMap.get(clusterId);
-  if (currentCluster.identities.has(identityId)) {
-    return;
-  }
-
-  if (strong) {
-    const existingCluster = window.strongIdentityToClusterMap.get(identityId);
-    if (existingCluster) {
-      if (existingCluster === currentCluster) {
-        return;
-      }
-
-      // eslint-disable-next-line no-console
-      console.log(`Merging ${currentCluster.id} into ${existingCluster.id} because of identity ${identityId}`);
-      existingCluster.mergeCluster(currentCluster);
-      return;
-    }
-  }
-
-  const identity = new Identity(identityId, type, strong);
-  currentCluster.addIdentity(identity);
-}
-
-async function createHash(value) {
-  let smallerValue = null;
-  if (typeof value === 'string') {
-    smallerValue = value;
-  } else {
-    smallerValue = value.slice(0, Math.min(value.byteLength, maxPixelsToEval * 4));
-  }
-
-  // crypto only available on https.
-  if (crypto?.subtle?.digest) {
-    let hashBuffer = null;
-    const encoder = new TextEncoder();
-    if (typeof value === 'string') {
-      hashBuffer = await crypto.subtle.digest('SHA-1', new Uint8Array(encoder.encode(smallerValue)));
-    } else {
-      hashBuffer = await crypto.subtle.digest('SHA-256', new Uint8Array(encoder.encode(new Uint8Array(smallerValue))));
-    }
-
-    const hashArray = Array.from(new Uint8Array(hashBuffer)); // Convert buffer to byte array
-    const rv = hashArray.map((byte) => byte.toString(36).padStart(2, '0')).join('');
-    // if (typeof value === 'string') {
-    // eslint-disable-next-line max-len
-    //   console.log(`Hashed ${value} to b16: ${hashArray.map((byte) => byte.toString(36).padStart(2, '0')).join('')} b36: ${rv}`);
-    // }
-    return rv;
-  }
-
-  let hash = null;
-  if (typeof value === 'string') {
-    // eslint-disable-next-line no-undef
-    hash = CryptoJS.SHA1(CryptoJS.enc.Utf8.parse(smallerValue));
-  } else {
-    // eslint-disable-next-line no-undef
-    hash = CryptoJS.SHA256(CryptoJS.lib.WordArray.create(smallerValue));
-  }
-
-  // eslint-disable-next-line no-undef
-  const hexHash = hash.toString(CryptoJS.enc.Hex); // Convert to hexadecimal format
-  // eslint-disable-next-line no-undef
-  const rv = BigInt(`0x${hexHash}`).toString(36);
-  // if (typeof value === 'string') {
-  //  console.log(`Hashed ${value} to b16: ${hexHash} b36: ${rv}`);
-  // }
-  return rv;
-}
-
-async function identityImgSha(clusterId, canvas, ctx) {
-  // Get image data (raw pixels) directly from the canvas
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-  const hash = `sii:${await createHash(imageData.data.buffer)}`;
-  identifyAndMergeClusters(clusterId, hash, 'sha-img-identity', true);
-  return hash;
-}
-
-async function identifyUrlInternal(clusterId, type, additionalTokensToSum = []) {
-  const cluster = window.clusterMap.get(clusterId);
-  const url = new URL(cluster.elementForCluster.src); // Get the image URL
-  const { elementForCluster } = cluster;
-
-  const identificationParts = additionalTokensToSum.slice();
-
-  // is loadedImg definitely a helix image? If so it can't be changed and we dont need the etag.
-
-  if (AEM_EDS_HOSTS.find((h) => url.hostname.toLowerCase().endsWith(h))) {
-    // no need to include the host. The path contains an immutable reference.
-    // eslint-disable-next-line prefer-destructuring
-    identificationParts.push(':eds:');
-    identificationParts.push(url.href.split('://')[1].toLowerCase());
-  } else {
-    try {
-      // TODO: Lets cache these fields so we limit the amount of time they could change during.
-
-      // Fetch the image to get the ETag from headers (if available)
-      const response = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
-      const etag = response.headers.get('ETag'); // Get the ETag if available
-      const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
-      const contentLength = response.headers.get('Content-Length'); // Get the Content-Length if available
-      const digest = response.headers.get('Digest'); // Get the Content-Length if available
-
-      // there's a chance this changes during our processing,
-      // but since we can't get the etag of the image we just loaded,
-      // hope the cache gets it and roll with the risk.
-      if (etag) {
-        // high fidelity identifier
-        identificationParts.push('et');
-        identificationParts.push(etag);
-      } else if (digest) {
-        identificationParts.push('dg');
-        identificationParts.push(digest);
-      } else {
-        // try to join what we do know. Lower fidelity identifier
-        identificationParts.push(url.href); // Start with the URL or other primary identifier
-        identificationParts.push('wt');
-
-        // Check each field and add it to the array if it exists
-        if (lastModified) {
-          identificationParts.push(lastModified);
-        }
-        if (contentLength) {
-          identificationParts.push(contentLength);
-        }
-        if (!lastModified && !contentLength) {
-          // use what we've got
-          if (elementForCluster.width) {
-            identificationParts.push(elementForCluster.width);
-          }
-          if (elementForCluster.height) {
-            identificationParts.push(elementForCluster.height);
-          }
-        }
-      }
-    } catch (error) {
-      identificationParts.length = 0;
-      identificationParts.push(...additionalTokensToSum);
-      identificationParts.push('er');
-      identificationParts.push(url.href); // Start with the URL or other primary identifier
-      // use what we've got
-      if (elementForCluster.width) {
-        identificationParts.push(elementForCluster.width);
-      }
-      if (elementForCluster.height) {
-        identificationParts.push(elementForCluster.height);
-      }
-    }
-  }
-  const hash = `${type.split('-').map((chunk) => chunk.charAt(0)).join('')}:${await createHash(identificationParts.join('::'))}`;
-  identifyAndMergeClusters(clusterId, hash, type, true);
-  return hash;
-}
-
-async function identifyImgUrl(clusterId, values) {
-  const identityId = await identifyUrlInternal(clusterId, 'url-img-identity');
-  const identity = window.clusterMap.get(clusterId).identities.get(identityId);
-  identity.identityData.src = values.href;
-}
-
-async function identityImgUrlAndSiteUrl(clusterId, values) {
-  const url = new URL(values.site);
-  const additionalTokensToSum = [values.site];
-  additionalTokensToSum.push(values.instance);
-
-  try {
-    // TODO: Lets cache these fields so we limit the amount of time they could change during.
-
-    // Fetch the image to get the ETag from headers (if available)
-    const response = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
-    const etag = response.headers.get('ETag'); // Get the ETag if available
-    const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
-    const contentLength = response.headers.get('Content-Length'); // Get the Content-Length if available
-    const digest = response.headers.get('Digest'); // Get the Content-Length if available
-
-    // there's a chance this changes during our processing,
-    // but since we can't get the etag of the image we just loaded,
-    // hope the cache gets it and roll with the risk.
-    if (etag) {
-      additionalTokensToSum.push('et');
-      additionalTokensToSum.push(etag);
-    } else if (digest) {
-      additionalTokensToSum.push('dg');
-      additionalTokensToSum.push(digest);
-    } else {
-      // Check each field and add it to the array if it exists
-      if (lastModified) {
-        additionalTokensToSum.push('lm');
-        additionalTokensToSum.push(lastModified);
-      }
-      if (contentLength) {
-        additionalTokensToSum.push('cl');
-        additionalTokensToSum.push(contentLength);
-      }
-    }
-  } catch (error) {
-    additionalTokensToSum.clear();
-    additionalTokensToSum.push('er');
-    additionalTokensToSum.push(values.site); // Start with the URL or other primary identifier
-  }
-
-  const identityId = await identifyUrlInternal(clusterId, 'url-page-img-identity', additionalTokensToSum);
-  const identity = window.clusterMap.get(clusterId).identities.get(identityId);
-  identity.identityData.site = values.site;
-  identity.identityData.src = values.href;
-  identity.identityData.alt = values.alt;
-  identity.identityData.width = values.width;
-  identity.identityData.height = values.height;
-  identity.identityData.aspectRatio = values.aspectRatio;
-  identity.identityData.instance = values.instance;
-}
-
-async function identifyByPerceptualImage(clusterId, canvas, ctx) {
-  // eslint-disable-next-line no-undef
-
-  // getting the element and holding it here in case re-clustering switches it --
-  // it is atomic with the hash.
-  const { elementForCluster } = window.clusterMap.get(clusterId);
-  const src = elementForCluster.src.toLowerCase();
-
-  let hash = null;
-  let identityId = null;
-  if (window.perceptualHashMap.has(src)) {
-    hash = window.perceptualHashMap.get(src).hash;
-    identityId = window.perceptualHashMap.get(src).identityId;
-  } else {
-    // eslint-disable-next-line no-undef
-    hash = await phash(elementForCluster, 8);
-    identityId = `ph:${hash.toBase64()}`;
-    window.perceptualHashMap.set(src, { hash, identityId, clusterId });
-  }
-
-  identifyAndMergeClusters(clusterId, identityId, 'phash-identity', false);
-  const identity = window.clusterMap.get(clusterId).identities.get(identityId);
-  identity.identityData.phash = hash;
-
-  // Find matching clusterIds within the Hamming distance threshold
-  const matchingClusterIds = [];
-
-  // TODO: Isn't there a better map type for this?
-  window.perceptualHashMap.forEach((data, otherSrc) => {
-    const otherClusterId = data.clusterId;
-    const otherHash = data.hash;
-    if (otherClusterId === clusterId || src === otherSrc) {
-      // no need to merge already duplicate things which will be merged anyway.
-      return;
-    }
-    const distance = hash.hammingDistance(otherHash);
-    if (distance <= hammingDistanceThreshold) {
-      matchingClusterIds.push(otherClusterId);
-    }
-  });
-
-  if (matchingClusterIds.length > 0) {
-    const promises = matchingClusterIds.map(async (otherClusterId) => {
-      // Create a new canvas and context for the other cluster's image
-      const otherCanvas = document.createElement('canvas');
-      const otherCtx = otherCanvas.getContext('2d', { willReadFrequently: true });
-      otherCanvas.width = canvas.width; // Ensure it's the same width
-      otherCanvas.height = canvas.height; // Ensure it's the same height
-
-      // Draw the other cluster's image onto the new canvas
-      otherCtx.drawImage(
-        window.clusterMap.get(otherClusterId).elementForCluster,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-
-      // Get the pixel data for both images
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      const otherImgData = otherCtx.getImageData(0, 0, otherCanvas.width, otherCanvas.height).data;
-
-      // Create an output array for pixelmatch results
-      const output = new Uint8Array(canvas.width * canvas.height * 4); // RGBA
-
-      const numberDiffPixels = pixelmatch(
-        imgData,
-        otherImgData,
-        output,
-        canvas.width,
-        canvas.height,
-        {
-          threshold: imageMatchingThreshold, // Similarity threshold
-          includeAA: true,
-        },
-      );
-
-      // If the images match within the specified threshold, merge clusters
-      if (numberDiffPixels <= (imgData.length * exactMatchDifferentPixelPercent)) {
-        if (window.clusterMap.get(clusterId) !== window.clusterMap.get(otherClusterId)) {
-          // eslint-disable-next-line no-console
-          console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
-          window.clusterMap.get(otherClusterId).mergeCluster(window.clusterMap.get(clusterId));
-        }
-      } else if (numberDiffPixels <= (imgData.length * similarityDifferentPixelPercent)
-        && window.clusterMap.get(clusterId).id !== window.clusterMap.get(otherClusterId).id) {
-        const hereToThere = new Identity(`sim:${otherClusterId}`, 'similar-img-identity', false);
-        hereToThere.identityData.similarClusterId = otherClusterId;
-        window.clusterMap.get(clusterId).addIdentity(hereToThere);
-
-        const thereToHere = new Identity(`sim:${clusterId}`, 'similar-img-identity', false);
-        thereToHere.identityData.similarClusterId = clusterId;
-        window.clusterMap.get(otherClusterId).addIdentity(thereToHere);
-        // eslint-disable-next-line no-console
-        console.log(`Marking cluster ${clusterId} with url ${src} as similar to cluster ${otherClusterId} with url ${window.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
-      }
-    });
-
-    // Wait for all comparisons to finish
-    await Promise.all(promises);
-  }
-}
-
 async function loadDomOnlyImageFunctions(clusterId, values) {
-  identifyImgUrl(clusterId, values).then(() => { updateFigureData(clusterId); });
-  identityImgUrlAndSiteUrl(clusterId, values).then(() => { updateFigureData(clusterId); });
-  parameterizeColors(clusterId).then(() => { updateFigureData(clusterId); });
+  const promises = [];
+  const { identityProcessor } = window;
+  promises.push(identityProcessor.identifyImgUrl(clusterId, values)
+    .then(() => { updateFigureData(clusterId); }));
+  promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values)
+    .then(() => { updateFigureData(clusterId); }));
+  promises.push(identityProcessor.identifyColors(clusterId)
+    .then(() => { updateFigureData(clusterId); }));
+  await Promise.all(promises);
 }
 
 async function loadCanvasRenderedImageFunctions(clusterId, values) {
+  const { identityProcessor } = window;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const { elementForCluster } = window.clusterMap.get(clusterId);
+  const { elementForCluster } = identityProcessor.getCluster(clusterId);
 
   canvas.width = values.width;
   canvas.height = values.height;
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
+  // nothing to await here. These will be loaded on the next animation frame.
   requestAnimationFrame(async () => {
-    identityImgSha(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
+    identityProcessor.identityImgSha(clusterId, canvas, ctx)
+      .then(() => { updateFigureData(clusterId); });
   });
 
   requestAnimationFrame(() => {
-    detectAlphaChannel(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
+    identityProcessor.detectAlphaChannel(clusterId, canvas, ctx)
+      .then(() => { updateFigureData(clusterId); });
   });
 
   requestAnimationFrame(() => {
-    identifyByPerceptualImage(clusterId, canvas, ctx).then(() => { updateFigureData(clusterId); });
+    identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx)
+      .then(() => { updateFigureData(clusterId); });
   });
 }
 
@@ -1224,8 +486,7 @@ async function imageOnLoad(clusterId, values) {
 
 async function imageOnError(clusterId, values, href, error) {
   await loadDomOnlyImageFunctions(clusterId, values);
-  window.clusterMap.get(clusterId).clusterData.topColors.push('Unknown');
-  addUsedColor('Unknown');
+  window.identityProcessor.identifyUnknownColorOnError(clusterId);
   updateFigureData(clusterId);
   // eslint-disable-next-line no-console
   console.error(`Error loading img file at ${href}`, error);
@@ -1254,6 +515,7 @@ async function loadImages(individualBatch, concurrency) {
     window.imageCount += 1;
     const { imageCount } = window;
     const { href } = new URL(src, origin);
+    const { identityProcessor } = window;
     const loadedImg = new Image(width, height);
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
     loadedImg.src = href; // start loading the image
@@ -1267,11 +529,8 @@ async function loadImages(individualBatch, concurrency) {
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
 
-    const identity = new Identity(`slo:${imageCount}`, 'sitemap-img-load-order', false);
-    const originalCluster = new IdentityCluster(identity, loadedImg, figure, 'image'); // dont use directly
-    window.clusterMap.set(originalCluster.id, originalCluster);
-
-    const clusterId = originalCluster.id;
+    const originatingIdentity = new Identity(`slo:${imageCount}`, 'sitemap-img-load-order', false, false);
+    const clusterId = identityProcessor.addCluster(new IdentityCluster(identityProcessor, originatingIdentity, loadedImg, figure, 'image'));
 
     const values = {
       href,
@@ -1283,6 +542,9 @@ async function loadImages(individualBatch, concurrency) {
       instance,
       fileType,
     };
+
+    // TODO: We could optimize to not actually load duplicate
+    // image urls when we detect them, and run the rest of the functions.
 
     const promise = new Promise((resolve) => {
       loadedImg.onload = async () => {
@@ -1309,10 +571,11 @@ async function loadImages(individualBatch, concurrency) {
  * @param {Object[]} images - Array of image data objects to be displayed.
  */
 function displayImages(clusterIdList) {
+  const { identityProcessor } = window;
   const gallery = document.getElementById('image-gallery');
   clusterIdList.forEach((clusterId) => {
     // append the figure to the gallery if needed
-    const cluster = window.clusterMap.get(clusterId);
+    const cluster = identityProcessor.getCluster(clusterId);
     if (cluster.figureForCluster.parentElement === null) {
       gallery.append(cluster.figureForCluster);
     }
@@ -1504,7 +767,6 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
 
   // After all batches are done
   data.length = 0;
-  addColorsToFilterList();
   download.disabled = false;
   clearInterval(timer);
 
@@ -1602,23 +864,8 @@ async function fetchSitemap(sitemap) {
 /* setup */
 
 function setupWindowVariables() {
-  // could be computed every asset change, or on each block of changes, but this is more efficient.
-  window.usedColors = new Set();
-
-  // this map exists so that when interacting with an image element,
-  // we can resolve the cluster it belongs to.
-  // string key is the id of the cluster, which gets used in the element as data-src.
-  // value is the cluster object.
-  window.clusterMap = new Map();
-
-  // string identity id
-  // value is the cluster object.
-  window.strongIdentityToClusterMap = new Map();
   window.imageCount = 0;
-  window.clusterCount = 0;
-
-  // string url to object with { hash, identityId, and clusterId }
-  window.perceptualHashMap = new Map();
+  window.identityProcessor = new IdentityProcessor(AEM_EDS_HOSTS, addColorsToFilterList);
 }
 
 async function processForm(sitemap) {
@@ -1666,6 +913,27 @@ function getFormData(form) {
     }
   });
   return data;
+}
+
+function overrideCreateCanvas(doc) {
+  document.originalCreateElement = doc.createElement;
+  document.createElement = function createElement(tagName, options) {
+    if (tagName === 'canvas') {
+      const canvas = document.originalCreateElement(tagName, options);
+      canvas.originalGetContext = canvas.getContext;
+      canvas.getContext = function getContext(contextId, contextAttributes) {
+        if (contextId === '2d' && !contextAttributes?.willReadFrequently) {
+          if (!contextAttributes) {
+            return canvas.originalGetContext(contextId, { willReadFrequently: true });
+          }
+          contextAttributes.willReadFrequently = true;
+        }
+        return canvas.originalGetContext(contextId, contextAttributes);
+      };
+      return canvas;
+    }
+    return document.originalCreateElement(tagName, options);
+  };
 }
 
 function registerListeners(doc) {
@@ -1742,3 +1010,5 @@ function registerListeners(doc) {
 
 setupWindowVariables();
 registerListeners(document);
+
+overrideCreateCanvas(document);
