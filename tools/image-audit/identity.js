@@ -19,6 +19,9 @@ const exactMatchDifferentPixelPercent = 0.004;
 // allow no colors to be different
 const exactColorMatchThreshold = 0;
 
+// allow no colors to be different
+const exactColorMissingThreshold = 2;
+
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 - .1% different pixels
 const similarityDifferentPixelPercent = 0.01;
@@ -862,7 +865,7 @@ export class IdentityProcessor {
     matchingClusterIds.forEach((otherClusterId) => {
       const otherCluster = this.clusterMap.get(otherClusterId);
       const otherColors = otherCluster.getSingletonOf('color-identity').identityData.topColors;
-      if (Math.abs(colors.length - otherColors.length) > exactColorMatchThreshold) {
+      if (Math.abs(colors.length - otherColors.length) > exactColorMissingThreshold) {
         return;
       }
 
