@@ -17,10 +17,7 @@ const imageMatchingThreshold = 0.1;
 const exactMatchDifferentPixelPercent = 0.004;
 
 // allow no colors to be different
-const exactColorMatchThreshold = 0;
-
-// allow no colors to be different
-const exactColorMissingThreshold = 2;
+const exactColorMatchThreshold = 2;
 
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 - .1% different pixels
@@ -770,8 +767,8 @@ export class IdentityProcessor {
     const matchingClusterIds = this.getClustersWithHammingDistance(clusterId, src, hash);
     this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
 
-    if (matchingClusterIds.length > 0) {
-      const promises = matchingClusterIds.map(async (otherClusterId) => {
+    if (matchingClusterIds.size > 0) {
+      const promises = Array.from(matchingClusterIds).map(async (otherClusterId) => {
         // Create a new canvas and context for the other cluster's image
         const otherCanvas = document.createElement('canvas');
         const otherCtx = otherCanvas.getContext('2d', { willReadFrequently: true });
@@ -845,32 +842,35 @@ export class IdentityProcessor {
     this.perceptualHashMap.forEach((data, otherSrc) => {
       const otherClusterId = data.clusterId;
       const otherHash = data.hash;
-      if (otherClusterId === clusterId || src === otherSrc) {
-        // no need to merge already duplicate things which will be merged anyway.
-        return;
+      if (otherClusterId !== clusterId && src !== otherSrc) {
+        const distance = hash.hammingDistance(otherHash);
+        if (distance <= hammingDistanceThreshold) {
+          matchingClusterIds.add(otherClusterId);
+        }
       }
-      const distance = hash.hammingDistance(otherHash);
-      if (distance <= hammingDistanceThreshold) {
-        matchingClusterIds.add(otherClusterId);
-      }
+      // else : no need to merge already duplicate things which will be merged anyway.
     });
     return matchingClusterIds;
   }
 
   // another quick check to remove images with different top color palettes
+  // Function to filter clusters based on color palette matching
   filterClustersWithMatchingColors(clusterId, matchingClusterIds) {
     const cluster = this.clusterMap.get(clusterId);
-    const colors = cluster.getSingletonOf('color-identity').identityData.topColors;
+    const colors = new Set(cluster.getSingletonOf('color-identity').identityData.topColors);
 
     matchingClusterIds.forEach((otherClusterId) => {
       const otherCluster = this.clusterMap.get(otherClusterId);
-      const otherColors = otherCluster.getSingletonOf('color-identity').identityData.topColors;
-      if (Math.abs(colors.length - otherColors.length) > exactColorMissingThreshold) {
-        return;
-      }
+      const otherColors = new Set(otherCluster.getSingletonOf('color-identity').identityData.topColors);
 
-      const matchingColors = colors.filter((color) => otherColors.includes(color));
-      if (matchingColors.length > exactColorMatchThreshold) {
+      // Symmetric difference between two sets of colors
+      const diffColors = new Set([
+        ...[...colors].filter((color) => !otherColors.has(color)),
+        ...[...otherColors].filter((color) => !colors.has(color)),
+      ]);
+
+      // If the difference exceeds the threshold, remove the cluster
+      if (diffColors.size > exactColorMatchThreshold) {
         matchingClusterIds.delete(otherClusterId);
       }
     });

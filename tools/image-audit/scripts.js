@@ -176,6 +176,10 @@ function displayModal(figure) {
     const alt = cluster.getAll('url-page-img-identity', 'alt');
     // todo: this should be done as multiple entries of width, height, src. This is a quick fix.
     const identity = cluster.getFirstIdentityOf('url-page-img-identity');
+    if (identity === null) {
+      return;
+    }
+
     const colorIdentity = cluster.getSingletonOf('color-identity');
 
     const data = {
@@ -184,7 +188,7 @@ function displayModal(figure) {
       site,
       alt,
       width: identity.identityData.width,
-      height: identity.identityData.width,
+      height: identity.identityData.height,
       topColors: colorIdentity.identityData.topColors,
       aspectRatio: identity.identityData.aspectRatio,
       src: identityProcessor.getCluster(clusterId).elementForCluster.src,
