@@ -465,21 +465,18 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
+  const promises = [];
   // nothing to await here. These will be loaded on the next animation frame.
-  requestAnimationFrame(async () => {
-    identityProcessor.identityImgSha(clusterId, canvas, ctx)
-      .then(() => { updateFigureData(clusterId); });
-  });
+  promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx)
+    .then(() => { updateFigureData(clusterId); }));
 
-  requestAnimationFrame(() => {
-    identityProcessor.detectAlphaChannel(clusterId, canvas, ctx)
-      .then(() => { updateFigureData(clusterId); });
-  });
+  promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx)
+    .then(() => { updateFigureData(clusterId); }));
 
-  requestAnimationFrame(() => {
-    identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx)
-      .then(() => { updateFigureData(clusterId); });
-  });
+  promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx)
+    .then(() => { updateFigureData(clusterId); }));
+
+  await Promise.all(promises);
 }
 
 async function imageOnLoad(clusterId, values) {
