@@ -280,6 +280,76 @@ function aspectRatoToShape(aspect) {
   return 'landscape';
 }
 
+function changeFilters() {
+  const CANVAS = document.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+
+  const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+  const figures = [...GALLERY.querySelectorAll('figure')];
+
+  const checkColors = checked.filter((c) => c.startsWith('color-'));
+  const checkShapes = checked.filter((c) => c.startsWith('shape-'));
+
+  figures.forEach((figure) => {
+    const { shape } = figure.dataset;
+    let hide = true; // hide figures by default
+
+    // check images against filter critera
+    if (checked.length === 0) { // no filters are selected
+      // show all figures
+      hide = false;
+    } else {
+      let hiddenChanged = false;
+
+      if (checked.includes('missing-alt')) {
+        // only show figures without alt text
+        hide = figure.dataset.alt === 'true';
+        hiddenChanged = true;
+      }
+
+      // shapes are subtractive against missing alt.
+      if (checkShapes.length > 0) {
+        // only one shape.
+        if (checkShapes.includes(`shape-${shape}`)) {
+          if (!hiddenChanged) {
+            hide = false;
+            hiddenChanged = true;
+          }
+        } else {
+          hide = true;
+          hiddenChanged = true;
+        }
+      }
+
+      // colors are subtractive against other matches.
+      if (checkColors.length > 0) {
+        let foundAnyColor = false;
+        if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
+          figure.dataset.topColors.split(',').forEach((color) => {
+            if (checked.includes(`color-${color}`)) {
+              foundAnyColor = true;
+            }
+          });
+        }
+
+        if (!foundAnyColor) {
+          hide = true;
+          hiddenChanged = true;
+        } else if (!hiddenChanged) {
+          hide = false;
+          hiddenChanged = true;
+        }
+      } else if (!hiddenChanged) {
+        hide = false;
+      }
+    }
+
+    figure.setAttribute('aria-hidden', hide);
+  });
+}
+
 /**
  * Adds an event listener to the specified action element that filters images in a gallery
  * based on user selected criteria.
@@ -295,75 +365,7 @@ function aspectRatoToShape(aspect) {
  * in the gallery to show or hide it based on the selected filters.
  */
 function addFilterAction(action) {
-  action.addEventListener('change', () => {
-    const CANVAS = document.getElementById('canvas');
-    const GALLERY = CANVAS.querySelector('.gallery');
-    const ACTION_BAR = CANVAS.querySelector('.action-bar');
-    const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
-
-    const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-    const figures = [...GALLERY.querySelectorAll('figure')];
-
-    const checkColors = checked.filter((c) => c.startsWith('color-'));
-    const checkShapes = checked.filter((c) => c.startsWith('shape-'));
-
-    figures.forEach((figure) => {
-      const { shape } = figure.dataset;
-      let hide = true; // hide figures by default
-
-      // check images against filter critera
-      if (checked.length === 0) { // no filters are selected
-        // show all figures
-        hide = false;
-      } else {
-        let hiddenChanged = false;
-
-        if (checked.includes('missing-alt')) {
-          // only show figures without alt text
-          hide = figure.dataset.alt === 'true';
-          hiddenChanged = true;
-        }
-
-        // shapes are subtractive against missing alt.
-        if (checkShapes.length > 0) {
-          // only one shape.
-          if (checkShapes.includes(`shape-${shape}`)) {
-            if (!hiddenChanged) {
-              hide = false;
-              hiddenChanged = true;
-            }
-          } else {
-            hide = true;
-            hiddenChanged = true;
-          }
-        }
-
-        // colors are subtractive against other matches.
-        if (checkColors.length > 0) {
-          let foundAnyColor = false;
-          if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
-            figure.dataset.topColors.split(',').forEach((color) => {
-              if (checked.includes(`color-${color}`)) {
-                foundAnyColor = true;
-              }
-            });
-          }
-
-          if (!foundAnyColor) {
-            hide = true;
-            hiddenChanged = true;
-          } else if (!hiddenChanged) {
-            hide = false;
-            hiddenChanged = true;
-          }
-        } else if (!hiddenChanged) {
-          hide = false;
-        }
-      }
-
-      figure.setAttribute('aria-hidden', hide);
-    });
-  });
+  action.addEventListener('change', () => changeFilters());
 }
 
 function addColorsToFilterList(sortedColorNames) {
@@ -442,16 +444,23 @@ function updateFigureData(clusterId) {
   }
 }
 
-async function loadDomOnlyImageFunctions(clusterId, values) {
+async function loadPreImageLoadFunctions(clusterId, values) {
   const promises = [];
   const { identityProcessor } = window;
   promises.push(identityProcessor.identifyImgUrl(clusterId, values)
     .then(() => { updateFigureData(clusterId); }));
   promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values)
     .then(() => { updateFigureData(clusterId); }));
-  promises.push(identityProcessor.identifyColors(clusterId)
+  await Promise.allSettled(promises);
+}
+
+async function loadDomOnlyImageFunctions(clusterId, values) {
+  const promises = [];
+  const { identityProcessor } = window;
+  promises.push(identityProcessor.identifyColors(clusterId, values)
     .then(() => { updateFigureData(clusterId); }));
-  await Promise.all(promises);
+  promises.push(identityProcessor.identifyText(clusterId, values));
+  await Promise.allSettled(promises);
 }
 
 async function loadCanvasRenderedImageFunctions(clusterId, values) {
@@ -466,23 +475,20 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
   const promises = [];
-  // nothing to await here. These will be loaded on the next animation frame.
   promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx)
     .then(() => { updateFigureData(clusterId); }));
-
   promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx)
     .then(() => { updateFigureData(clusterId); }));
-
   promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx)
     .then(() => { updateFigureData(clusterId); }));
 
-  await Promise.all(promises);
+  await Promise.allSettled(promises);
 }
 
 async function imageOnLoad(clusterId, values) {
   const domPromise = loadDomOnlyImageFunctions(clusterId, values);
   const canvasPromise = loadCanvasRenderedImageFunctions(clusterId, values);
-  await Promise.all([domPromise, canvasPromise]);
+  await Promise.allSettled([domPromise, canvasPromise]);
 }
 
 async function imageOnError(clusterId, values, href, error) {
@@ -494,6 +500,41 @@ async function imageOnError(clusterId, values, href, error) {
   // TODO: Show broken file image?
 }
 
+function trackPromise(promise) {
+  let isFulfilled = false;
+  const trackedPromise = promise.then(
+    (result) => {
+      isFulfilled = true;
+      return result; // Preserve the resolved value
+    },
+    (error) => {
+      isFulfilled = true;
+      console.error('Promise rejected:', error);
+    },
+  );
+
+  // Attach the isFulfilled property
+  trackedPromise.isFulfilled = () => isFulfilled;
+
+  return trackedPromise;
+}
+
+/**
+ * Displays an cluster in the gallery.
+ */
+function displayImage(clusterId) {
+  const { identityProcessor } = window;
+  const cluster = identityProcessor.getCluster(clusterId);
+  if (cluster.id !== clusterId || cluster.figureForCluster.parentElement !== null) {
+    // This cluster was re-clustered and displayed or it's already displayed.
+    return;
+  }
+  const gallery = document.getElementById('image-gallery');
+  // append the figure to the gallery if needed
+  gallery.append(cluster.figureForCluster);
+  changeFilters();
+}
+
 async function loadImages(individualBatch, concurrency) {
   // use a map to track unique images by their src attribute
   const promises = []; // Array to hold promises
@@ -501,12 +542,13 @@ async function loadImages(individualBatch, concurrency) {
 
   individualBatch.filter((img) => isUrlValid(img.origin));
 
-  individualBatch.forEach(async (img) => {
+  for (let i = 0; i < individualBatch.length; i += 1) {
+    const img = individualBatch[i];
     if (promises.length >= concurrency) {
       // eslint-disable-next-line no-await-in-loop
       await Promise.race(promises);
       // Remove the completed promises
-      promises.splice(0, promises.findIndex((p) => p.isFulfilled) + 1);
+      promises.splice(0, promises.findIndex((p) => p.isFulfilled()) + 1);
     }
 
     const {
@@ -519,7 +561,6 @@ async function loadImages(individualBatch, concurrency) {
     const { identityProcessor } = window;
     const loadedImg = new Image(width, height);
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
-    loadedImg.src = href; // start loading the image
     const figure = document.createElement('figure');
     figure.append(loadedImg);
 
@@ -544,43 +585,39 @@ async function loadImages(individualBatch, concurrency) {
       fileType,
     };
 
-    // TODO: We could optimize to not actually load duplicate
-    // image urls when we detect them, and run the rest of the functions.
-
-    const promise = new Promise((resolve) => {
-      loadedImg.onload = async () => {
-        imageOnLoad(clusterId, values);
-        resolve();
-      };
-      loadedImg.onerror = async (error) => {
-        imageOnError(clusterId, values, href, error);
-        resolve();
-      };
-    });
-
-    promises.push(promise);
     batchEntries.push(clusterId);
-    updateFigureData(clusterId);
-  });
 
-  await Promise.all(promises);
-  return batchEntries;
-}
+    // These are lightweight and must be done to prevent other
+    // heavywieght operations from running on meaningless items.
+    // eslint-disable-next-line no-await-in-loop
+    await loadPreImageLoadFunctions(clusterId, values);
+    if (identityProcessor.getCluster(clusterId).id === clusterId) {
+      // This cluster was NOT re-clustered. Run more expensive functions.
+      const promise = trackPromise(new Promise((resolve) => {
+        loadedImg.onload = async () => {
+          await imageOnLoad(clusterId, values)
+            .then(() => {
+              displayImage(clusterId);
+              updateFigureData(clusterId);
+            });
+          resolve(true);
+        };
+        loadedImg.onerror = async (error) => {
+          await imageOnError(clusterId, values, href, error)
+            .then(() => { updateFigureData(clusterId); });
+          resolve(true);
+        };
+      }));
 
-/**
- * Displays a collection of images in the gallery.
- * @param {Object[]} images - Array of image data objects to be displayed.
- */
-function displayImages(clusterIdList) {
-  const { identityProcessor } = window;
-  const gallery = document.getElementById('image-gallery');
-  clusterIdList.forEach((clusterId) => {
-    // append the figure to the gallery if needed
-    const cluster = identityProcessor.getCluster(clusterId);
-    if (cluster.figureForCluster.parentElement === null) {
-      gallery.append(cluster.figureForCluster);
+      // dont start loading the image until here.
+      loadedImg.src = href;
+
+      promises.push(promise);
     }
-  });
+  }
+
+  await Promise.allSettled(promises);
+  return batchEntries;
 }
 
 /**
@@ -683,7 +720,7 @@ async function fetchBatch(batch, concurrency, counter) {
     })());
   }
 
-  await Promise.all(tasks); // wait for all concurrent tasks to complete
+  await Promise.allSettled(tasks); // wait for all concurrent tasks to complete
   return results;
 }
 
@@ -705,7 +742,7 @@ async function handleBatch(
   results.removeAttribute('aria-hidden');
   const batchEntries = await loadImages(batchData, concurrency);
   updateCounter(imagesCounter);
-  displayImages(batchEntries);
+  // displayImages(batchEntries);
   decorateIcons(gallery);
 }
 
@@ -744,7 +781,7 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
       // eslint-disable-next-line no-await-in-loop
       await Promise.race(batchPromises);
       // Remove the completed promises
-      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled) + 1);
+      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled()) + 1);
     }
     const batch = urls.slice(i, i + batchSize);
 
@@ -760,14 +797,15 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
       gallery,
     );
 
-    batchPromises.push(promise);
+    batchPromises.push(trackPromise(promise));
   }
 
   // Wait for all batches to finish processing
-  await Promise.all(batchPromises);
+  await Promise.allSettled(batchPromises);
 
   // After all batches are done
   data.length = 0;
+  console.log('All batches are done');
   download.disabled = false;
   clearInterval(timer);
 

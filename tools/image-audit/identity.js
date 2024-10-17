@@ -3,6 +3,10 @@
 // eslint-disable-next-line import/no-unresolved, import/order
 import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
 
+// disabled for now
+// eslint-disable-next-line import/no-unresolved
+// import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js';
+
 // trims sha and alpha detection to this many pixels.
 const maxPixelsToEval = 250000; // 500x500 pixels
 
@@ -19,9 +23,13 @@ const exactMatchDifferentPixelPercent = 0.004;
 // allow no colors to be different
 const exactColorMatchThreshold = 2;
 
+// const exactTextMatchThresholdPercent = 0.01;
+
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 - .1% different pixels
 const similarityDifferentPixelPercent = 0.01;
+
+// const maxTextIdentifyingCount = 10;
 
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 
@@ -107,6 +115,8 @@ const cssColors = [
   { name: 'Transparency', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
   { name: 'Unknown', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
 ];
+
+// const wordConfidenceThreshold = 90; // Adjust this threshold as needed
 
 const numberOfTopColors = 10; // used for selecting top colors
 // const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
@@ -342,6 +352,7 @@ export class IdentityProcessor {
     this.usedColors = new Set();
     this.clusterCount = 0;
     this.colorAddedCallback = colorAddedCallback;
+    this.currentlyTextIdentifyingCount = 0;
   }
 
   addCluster(cluster) {
@@ -569,7 +580,8 @@ export class IdentityProcessor {
     }
   }
 
-  async identifyColors(clusterId) {
+  // eslint-disable-next-line no-unused-vars
+  async identifyColors(clusterId, values) {
     // colors are for the entire cluster.
     const cluster = this.clusterMap.get(clusterId);
     const colorIdentity = this.#findOrBuildColorIdentity(clusterId);
@@ -606,9 +618,9 @@ export class IdentityProcessor {
     }
   }
 
-  async #identifyUrlInternal(clusterId, type, additionalTokensToSum = []) {
+  async #identifyUrlInternal(href, clusterId, type, additionalTokensToSum = []) {
+    const url = new URL(href);
     const cluster = this.clusterMap.get(clusterId);
-    const url = new URL(cluster.elementForCluster.src); // Get the image URL
     const { elementForCluster } = cluster;
 
     const identificationParts = additionalTokensToSum.slice();
@@ -619,7 +631,7 @@ export class IdentityProcessor {
       // no need to include the host. The path contains an immutable reference.
       // eslint-disable-next-line prefer-destructuring
       identificationParts.push(':eds:');
-      identificationParts.push(url.href.split('://')[1].toLowerCase());
+      identificationParts.push(href.split('://')[1].toLowerCase());
     } else {
       try {
         // TODO: Lets cache these fields so we limit the amount of time they could change during.
@@ -643,7 +655,7 @@ export class IdentityProcessor {
           identificationParts.push(digest);
         } else {
           // try to join what we do know. Lower fidelity identifier
-          identificationParts.push(url.href); // Start with the URL or other primary identifier
+          identificationParts.push(href); // Start with the URL or other primary identifier
           identificationParts.push('wt');
 
           // Check each field and add it to the array if it exists
@@ -667,7 +679,7 @@ export class IdentityProcessor {
         identificationParts.length = 0;
         identificationParts.push(...additionalTokensToSum);
         identificationParts.push('er');
-        identificationParts.push(url.href); // Start with the URL or other primary identifier
+        identificationParts.push(href); // Start with the URL or other primary identifier
         // use what we've got
         if (elementForCluster.width) {
           identificationParts.push(elementForCluster.width);
@@ -683,7 +695,7 @@ export class IdentityProcessor {
   }
 
   async identifyImgUrl(clusterId, values) {
-    const identityId = await this.#identifyUrlInternal(clusterId, 'url-img-identity');
+    const identityId = await this.#identifyUrlInternal(values.href, clusterId, 'url-img-identity');
     const identity = this.clusterMap.get(clusterId).identities.get(identityId);
     identity.identityData.src = values.href;
   }
@@ -729,7 +741,7 @@ export class IdentityProcessor {
       additionalTokensToSum.push(values.site); // Start with the URL or other primary identifier
     }
 
-    const identityId = await this.#identifyUrlInternal(clusterId, 'url-page-img-identity', additionalTokensToSum);
+    const identityId = await this.#identifyUrlInternal(values.href, clusterId, 'url-page-img-identity', additionalTokensToSum);
     const identity = this.clusterMap.get(clusterId).identities.get(identityId);
     identity.identityData.site = values.site;
     identity.identityData.src = values.href;
@@ -740,9 +752,64 @@ export class IdentityProcessor {
     identity.identityData.instance = values.instance;
   }
 
-  async identifyByPerceptualImage(clusterId, canvas, ctx) {
-    // eslint-disable-next-line no-undef
+  // eslint-disable-next-line no-unused-vars
+  async identifyText(clusterId, values) {
+    // disabled for now.
+    this.clusterMap.get(clusterId).clusterData.textIdentified = true;
 
+    /* disabled for now. super memory intensive.
+    for (let i = 0;
+      this.currentlyTextIdentifyingCount > maxTextIdentifyingCount
+      && i < 30;
+      i += 1
+    ) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 1000); });
+    }
+    this.currentlyTextIdentifyingCount += 1;
+    try {
+      if (this.clusterMap.get(clusterId).clusterData.textIdentified
+        || this.clusterMap.get(clusterId).type !== 'image') {
+        return;
+      }
+      this.clusterMap.get(clusterId).clusterData.textIdentified = true;
+
+      await Tesseract.recognize(
+        this.clusterMap.get(clusterId).elementForCluster,
+        'eng',
+      ).then(async ({ data: { words } }) => {
+        // Filter words based on confidence level
+        const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
+
+        if (confidentWords.length === 0) {
+          return;
+        }
+        const text = confidentWords
+          .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
+          .join(' ').replace(/\s+/g, ' ').trim();
+        if (text.length === 0) {
+          return;
+        }
+        const identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ');
+
+        const identityId = `txt:${await this.#createHash(identityText)}`;
+        const identity = new Identity(identityId, 'text-identity', false, true);
+
+        console.log(`Identified text: ${text} from cluster ${clusterId}`);
+
+        // Storing both the original recognized text and the filtered text
+        identity.identityData.text = text;
+        identity.identityData.identityText = identityText;
+
+        this.clusterMap.get(clusterId).addIdentity(identity);
+      });
+    } finally {
+      this.currentlyTextIdentifyingCount -= 1;
+    }
+    */
+  }
+
+  async identifyByPerceptualImage(clusterId, canvas, ctx) {
     // getting the element and holding it here in case re-clustering switches it --
     // it is atomic with the hash.
     const { elementForCluster } = this.clusterMap.get(clusterId);
@@ -766,6 +833,7 @@ export class IdentityProcessor {
 
     const matchingClusterIds = this.getClustersWithHammingDistance(clusterId, src, hash);
     this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
+    this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
 
     if (matchingClusterIds.size > 0) {
       const promises = Array.from(matchingClusterIds).map(async (otherClusterId) => {
@@ -830,7 +898,7 @@ export class IdentityProcessor {
       });
 
       // Wait for all comparisons to finish
-      await Promise.all(promises);
+      await Promise.allSettled(promises);
     }
   }
 
@@ -874,6 +942,44 @@ export class IdentityProcessor {
         matchingClusterIds.delete(otherClusterId);
       }
     });
+  }
+
+  async filterClustersWithIdentityText(clusterId, matchingClusterIds) {
+    /* disabled for now.
+    const cluster = this.clusterMap.get(clusterId);
+    const textIdentity = cluster.getSingletonOf('text-identity');
+    const identificationText = new Set(textIdentity
+      ? textIdentity.identityData.identityText.split(' ') : []);
+    if (identificationText.has('')) {
+      identificationText.delete('');
+    }
+
+    matchingClusterIds.forEach((otherClusterId) => {
+      const otherTextIdentity = this.clusterMap.get(otherClusterId).getSingletonOf('text-identity');
+      if (otherTextIdentity) {
+        const otherIdentificationText = new Set(otherTextIdentity
+          ? otherTextIdentity.identityData.identityText.split(' ') : []);
+        if (otherIdentificationText.has('')) {
+          otherIdentificationText.delete('');
+        }
+
+        // Symmetric difference between two sets of colors
+        const diffText = new Set([
+          ...[...identificationText].filter((word) => !otherIdentificationText.has(word)),
+          ...[...otherIdentificationText].filter((word) => !identificationText.has(word)),
+        ]);
+
+        // If the difference exceeds the threshold, remove the cluster
+        const threshold = Math.min(
+          Math.round(exactTextMatchThresholdPercent * identificationText.size),
+          1,
+        );
+        if (diffText.size > threshold) {
+          matchingClusterIds.delete(otherClusterId);
+        }
+      }
+    });
+    */
   }
 
   getAllClusters() {
