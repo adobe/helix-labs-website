@@ -31,7 +31,8 @@
           <input name="admin-url" id="admin-url" type="url" required />
           <div class="field-help-text">
             <p>
-              See supported calls at <a href="https://www.aem.live/docs/admin.html" target="_blank">aem.live/docs/admin</a>.
+              See supported calls at <a href="https://www.aem.live/docs/admin.html"
+                target="_blank">aem.live/docs/admin</a>.
             </p>
           </div>
         </div>
@@ -47,18 +48,17 @@
       <form id="body-form">
         <div class="form-field textarea-field">
           <label for="body">Body</label>
-          <textarea id="body" name="body" rows="20"></textarea>
+          <div class="body-wrapper">
+            <textarea id="body" spellcheck="false"></textarea>
+            <pre id="preview-wrapper" aria-hidden="true">
+              <code id="preview" class="language-js"></code>
+            </pre>
+          </div>
         </div>
         <div class="save-wrapper">
           <div class="form-field picker-field">
             <label for="method">Method</label>
-            <input
-              name="method"
-              id="method"
-              type="text"
-              aria-haspopup="listbox"
-              value="POST"
-              readonly />
+            <input name="method" id="method" type="text" aria-haspopup="listbox" value="POST" readonly />
             <i class="symbol symbol-chevron"></i>
             <ul class="menu" id="method-menu" aria-labelledby="method" role="listbox" hidden>
               <li role="option" aria-selected="true">POST</li>
@@ -69,7 +69,7 @@
             <button type="submit" id="save" class="button">Save</button>
           </p>
         </div>
-      </form>      
+      </form>
     </div>
 
     <!-- CONSOLE -->
