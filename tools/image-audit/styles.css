@@ -103,6 +103,33 @@
   position: relative;
 }
 
+.image-audit .progress-bar {
+  width: 100%; /* Full width of the container */
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.image-audit .progress {
+  height: 100%;
+  background-color: #ED2224;
+  width: 0%;
+  transition: width 0.2s;
+}
+
+.image-audit .overlay {
+  position: fixed; /* Position the overlay over the canvas */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.2); /* Semi-transparent gray background */
+  display: none; /* Hidden by default */
+  z-index: 10; /* Ensure it appears above other elements */
+}
+
 .image-audit .canvas .action-bar-wrapper {
   position: sticky;
   top: var(--horizontal-spacing);
@@ -160,3 +187,4 @@
 
 .image-audit .color-checkbox {
   display: none;
+}

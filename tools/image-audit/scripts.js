@@ -154,6 +154,7 @@ function displayModal(figure) {
   if (!modal) {
     // build new modal
     const [newModal, body] = buildModal();
+
     newModal.id = modalId;
     modal = newModal;
     // define and populate modal content
@@ -444,26 +445,24 @@ function updateFigureData(clusterId) {
   }
 }
 
-async function loadPreImageLoadFunctions(clusterId, values) {
-  const promises = [];
+async function executePreflightFunctions(clusterId, values) {
   const { identityProcessor } = window;
-  promises.push(identityProcessor.identifyImgUrl(clusterId, values)
-    .then(() => { updateFigureData(clusterId); }));
-  promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values)
-    .then(() => { updateFigureData(clusterId); }));
-  await Promise.allSettled(promises);
+
+  await Promise.allSettled([
+    identityProcessor.identifyImgUrl(clusterId, values),
+    identityProcessor.identityImgUrlAndSiteUrl(clusterId, values),
+  ]);
 }
 
-async function loadDomOnlyImageFunctions(clusterId, values) {
-  const promises = [];
+async function executePostFlightDomFunctions(clusterId, values) {
   const { identityProcessor } = window;
-  promises.push(identityProcessor.identifyColors(clusterId, values)
-    .then(() => { updateFigureData(clusterId); }));
-  promises.push(identityProcessor.identifyText(clusterId, values));
-  await Promise.allSettled(promises);
+  await Promise.allSettled([
+    identityProcessor.identifyColors(clusterId, values),
+    // identityProcessor.identifyText(clusterId, values),
+  ]);
 }
 
-async function loadCanvasRenderedImageFunctions(clusterId, values) {
+async function executePostFlightCanvasFunctions(clusterId, values) {
   const { identityProcessor } = window;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -474,25 +473,21 @@ async function loadCanvasRenderedImageFunctions(clusterId, values) {
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
-  const promises = [];
-  promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx)
-    .then(() => { updateFigureData(clusterId); }));
-  promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx)
-    .then(() => { updateFigureData(clusterId); }));
-  promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx)
-    .then(() => { updateFigureData(clusterId); }));
-
-  await Promise.allSettled(promises);
+  await Promise.allSettled([
+    identityProcessor.identityImgSha(clusterId, canvas, ctx),
+    identityProcessor.detectAlphaChannel(clusterId, canvas, ctx),
+    identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx),
+  ]);
 }
 
 async function imageOnLoad(clusterId, values) {
-  const domPromise = loadDomOnlyImageFunctions(clusterId, values);
-  const canvasPromise = loadCanvasRenderedImageFunctions(clusterId, values);
-  await Promise.allSettled([domPromise, canvasPromise]);
+  await Promise.allSettled([
+    executePostFlightDomFunctions(clusterId, values),
+    executePostFlightCanvasFunctions(clusterId, values),
+  ]);
 }
 
 async function imageOnError(clusterId, values, href, error) {
-  await loadDomOnlyImageFunctions(clusterId, values);
   window.identityProcessor.identifyUnknownColorOnError(clusterId);
   updateFigureData(clusterId);
   // eslint-disable-next-line no-console
@@ -519,6 +514,31 @@ function trackPromise(promise) {
   return trackedPromise;
 }
 
+function updateProgress() {
+  const pagesCounter = parseInt(document.getElementById('pages-counter').innerText, 10) || 0;
+  const totalCounter = parseInt(document.getElementById('total-counter').innerText, 10) || 1; // Avoid division by zero
+
+  // Calculate the percentage of completion
+  const percentage = (pagesCounter / (totalCounter * 1.1)) * 100;
+
+  // Update the progress bar width
+  document.getElementById('progress').style.width = `${percentage}%`;
+}
+
+/**
+ * Updates the numeric content of an HTML element by a specified increment.
+ * @param {HTMLElement} counter - Counter whose text content will be updated.
+ * @param {number} increment - Amount to increment the current value by.
+ * @param {boolean} [float=false] - Check if counter will be updated by a float or an integer.
+ */
+function updateCounter(counter, increment, float = false) {
+  const value = parseFloat(counter.textContent, 10);
+  // calculate the new value (or reset to 0 if no increment is provided)
+  const targetValue = increment ? value + increment : 0;
+  counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
+  if (counter.id === 'images-counter' || counter.id === 'total-counter') updateProgress();
+}
+
 /**
  * Displays an cluster in the gallery.
  */
@@ -527,11 +547,13 @@ function displayImage(clusterId) {
   const cluster = identityProcessor.getCluster(clusterId);
   if (cluster.id !== clusterId || cluster.figureForCluster.parentElement !== null) {
     // This cluster was re-clustered and displayed or it's already displayed.
+    updateCounter(document.getElementById('duplicate-images-counter'), 1);
     return;
   }
   const gallery = document.getElementById('image-gallery');
   // append the figure to the gallery if needed
   gallery.append(cluster.figureForCluster);
+  updateCounter(document.getElementById('images-counter'), 1);
   changeFilters();
 }
 
@@ -587,10 +609,10 @@ async function loadImages(individualBatch, concurrency) {
 
     batchEntries.push(clusterId);
 
-    // These are lightweight and must be done to prevent other
+    // preflight checks are lightweight and must be done to prevent other
     // heavywieght operations from running on meaningless items.
     // eslint-disable-next-line no-await-in-loop
-    await loadPreImageLoadFunctions(clusterId, values);
+    await executePreflightFunctions(clusterId, values);
     if (identityProcessor.getCluster(clusterId).id === clusterId) {
       // This cluster was NOT re-clustered. Run more expensive functions.
       const promise = trackPromise(new Promise((resolve) => {
@@ -603,8 +625,7 @@ async function loadImages(individualBatch, concurrency) {
           resolve(true);
         };
         loadedImg.onerror = async (error) => {
-          await imageOnError(clusterId, values, href, error)
-            .then(() => { updateFigureData(clusterId); });
+          await imageOnError(clusterId, values, href, error);
           resolve(true);
         };
       }));
@@ -613,24 +634,13 @@ async function loadImages(individualBatch, concurrency) {
       loadedImg.src = href;
 
       promises.push(promise);
+    } else {
+      updateCounter(document.getElementById('duplicate-images-counter'), 1);
     }
   }
 
   await Promise.allSettled(promises);
   return batchEntries;
-}
-
-/**
- * Updates the numeric content of an HTML element by a specified increment.
- * @param {HTMLElement} counter - Counter whose text content will be updated.
- * @param {number} increment - Amount to increment the current value by.
- * @param {boolean} [float=false] - Check if counter will be updated by a float or an integer.
- */
-function updateCounter(counter, increment, float = false) {
-  const value = parseFloat(counter.textContent, 10);
-  // calculate the new value (or reset to 0 if no increment is provided)
-  const targetValue = increment ? value + increment : 0;
-  counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
 }
 
 /* fetching data */
@@ -712,10 +722,10 @@ async function fetchBatch(batch, concurrency, counter) {
       while (batch.length > 0) {
         // get the next URL from the batch
         const url = batch.shift();
-        updateCounter(counter, 1);
         // eslint-disable-next-line no-await-in-loop
         const imgData = await fetchImageDataFromPage(url);
         results.push(...imgData);
+        updateCounter(counter, 1);
       }
     })());
   }
@@ -740,9 +750,7 @@ async function handleBatch(
   // Display images as they are fetched
   main.dataset.canvas = true;
   results.removeAttribute('aria-hidden');
-  const batchEntries = await loadImages(batchData, concurrency);
-  updateCounter(imagesCounter);
-  // displayImages(batchEntries);
+  await loadImages(batchData, concurrency);
   decorateIcons(gallery);
 }
 
@@ -765,6 +773,8 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
   // Reset counters
   const imagesCounter = document.getElementById('images-counter');
   updateCounter(imagesCounter);
+  const duplicatesCounter = document.getElementById('duplicate-images-counter');
+  updateCounter(duplicatesCounter);
   const pagesCounter = document.getElementById('pages-counter');
   updateCounter(pagesCounter);
   const totalCounter = document.getElementById('total-counter');
@@ -907,14 +917,31 @@ function setupWindowVariables() {
   window.identityProcessor = new IdentityProcessor(AEM_EDS_HOSTS, addColorsToFilterList);
 }
 
+function showOverlay() {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'block'; // Show the overlay
+  document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
+}
+
+function hideOverlay() {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'none'; // Hide the overlay
+  document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
+  document.getElementById('progress').style.width = '0%'; // Reset progress
+}
+
 async function processForm(sitemap) {
   setupWindowVariables();
+  showOverlay();
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
+
+  document.querySelectorAll('dialog').forEach((dialog) => { dialog.remove(); });
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(urls);
+  hideOverlay();
 }
 
 function getFormData(form) {

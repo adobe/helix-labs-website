@@ -3,9 +3,8 @@
 // eslint-disable-next-line import/no-unresolved, import/order
 import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
 
-// disabled for now
 // eslint-disable-next-line import/no-unresolved
-// import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js';
+import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js';
 
 // trims sha and alpha detection to this many pixels.
 const maxPixelsToEval = 250000; // 500x500 pixels
@@ -23,13 +22,11 @@ const exactMatchDifferentPixelPercent = 0.004;
 // allow no colors to be different
 const exactColorMatchThreshold = 2;
 
-// const exactTextMatchThresholdPercent = 0.01;
+const exactTextMatchThresholdPercent = 0.1;
 
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 - .1% different pixels
 const similarityDifferentPixelPercent = 0.01;
-
-// const maxTextIdentifyingCount = 10;
 
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 
@@ -116,11 +113,11 @@ const cssColors = [
   { name: 'Unknown', rgb: [-255, -255, -255], hsl: [-255, -255, -255] },
 ];
 
-// const wordConfidenceThreshold = 90; // Adjust this threshold as needed
+const wordConfidenceThreshold = 85;
 
-const numberOfTopColors = 10; // used for selecting top colors
-// const numberOfTopRawColors = 20; // used for selecting top colors - currently not enabled.
-const saturationThreshold = 10; // used for sorting colors
+const numberOfTopColors = 10;
+// const numberOfTopRawColors = 20;
+const saturationThreshold = 10;
 // eslint-disable-next-line no-undef
 const colorThief = new ColorThief();
 
@@ -543,6 +540,35 @@ export class IdentityProcessor {
     }
   }
 
+  // eslint-disable-next-line class-methods-use-this
+  async #waitForVariable(variableGetter, maxAttempts = 60, intervalMs = 500) {
+    let isFulfilled = false;
+
+    const promise = new Promise((resolve) => {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        const value = variableGetter();
+        if (value) {
+          clearInterval(interval);
+          isFulfilled = true;
+          resolve(value);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          isFulfilled = true;
+          resolve(null);
+        }
+        attempts += 1;
+      }, intervalMs);
+    });
+
+    // Attach the isFulfilled property
+    promise.isFulfilled = async () => {
+      Promise.allSettled([promise]);
+      return isFulfilled;
+    };
+    return promise;
+  }
+
   // Function to calculate the Euclidean distance between two colors
   // eslint-disable-next-line class-methods-use-this
   #colorDistance(color1, color2) {
@@ -584,6 +610,11 @@ export class IdentityProcessor {
   async identifyColors(clusterId, values) {
     // colors are for the entire cluster.
     const cluster = this.clusterMap.get(clusterId);
+    if (cluster.clusterData.colorsIdentified) {
+      return;
+    }
+    cluster.clusterData.colorsIdentified = true;
+
     const colorIdentity = this.#findOrBuildColorIdentity(clusterId);
 
     const { elementForCluster } = cluster;
@@ -754,59 +785,41 @@ export class IdentityProcessor {
 
   // eslint-disable-next-line no-unused-vars
   async identifyText(clusterId, values) {
-    // disabled for now.
+    if (this.clusterMap.get(clusterId).clusterData.textIdentified) {
+      return;
+    }
     this.clusterMap.get(clusterId).clusterData.textIdentified = true;
 
-    /* disabled for now. super memory intensive.
-    for (let i = 0;
-      this.currentlyTextIdentifyingCount > maxTextIdentifyingCount
-      && i < 30;
-      i += 1
-    ) {
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { setTimeout(resolve, 1000); });
-    }
-    this.currentlyTextIdentifyingCount += 1;
-    try {
-      if (this.clusterMap.get(clusterId).clusterData.textIdentified
-        || this.clusterMap.get(clusterId).type !== 'image') {
+    // eslint-disable-next-line no-undef
+    await Tesseract.recognize(
+      this.clusterMap.get(clusterId).elementForCluster,
+      'eng',
+    ).then(async ({ data: { words } }) => {
+      // Filter words based on confidence level
+      const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
+
+      if (confidentWords.length === 0) {
         return;
       }
-      this.clusterMap.get(clusterId).clusterData.textIdentified = true;
+      const text = confidentWords
+        .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
+        .join(' ').replace(/\s+/g, ' ').trim();
+      if (text.length === 0) {
+        return;
+      }
+      const identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ');
 
-      await Tesseract.recognize(
-        this.clusterMap.get(clusterId).elementForCluster,
-        'eng',
-      ).then(async ({ data: { words } }) => {
-        // Filter words based on confidence level
-        const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
+      const identityId = `txt:${await this.#createHash(identityText)}`;
+      const identity = new Identity(identityId, 'text-identity', false, true);
 
-        if (confidentWords.length === 0) {
-          return;
-        }
-        const text = confidentWords
-          .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
-          .join(' ').replace(/\s+/g, ' ').trim();
-        if (text.length === 0) {
-          return;
-        }
-        const identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ');
+      console.log(`Identified text: ${text} from cluster ${clusterId}`);
 
-        const identityId = `txt:${await this.#createHash(identityText)}`;
-        const identity = new Identity(identityId, 'text-identity', false, true);
+      // Storing both the original recognized text and the filtered text
+      identity.identityData.text = text;
+      identity.identityData.identityText = identityText;
 
-        console.log(`Identified text: ${text} from cluster ${clusterId}`);
-
-        // Storing both the original recognized text and the filtered text
-        identity.identityData.text = text;
-        identity.identityData.identityText = identityText;
-
-        this.clusterMap.get(clusterId).addIdentity(identity);
-      });
-    } finally {
-      this.currentlyTextIdentifyingCount -= 1;
-    }
-    */
+      this.clusterMap.get(clusterId).addIdentity(identity);
+    });
   }
 
   async identifyByPerceptualImage(clusterId, canvas, ctx) {
@@ -832,8 +845,8 @@ export class IdentityProcessor {
     this.clusterMap.get(clusterId).addIdentity(identity);
 
     const matchingClusterIds = this.getClustersWithHammingDistance(clusterId, src, hash);
-    this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
-    this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
+    await this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
+    await this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
 
     if (matchingClusterIds.size > 0) {
       const promises = Array.from(matchingClusterIds).map(async (otherClusterId) => {
@@ -923,7 +936,10 @@ export class IdentityProcessor {
 
   // another quick check to remove images with different top color palettes
   // Function to filter clusters based on color palette matching
-  filterClustersWithMatchingColors(clusterId, matchingClusterIds) {
+  async filterClustersWithMatchingColors(clusterId, matchingClusterIds) {
+    if (!await this.#waitForVariable(
+      () => this.clusterMap.get(clusterId).clusterData.colorsIdentified,
+    ).isFulfilled()) return;
     const cluster = this.clusterMap.get(clusterId);
     const colors = new Set(cluster.getSingletonOf('color-identity').identityData.topColors);
 
@@ -945,7 +961,9 @@ export class IdentityProcessor {
   }
 
   async filterClustersWithIdentityText(clusterId, matchingClusterIds) {
-    /* disabled for now.
+    if (!await this.#waitForVariable(
+      () => this.clusterMap.get(clusterId).clusterData.textIdentified,
+    ).isFulfilled()) return;
     const cluster = this.clusterMap.get(clusterId);
     const textIdentity = cluster.getSingletonOf('text-identity');
     const identificationText = new Set(textIdentity
@@ -979,7 +997,6 @@ export class IdentityProcessor {
         }
       }
     });
-    */
   }
 
   getAllClusters() {
