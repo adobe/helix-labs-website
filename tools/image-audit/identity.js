@@ -807,7 +807,7 @@ export class IdentityProcessor {
       const identityId = `txt:${await this.#createHash(identityText)}`;
       const identity = new Identity(identityId, 'text-identity', false, true);
 
-      console.log(`Identified text: ${text} from cluster ${clusterId}`);
+      // console.log(`Identified text: ${text} from cluster ${clusterId}`);
 
       // Storing both the original recognized text and the filtered text
       identity.identityData.text = text;
