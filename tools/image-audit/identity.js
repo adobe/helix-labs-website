@@ -560,13 +560,8 @@ export class IdentityProcessor {
         attempts += 1;
       }, intervalMs);
     });
-
-    // Attach the isFulfilled property
-    promise.isFulfilled = async () => {
-      Promise.allSettled([promise]);
-      return isFulfilled;
-    };
-    return promise;
+    await promise;
+    return isFulfilled;
   }
 
   // Function to calculate the Euclidean distance between two colors
@@ -846,43 +841,67 @@ export class IdentityProcessor {
 
     const matchingClusterIds = this.getClustersWithHammingDistance(clusterId, src, hash);
     await this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
-    await this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
+    // await this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
 
     if (matchingClusterIds.size > 0) {
       const promises = Array.from(matchingClusterIds).map(async (otherClusterId) => {
         // Create a new canvas and context for the other cluster's image
         const otherCanvas = document.createElement('canvas');
         const otherCtx = otherCanvas.getContext('2d', { willReadFrequently: true });
-        otherCanvas.width = canvas.width; // Ensure it's the same width
-        otherCanvas.height = canvas.height; // Ensure it's the same height
+
+        const otherWidth = this.clusterMap.get(otherClusterId).elementForCluster.width;
+        const otherHeight = this.clusterMap.get(otherClusterId).elementForCluster.height;
+
+        // compare using lowest fidelity.
+        const width = Math.min(otherWidth, canvas.width);
+        const height = Math.min(otherHeight, canvas.height);
+
+        let thisCanvas = canvas;
+        let thisCtx = ctx;
+        if (canvas.width !== width || canvas.height !== height) {
+          thisCanvas = document.createElement('canvas');
+          thisCanvas.width = width;
+          thisCanvas.height = height;
+          thisCtx = thisCanvas.getContext('2d', { willReadFrequently: true });
+          thisCtx.drawImage(
+            this.clusterMap.get(clusterId).elementForCluster,
+            0,
+            0,
+            width,
+            height,
+          );
+        }
+
+        otherCanvas.width = width;
+        otherCanvas.height = height;
 
         // Draw the other cluster's image onto the new canvas
         otherCtx.drawImage(
           this.clusterMap.get(otherClusterId).elementForCluster,
           0,
           0,
-          canvas.width,
-          canvas.height,
+          width,
+          height,
         );
 
         // Get the pixel data for both images
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const imgData = thisCtx.getImageData(0, 0, width, height).data;
         const otherImgData = otherCtx.getImageData(
           0,
           0,
-          otherCanvas.width,
-          otherCanvas.height,
+          width,
+          height,
         ).data;
 
         // Create an output array for pixelmatch results
-        const output = new Uint8Array(canvas.width * canvas.height * 4); // RGBA
+        const output = new Uint8Array(width * height * 4); // RGBA
 
         const numberDiffPixels = pixelmatch(
           imgData,
           otherImgData,
           output,
-          canvas.width,
-          canvas.height,
+          width,
+          height,
           {
             threshold: imageMatchingThreshold, // Similarity threshold
             includeAA: true,
@@ -890,14 +909,17 @@ export class IdentityProcessor {
         );
 
         // If the images match within the specified threshold, merge clusters
-        if (numberDiffPixels <= (imgData.length * exactMatchDifferentPixelPercent)) {
+        if (numberDiffPixels <= (
+          (Math.min(imgData.length, otherImgData.length) * exactMatchDifferentPixelPercent)
+        )) {
           if (this.clusterMap.get(clusterId) !== this.clusterMap.get(otherClusterId)) {
             // eslint-disable-next-line no-console
-            console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
+            console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.min(imgData.length, otherImgData.length)) * 100}%`);
             this.clusterMap.get(otherClusterId).mergeCluster(this.clusterMap.get(clusterId));
           }
-        } else if (numberDiffPixels <= (imgData.length * similarityDifferentPixelPercent)
-            && this.clusterMap.get(clusterId).id !== this.clusterMap.get(otherClusterId).id) {
+        } else if (numberDiffPixels <= (
+          Math.min(imgData.length, otherImgData.length) * similarityDifferentPixelPercent
+        ) && this.clusterMap.get(clusterId).id !== this.clusterMap.get(otherClusterId).id) {
           const hereToThere = new Identity(`sim:${otherClusterId}`, 'similar-img-identity', false);
           hereToThere.identityData.similarClusterId = otherClusterId;
           this.clusterMap.get(clusterId).addIdentity(hereToThere);
@@ -906,7 +928,7 @@ export class IdentityProcessor {
           thereToHere.identityData.similarClusterId = clusterId;
           this.clusterMap.get(otherClusterId).addIdentity(thereToHere);
           // eslint-disable-next-line no-console
-          console.log(`Marking cluster ${clusterId} with url ${src} as similar to cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.max(imgData.length, otherImgData.length)) * 100}%`);
+          console.log(`Marking cluster ${clusterId} with url ${src} as similar to cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.min(imgData.length, otherImgData.length)) * 100}%`);
         }
       });
 
@@ -937,9 +959,13 @@ export class IdentityProcessor {
   // another quick check to remove images with different top color palettes
   // Function to filter clusters based on color palette matching
   async filterClustersWithMatchingColors(clusterId, matchingClusterIds) {
-    if (!await this.#waitForVariable(
-      () => this.clusterMap.get(clusterId).clusterData.colorsIdentified,
-    ).isFulfilled()) return;
+    if (!(await this.#waitForVariable(
+      () => this.clusterMap.get(clusterId).clusterData.colorsIdentified
+    ))) {
+      console.error('unable to find any colors after waiting', clusterId);
+      return;
+    }
+
     const cluster = this.clusterMap.get(clusterId);
     const colors = new Set(cluster.getSingletonOf('color-identity').identityData.topColors);
 
@@ -961,9 +987,12 @@ export class IdentityProcessor {
   }
 
   async filterClustersWithIdentityText(clusterId, matchingClusterIds) {
-    if (!await this.#waitForVariable(
+    if (!(await this.#waitForVariable(
       () => this.clusterMap.get(clusterId).clusterData.textIdentified,
-    ).isFulfilled()) return;
+    ))) {
+      console.error('unable to find text after waiting', clusterId);
+      return;
+    }
     const cluster = this.clusterMap.get(clusterId);
     const textIdentity = cluster.getSingletonOf('text-identity');
     const identificationText = new Set(textIdentity
