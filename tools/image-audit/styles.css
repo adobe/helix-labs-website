@@ -142,7 +142,6 @@
   pointer-events: all;
 }
 
-
 .image-audit .canvas .action-bar button[aria-selected='true'] {
   background-color: var(--gray-300);
 }

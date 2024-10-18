@@ -185,7 +185,7 @@ function displayModal(figure) {
 
     const data = {
       fileType: identityProcessor.getCluster(clusterId).elementForCluster.src.split('.').pop(),
-      count: site.count,
+      count: site.length,
       site,
       alt,
       width: identity.identityData.width,
@@ -441,8 +441,8 @@ function updateFigureData(clusterId) {
   // TODO: Different copies can have different aspect ratios.
   const identity = cluster.getFirstIdentityOf('url-page-img-identity');
   if (identity && identity.identityData.aspectRatio) {
-    const shape = aspectRatoToShape(identity.identityData.aspectRatio);
-    figure.dataset.shape = shape;
+    const aspect = identity.identityData.aspectRatio;
+    figure.dataset.aspect = aspect;
   }
 }
 
@@ -636,6 +636,7 @@ async function loadImages(individualBatch, concurrency) {
 
       promises.push(promise);
     } else {
+      updateFigureData(identityProcessor.getCluster(clusterId).id);
       updateCounter(document.getElementById('duplicate-images-counter'), 1);
     }
   }
