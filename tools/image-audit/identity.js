@@ -17,7 +17,7 @@ const imageMatchingThreshold = 0.1;
 
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 -> .1% different pixels
-const exactMatchDifferentPixelPercent = 0.004;
+const exactMatchDifferentPixelPercent = 0.005;
 
 // allow no colors to be different
 const exactColorMatchThreshold = 2;

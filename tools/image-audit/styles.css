@@ -119,22 +119,29 @@
   transition: width 0.2s;
 }
 
-.image-audit .overlay {
-  position: fixed; /* Position the overlay over the canvas */
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.2); /* Semi-transparent gray background */
-  display: none; /* Hidden by default */
-  z-index: 10; /* Ensure it appears above other elements */
-}
-
 .image-audit .canvas .action-bar-wrapper {
   position: sticky;
   top: var(--horizontal-spacing);
   z-index: 1;
 }
+
+.image-audit .action-bar-wrapper .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% - 4rem);
+  margin-left: 2rem;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  pointer-events: none;
+  border-radius: var(--rounding-s);
+}
+
+.image-audit .action-bar-wrapper .overlay.active {
+  pointer-events: all;
+}
+
 
 .image-audit .canvas .action-bar button[aria-selected='true'] {
   background-color: var(--gray-300);
@@ -142,20 +149,21 @@
 
 .image-audit .color-span {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
   cursor: pointer;
   position: relative;
+}
+
+.image-audit .color-span.selected {
+  border: 2px solid white;
+  outline: 4px solid black;
 }
 
 .image-audit .color-span:hover::after {
   opacity: 1;
   visibility: visible;
-}
-
-.image-audit .color-span:hover {
-  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .image-audit .color-span.unknown {
@@ -164,9 +172,6 @@
 
 .image-audit .color-span.alpha {
   display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
   border: 1px solid #ccc;
   position: relative;
   cursor: pointer;
@@ -183,8 +188,4 @@
 .image-audit .color-label {
   display: inline-block;
   margin: -1;
-}
-
-.image-audit .color-checkbox {
-  display: none;
 }

@@ -397,7 +397,8 @@ function addColorsToFilterList(sortedColorNames) {
     // Add a click event to toggle the checkbox and change border on click
     label.addEventListener('click', () => {
       checkbox.checked = !checkbox.checked; // Toggle the checkbox state
-      colorSpan.style.border = checkbox.checked ? '2px solid black' : '1px solid #ccc'; // Toggle border based on checkbox state
+      if (checkbox.checked) colorSpan.classList.add('selected');
+      else colorSpan.classList.remove('selected');
     });
     addFilterAction(checkbox, document);
 
@@ -920,12 +921,14 @@ function setupWindowVariables() {
 function showOverlay() {
   const overlay = document.getElementById('overlay');
   overlay.style.display = 'block'; // Show the overlay
+  overlay.classList.add('active');
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
 }
 
 function hideOverlay() {
   const overlay = document.getElementById('overlay');
   overlay.style.display = 'none'; // Hide the overlay
+  overlay.classList.remove('active');
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
   document.getElementById('progress').style.width = '0%'; // Reset progress
 }
