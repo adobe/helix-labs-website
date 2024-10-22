@@ -9,6 +9,52 @@ const permittedProtocols = ['http', 'https', 'data'];
 const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const CORS_ANONYMOUS = true;
 
+// TODO: Make this list dynamic from a list of classes with a registered interface
+const IDENTIFIERS = [
+  {
+    identity: 'sitemap-img-load-order',
+    display: 'Sitemap Image Load Order Identity',
+    checked: true,
+    hidden: true,
+  },
+  {
+    identity: 'url-page-img-identity',
+    display: 'Image Inside Page Identity',
+    checked: true,
+    hidden: true,
+  },
+  {
+    identity: 'url-img-identity',
+    display: 'URL',
+    checked: true,
+    hidden: false,
+  },
+  {
+    identity: 'color-identity',
+    display: 'Color Identity',
+    checked: true,
+    hidden: true,
+  },
+  {
+    identity: 'text-identity',
+    display: 'OCR Text',
+    checked: false,
+    hidden: false,
+  },
+  {
+    identity: 'sha-img-identity',
+    display: 'Cryptographic',
+    checked: true,
+    hidden: false,
+  },
+  {
+    identity: 'perceptual-identity',
+    display: 'Perceptual',
+    checked: true,
+    hidden: false,
+  },
+];
+
 /**
  * Creates a span element representing a color with optional clickability.
  *
@@ -49,16 +95,26 @@ function writeReportRows() {
   const entries = [];
   window.identityProcessor.getAllClusters().values().forEach((cluster) => {
     const upii = cluster.getFirstIdentityOf('url-page-img-identity');
-    const ci = cluster.getSingletonOf('color-identity');
 
-    entries.push({
+    const value = {
       Site: upii.identityData.site,
       'Image Source': new URL(upii.identityData.src, upii.identityData.origin).href,
       'Alt Text': upii.identityData.alt,
-      'Top Colors': (window.identityProcessor.sortColorNamesIntoArray(
+    };
+
+    const ci = cluster.getSingletonOf('color-identity');
+    if (ci) {
+      value['Top Colors'] = (window.identityProcessor.sortColorNamesIntoArray(
         ci.identityData.topColors,
-      )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', '),
-    });
+      )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
+    }
+
+    const ti = cluster.getSingletonOf('text-identity');
+    if (ti) {
+      value['OCR Text'] = ti.identityData.identityText;
+    }
+
+    entries.push(value);
   });
   // sort the entries array alphabetically by the 'Site' property
   const sorted = entries.sort((a, b) => a.Site.localeCompare(b.Site));
@@ -166,7 +222,6 @@ function displayModal(figure) {
       count: 'Appearances',
       site: 'Where',
       dimensions: 'Dimensions',
-      topColors: 'Top Colors',
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
@@ -181,8 +236,6 @@ function displayModal(figure) {
       return;
     }
 
-    const colorIdentity = cluster.getSingletonOf('color-identity');
-
     const data = {
       fileType: identityProcessor.getCluster(clusterId).elementForCluster.src.split('.').pop(),
       count: site.length,
@@ -190,10 +243,53 @@ function displayModal(figure) {
       alt,
       width: identity.identityData.width,
       height: identity.identityData.height,
-      topColors: colorIdentity.identityData.topColors,
       aspectRatio: identity.identityData.aspectRatio,
       src: identityProcessor.getCluster(clusterId).elementForCluster.src,
     };
+
+    const colorIdentity = cluster.getSingletonOf('color-identity');
+    if (colorIdentity) {
+      rows.topColors = 'Top Colors';
+      data.topColors = colorIdentity.identityData.topColors;
+    }
+
+    const textIdentity = cluster.getSingletonOf('text-identity');
+    if (textIdentity) {
+      rows.text = 'OCR Text';
+      data.text = textIdentity.identityData.identityText;
+    }
+
+    /* work in progress
+    const similarClusters = cluster.getAllIdentitiesOf('similar-perceptual-identity');
+    if (similarClusters.length > 0) {
+      rows.similar = 'Similar Images';
+      // Assuming 'clusters' is an array containing your clusters
+      const urlMap = new Map();
+
+      // Step 1: Extract data and store in a Map
+      similarClusters.forEach((cluster) => {
+        const imgElement = cluster.figureForCluster;
+        if (imgElement) {
+          const { src } = imgElement;
+          const { width } = imgElement;
+          const { height } = imgElement;
+
+          // Step 2: Store the src as the key and width/height as the value in the map
+          urlMap.set(src, { width, height });
+        }
+      });
+
+      // Step 3: Iterate over the Map to generate the HTML string
+      let htmlString = '';
+
+      urlMap.forEach((value, src) => {
+        htmlString += `<img src="${src}" width="${value.width}" height="${value.height}" />\n`;
+      });
+
+      data.similar = htmlString;
+    }
+    */
+
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
 
@@ -267,18 +363,6 @@ function isUrlValid(url) {
  */
 function cleanseUrls(urls) {
   return urls.filter((url) => isUrlValid(url));
-}
-
-function aspectRatoToShape(aspect) {
-  // eslint-disable-next-line no-nested-ternary
-  if (aspect === 1) return 'square';
-  // eslint-disable-next-line no-nested-ternary
-  if (aspect < 1) return 'portrait';
-
-  if (aspect > 1.7) return 'widescreen';
-
-  // between 1 and 1.7
-  return 'landscape';
 }
 
 function changeFilters() {
@@ -446,24 +530,34 @@ function updateFigureData(clusterId) {
   }
 }
 
-async function executePreflightFunctions(clusterId, values) {
+async function executePreflightFunctions(clusterId, values, identifiers) {
   const { identityProcessor } = window;
 
-  await Promise.allSettled([
-    identityProcessor.identifyImgUrl(clusterId, values),
-    identityProcessor.identityImgUrlAndSiteUrl(clusterId, values),
-  ]);
+  const promises = [];
+  if (identifiers.has('url-img-identity')) {
+    promises.push(identityProcessor.identifyImgUrl(clusterId, values));
+  }
+  if (identifiers.has('url-page-img-identity')) {
+    promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values));
+  }
+
+  await Promise.allSettled(promises);
 }
 
-async function executePostFlightDomFunctions(clusterId, values) {
+async function executePostFlightDomFunctions(clusterId, values, identifiers) {
   const { identityProcessor } = window;
-  await Promise.allSettled([
-    identityProcessor.identifyColors(clusterId, values),
-    // identityProcessor.identifyText(clusterId, values),
-  ]);
+  const promises = [];
+  if (identifiers.has('color-identity')) {
+    promises.push(identityProcessor.identifyColors(clusterId, values));
+  }
+  if (identifiers.has('text-identity')) {
+    promises.push(identityProcessor.identifyText(clusterId, values));
+  }
+
+  await Promise.allSettled(promises);
 }
 
-async function executePostFlightCanvasFunctions(clusterId, values) {
+async function executePostFlightCanvasFunctions(clusterId, values, identifiers) {
   const { identityProcessor } = window;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -474,21 +568,28 @@ async function executePostFlightCanvasFunctions(clusterId, values) {
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
+  const promises = [];
+  if (identifiers.has('sha-img-identity')) {
+    promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx));
+  }
+  if (identifiers.has('color-identity')) {
+    promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx));
+  }
+  if (identifiers.has('perceptual-identity')) {
+    promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx, identifiers));
+  }
+
+  await Promise.allSettled(promises);
+}
+
+async function imageOnLoad(clusterId, values, identifiers) {
   await Promise.allSettled([
-    identityProcessor.identityImgSha(clusterId, canvas, ctx),
-    identityProcessor.detectAlphaChannel(clusterId, canvas, ctx),
-    identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx),
+    executePostFlightDomFunctions(clusterId, values, identifiers),
+    executePostFlightCanvasFunctions(clusterId, values, identifiers),
   ]);
 }
 
-async function imageOnLoad(clusterId, values) {
-  await Promise.allSettled([
-    executePostFlightDomFunctions(clusterId, values),
-    executePostFlightCanvasFunctions(clusterId, values),
-  ]);
-}
-
-async function imageOnError(clusterId, values, href, error) {
+async function imageOnError(clusterId, values, href, identifiers, error) {
   window.identityProcessor.identifyUnknownColorOnError(clusterId);
   updateFigureData(clusterId);
   // eslint-disable-next-line no-console
@@ -505,6 +606,7 @@ function trackPromise(promise) {
     },
     (error) => {
       isFulfilled = true;
+      // eslint-disable-next-line no-console
       console.error('Promise rejected:', error);
     },
   );
@@ -558,7 +660,7 @@ function displayImage(clusterId) {
   changeFilters();
 }
 
-async function loadImages(individualBatch, concurrency) {
+async function loadImages(individualBatch, concurrency, identifiers) {
   // use a map to track unique images by their src attribute
   const promises = []; // Array to hold promises
   const batchEntries = [];
@@ -613,12 +715,12 @@ async function loadImages(individualBatch, concurrency) {
     // preflight checks are lightweight and must be done to prevent other
     // heavywieght operations from running on meaningless items.
     // eslint-disable-next-line no-await-in-loop
-    await executePreflightFunctions(clusterId, values);
+    await executePreflightFunctions(clusterId, values, identifiers);
     if (identityProcessor.getCluster(clusterId).id === clusterId) {
       // This cluster was NOT re-clustered. Run more expensive functions.
       const promise = trackPromise(new Promise((resolve) => {
         loadedImg.onload = async () => {
-          await imageOnLoad(clusterId, values)
+          await imageOnLoad(clusterId, values, identifiers)
             .then(() => {
               displayImage(clusterId);
               updateFigureData(clusterId);
@@ -626,7 +728,7 @@ async function loadImages(individualBatch, concurrency) {
           resolve(true);
         };
         loadedImg.onerror = async (error) => {
-          await imageOnError(clusterId, values, href, error);
+          await imageOnError(clusterId, values, href, identifiers, error);
           resolve(true);
         };
       }));
@@ -745,6 +847,7 @@ async function handleBatch(
   results,
   imagesCounter,
   gallery,
+  identifiers,
 ) {
   const batchData = await fetchBatch(batch, concurrency, pagesCounter);
   data.push(...batchData);
@@ -752,7 +855,7 @@ async function handleBatch(
   // Display images as they are fetched
   main.dataset.canvas = true;
   results.removeAttribute('aria-hidden');
-  await loadImages(batchData, concurrency);
+  await loadImages(batchData, concurrency, identifiers);
   decorateIcons(gallery);
 }
 
@@ -763,7 +866,7 @@ async function handleBatch(
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
+async function fetchAndDisplayBatches(urls, identifiers, batchSize = 50, concurrency = 5) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -807,6 +910,7 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
       results,
       imagesCounter,
       gallery,
+      identifiers,
     );
 
     batchPromises.push(trackPromise(promise));
@@ -817,7 +921,8 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, concurrency = 5) {
 
   // After all batches are done
   data.length = 0;
-  console.log('All batches are done');
+  // eslint-disable-next-line no-console
+  console.log('Batches complete.');
   download.disabled = false;
   clearInterval(timer);
 
@@ -934,7 +1039,7 @@ function hideOverlay() {
   document.getElementById('progress').style.width = '0%'; // Reset progress
 }
 
-async function processForm(sitemap) {
+async function processForm(sitemap, identifiers) {
   setupWindowVariables();
   showOverlay();
   const colorPaletteContainer = document.getElementById('color-pallette');
@@ -944,7 +1049,7 @@ async function processForm(sitemap) {
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls);
+  await fetchAndDisplayBatches(urls, identifiers);
   hideOverlay();
 }
 
@@ -1024,10 +1129,18 @@ function registerListeners(doc) {
     const data = getFormData(e.srcElement);
     const url = data['site-url'];
     const urlType = extractUrlType(url);
+
+    const sitemapForm = doc.getElementById('identity-selectors');
+    const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
+
+    const identifiers = new Set([...identificationActions]
+      .filter((a) => a.checked)
+      .map((a) => a.value));
+
     if (urlType.includes('sitemap')) {
       // fetch sitemap
       const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap);
+      processForm(sitemap, identifiers);
     }
   });
 
@@ -1078,7 +1191,43 @@ function registerListeners(doc) {
   FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
 }
 
+function addIdentitySelectorsToForm(doc) {
+  const identitySelectors = document.getElementById('identity-selectors');
+
+  IDENTIFIERS.forEach((item) => {
+    const {
+      identity,
+      display,
+      checked,
+      hidden,
+    } = item;
+
+    // Create a list item
+    const li = doc.createElement('li');
+    if (hidden) li.setAttribute('aria-hidden', true);
+
+    // Create a label element
+    const label = doc.createElement('label');
+    label.setAttribute('for', `identity-${identity}`);
+    label.textContent = display;
+
+    // Create the checkbox input
+    const checkbox = doc.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `identity-${identity}`;
+    checkbox.value = identity;
+    checkbox.checked = checked;
+
+    // Append the checkbox and label to the list item
+    li.appendChild(checkbox);
+    li.appendChild(label);
+
+    // Append the list item to the identitySelectors element
+    identitySelectors.appendChild(li);
+  });
+}
+
 setupWindowVariables();
 registerListeners(document);
-
 overrideCreateCanvas(document);
+addIdentitySelectorsToForm(document);

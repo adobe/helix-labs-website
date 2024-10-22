@@ -27,12 +27,35 @@
     </div>
     <div>
       <form id="site-form">
-        <div class="form-field url-field">
-          <label for="site-url">Site URL</label>
-          <input name="site-url" id="site-url" type="url" required />
-          <div class="field-help-text">
-            <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
-          </div>
+        <div class="sitemap-form">
+          <ul>
+            <li>
+              <div class="form-field url-field">
+                <label for="site-url">Site URL</label>
+                <input name="site-url" id="site-url" type="url" required />
+                <div class="field-help-text">
+                  <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+                </div>
+              </div>
+            </li>
+            <li>
+              <label for="rum-domain-key">RUM Domain Key</label>
+              <input name="rum-domain-key" id="rum-key" type="url" />
+            </li>
+            <li>
+              <div class="field-help-text">
+                <p>Image identification methods:</p>
+              </div>
+            </li>
+            <div id="identity-selectors">
+            </div>
+            <li>
+              <hr/>
+              <p class="button-wrapper">
+                <button type="submit" class="button">Run</button>
+              </p>
+            </li>
+          </ul>
         </div>
       </form>
     </div>

@@ -17,16 +17,18 @@ const imageMatchingThreshold = 0.1;
 
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 -> .1% different pixels
-const exactMatchDifferentPixelPercent = 0.005;
+const exactMatchDifferentPixelPercent = 0.004;
 
-// allow no colors to be different
+// allow 4 colors to be different
 const exactColorMatchThreshold = 2;
 
-const exactTextMatchThresholdPercent = 0.1;
+// allow 20% of text to be different
+const exactTextMatchThresholdPercent = 0.2;
 
-// Percentage of pixels can be different between two images ot be identified the same
-// 0.001 - .1% different pixels
-const similarityDifferentPixelPercent = 0.01;
+const matchingPointsThreshold = 80;
+const similarPointsThreshold = 40;
+
+const concurrentOCR = 5;
 
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 
@@ -778,6 +780,19 @@ export class IdentityProcessor {
     identity.identityData.instance = values.instance;
   }
 
+  async #waitForOCRSlot(maxAttempts = 6000, intervalMs = 100) {
+    let attempts = 0;
+    while (this.currentlyTextIdentifyingCount >= concurrentOCR) {
+      if (attempts >= maxAttempts) {
+        return false;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+      attempts += 1;
+    }
+    return true;
+  }
+
   // eslint-disable-next-line no-unused-vars
   async identifyText(clusterId, values) {
     if (this.clusterMap.get(clusterId).clusterData.textIdentified) {
@@ -785,43 +800,268 @@ export class IdentityProcessor {
     }
     this.clusterMap.get(clusterId).clusterData.textIdentified = true;
 
-    // eslint-disable-next-line no-undef
-    await Tesseract.recognize(
-      this.clusterMap.get(clusterId).elementForCluster,
-      'eng',
-    ).then(async ({ data: { words } }) => {
-      // Filter words based on confidence level
-      const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
+    const sloted = await this.#waitForOCRSlot();
+    if (!sloted) {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to get OCR slot for cluster ${clusterId} Unable to process more OCR requests at this time.`);
+      return;
+    }
 
-      if (confidentWords.length === 0) {
-        return;
-      }
-      const text = confidentWords
-        .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
-        .join(' ').replace(/\s+/g, ' ').trim();
-      if (text.length === 0) {
-        return;
-      }
-      const identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ');
+    this.currentlyTextIdentifyingCount += 1;
 
-      const identityId = `txt:${await this.#createHash(identityText)}`;
-      const identity = new Identity(identityId, 'text-identity', false, true);
+    try {
+      // eslint-disable-next-line no-undef
+      await Tesseract.recognize(
+        this.clusterMap.get(clusterId).elementForCluster,
+        'eng',
+      ).then(async ({ data: { words } }) => {
+        // Filter words based on confidence level
+        const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
 
-      // console.log(`Identified text: ${text} from cluster ${clusterId}`);
+        if (confidentWords.length === 0) {
+          return;
+        }
+        const text = confidentWords
+          .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
+          .join(' ').replace(/\s+/g, ' ').trim();
+        if (text.length === 0) {
+          return;
+        }
+        const identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
 
-      // Storing both the original recognized text and the filtered text
-      identity.identityData.text = text;
-      identity.identityData.identityText = identityText;
+        const identityId = `txt:${await this.#createHash(identityText)}`;
+        const identity = new Identity(identityId, 'text-identity', false, true);
 
-      this.clusterMap.get(clusterId).addIdentity(identity);
-    });
+        // console.log(`Cluster ${clusterId} Identified text: ${text}`);
+
+        // Storing both the original recognized text and the filtered text
+        identity.identityData.text = text;
+        identity.identityData.identityText = identityText;
+
+        this.clusterMap.get(clusterId).addIdentity(identity);
+      });
+    } finally {
+      this.currentlyTextIdentifyingCount -= 1;
+    }
   }
 
-  async identifyByPerceptualImage(clusterId, canvas, ctx) {
+  // use Hammning to reduce the number of images to compare from every image to < 20 or so.
+  // this is a very fast operation, but there should be a type of map that can help.
+  #getClustersWithHammingDistance(clusterId, src, hash) {
+    const matchingClusterIds = new Set();
+    // TODO: Isn't there a better map type for this?
+    this.perceptualHashMap.forEach((data, otherSrc) => {
+      const otherClusterId = data.clusterId;
+      const otherHash = data.hash;
+      if (otherClusterId !== clusterId && src !== otherSrc) {
+        const distance = hash.hammingDistance(otherHash);
+        if (distance <= hammingDistanceThreshold) {
+          matchingClusterIds.add(otherClusterId);
+        }
+      }
+      // else : no need to merge already duplicate things which will be merged anyway.
+    });
+    return matchingClusterIds;
+  }
+
+  // another quick check to remove images with different top color palettes
+  // Function to filter clusters based on color palette matching
+  async #getDifferentColors(clusterId, otherClusterId) {
+    if (!(await this.#waitForVariable(
+      () => this.clusterMap.get(clusterId).clusterData.colorsIdentified,
+    ))) {
+      // eslint-disable-next-line no-console
+      console.error('Unable to find any colors after waiting', clusterId);
+      return false;
+    }
+
+    const cluster = this.clusterMap.get(clusterId);
+    const colors = new Set(cluster.getSingletonOf('color-identity').identityData.topColors);
+
+    const otherCluster = this.clusterMap.get(otherClusterId);
+    const otherColors = new Set(otherCluster.getSingletonOf('color-identity').identityData.topColors);
+
+    // Symmetric difference between two sets of colors
+    const diffColors = new Set([
+      ...[...colors].filter((color) => !otherColors.has(color)),
+      ...[...otherColors].filter((color) => !colors.has(color)),
+    ]);
+
+    return Array.from(diffColors);
+  }
+
+  #markSimilarClusters(clusterId, otherClusterId, identity) {
+    const hereToThereIdentityId = `psim:${otherClusterId}`;
+    if (!this.clusterMap.get(clusterId).identities.has(hereToThereIdentityId)) {
+      const hereToThere = new Identity(hereToThereIdentityId, 'similar-perceptual-identity', false, false);
+      hereToThere.identityData.similarClusterId = otherClusterId;
+      this.clusterMap.get(clusterId).addIdentity(hereToThere);
+      hereToThere.identityData.phash = this.clusterMap.get(otherClusterId).getSingletonOf('perceptual-identity').identityData.phash;
+
+      const thereToHereIdentityId = `psim:${clusterId}`;
+      if (!this.clusterMap.get(otherClusterId).identities.has(thereToHereIdentityId)) {
+        const thereToHere = new Identity(thereToHereIdentityId, 'similar-perceptual-identity', false, false);
+        thereToHere.identityData.similarClusterId = clusterId;
+        thereToHere.identityData.phash = identity.identityData.phash;
+        this.clusterMap.get(otherClusterId).addIdentity(thereToHere);
+      }
+    }
+  }
+
+  async #compareText(clusterId, otherClusterId) {
+    const returnValue = {
+      exactMatch: false,
+      wordDifferencePercentage: 1,
+      error: false,
+      bothSidesHadWords: false,
+    };
+    if (!(await this.#waitForVariable(
+      () => this.clusterMap.get(clusterId).clusterData.textIdentified,
+    ))) {
+      // eslint-disable-next-line no-console
+      console.error('Unable to find text after waiting', clusterId);
+      returnValue.error = true;
+      return returnValue;
+    }
+    const cluster = this.clusterMap.get(clusterId);
+    const textIdentity = cluster.getSingletonOf('text-identity');
+    if (!textIdentity) {
+      returnValue.bothSidesHadWords = false;
+      return returnValue;
+    }
+
+    if (!(await this.#waitForVariable(
+      () => this.clusterMap.get(otherClusterId).clusterData.textIdentified,
+    ))) {
+      // eslint-disable-next-line no-console
+      console.error('Unable to find text after waiting', clusterId);
+      returnValue.error = true;
+      return returnValue;
+    }
+    const otherTextIdentity = this.clusterMap.get(otherClusterId).getSingletonOf('text-identity');
+    if (!otherTextIdentity) {
+      returnValue.bothSidesHadWords = false;
+      return returnValue;
+    }
+
+    const text = textIdentity.identityData.identityText;
+    const identificationText = new Set(text.split(' '));
+    if (identificationText.has('')) {
+      identificationText.delete('');
+    }
+
+    if (identificationText.length === 0) {
+      returnValue.bothSidesHadWords = false;
+      return returnValue;
+    }
+
+    const otherText = otherTextIdentity.identityData.identityText;
+    const otherIdentificationText = new Set(otherText.split(' '));
+    if (otherIdentificationText.has('')) {
+      otherIdentificationText.delete('');
+    }
+
+    if (otherIdentificationText.length === 0) {
+      returnValue.bothSidesHadWords = false;
+      return returnValue;
+    }
+
+    returnValue.bothSidesHadWords = true;
+
+    if (text === otherText) {
+      returnValue.exactMatch = true;
+      returnValue.wordDifferencePercentage = 0;
+      return returnValue;
+    }
+
+    returnValue.exactMatch = false;
+    // Symmetric difference between two sets of colors
+    const diffText = new Set([
+      ...[...identificationText].filter((word) => !otherIdentificationText.has(word)),
+      ...[...otherIdentificationText].filter((word) => !identificationText.has(word)),
+    ]);
+
+    const moreWords = Math.max(identificationText.length, otherIdentificationText.length);
+    returnValue.wordDifferencePercentage = diffText.length / moreWords;
+    return returnValue;
+  }
+
+  async #getPointScore(
+    clusterId,
+    otherClusterId,
+    imgData,
+    otherImgData,
+    numberDiffPixels,
+    identifiers,
+  ) {
+    let matchingPoints = 0;
+    if (numberDiffPixels === 0) {
+      matchingPoints = 100;
+    } else if (numberDiffPixels
+      <= Math.min(imgData.length, otherImgData.length) * (exactMatchDifferentPixelPercent / 2)) {
+      matchingPoints = 90;
+    } else if (numberDiffPixels
+      <= Math.min(imgData.length, otherImgData.length) * exactMatchDifferentPixelPercent) {
+      matchingPoints = 80;
+    } else if (numberDiffPixels
+      <= Math.min(imgData.length, otherImgData.length) * (exactMatchDifferentPixelPercent * 2)) {
+      matchingPoints = 50;
+    } else if (numberDiffPixels
+      <= Math.min(imgData.length, otherImgData.length) * (exactMatchDifferentPixelPercent * 3)) {
+      matchingPoints = 40;
+    } else if (numberDiffPixels
+      <= Math.min(imgData.length, otherImgData.length) * (exactMatchDifferentPixelPercent * 4)) {
+      matchingPoints = 30;
+    }
+
+    if (matchingPoints < matchingPointsThreshold && identifiers.has('color-identity')) {
+      const differentColors = await this.#getDifferentColors(clusterId, otherClusterId);
+      if (differentColors) {
+        if (differentColors.length === 0) {
+          matchingPoints += 20;
+        } else if (differentColors.length <= exactColorMatchThreshold / 2) {
+          matchingPoints += 15;
+        } else if (differentColors.length <= exactColorMatchThreshold) {
+          matchingPoints += 10;
+        } else if (differentColors.length <= exactColorMatchThreshold * 2) {
+          matchingPoints += 5;
+        }
+      }
+    }
+
+    if (matchingPoints < matchingPointsThreshold && identifiers.has('text-identity')) {
+      const {
+        exactMatch,
+        wordDifferencePercentage,
+        error,
+        bothSidesHadWords,
+      } = await this.#compareText(clusterId, otherClusterId);
+
+      if (!error && bothSidesHadWords) {
+        if (exactMatch) {
+          matchingPoints += 30;
+        } else if (wordDifferencePercentage <= exactTextMatchThresholdPercent / 2) {
+          matchingPoints += 20;
+        } else if (wordDifferencePercentage <= exactTextMatchThresholdPercent) {
+          matchingPoints += 10;
+        } else if (wordDifferencePercentage <= exactTextMatchThresholdPercent * 2) {
+          matchingPoints += 5;
+        }
+      }
+    }
+    return matchingPoints;
+  }
+
+  async identifyByPerceptualImage(clusterId, canvas, ctx, identifiers) {
     // getting the element and holding it here in case re-clustering switches it --
     // it is atomic with the hash.
     const { elementForCluster } = this.clusterMap.get(clusterId);
     const src = elementForCluster.src.toLowerCase();
+
+    const existingIdentity = this.clusterMap.get(clusterId).getSingletonOf('perceptual-identity');
+    if (existingIdentity) {
+      return;
+    }
 
     let hash = null;
     let identityId = null;
@@ -835,13 +1075,11 @@ export class IdentityProcessor {
       this.perceptualHashMap.set(src, { hash, identityId, clusterId });
     }
 
-    const identity = new Identity(identityId, 'phash-identity', false, false);
+    const identity = new Identity(identityId, 'perceptual-identity', false, true);
     identity.identityData.phash = hash;
     this.clusterMap.get(clusterId).addIdentity(identity);
 
-    const matchingClusterIds = this.getClustersWithHammingDistance(clusterId, src, hash);
-    await this.filterClustersWithMatchingColors(clusterId, matchingClusterIds);
-    // await this.filterClustersWithIdentityText(clusterId, matchingClusterIds);
+    const matchingClusterIds = this.#getClustersWithHammingDistance(clusterId, src, hash);
 
     if (matchingClusterIds.size > 0) {
       const promises = Array.from(matchingClusterIds).map(async (otherClusterId) => {
@@ -908,124 +1146,29 @@ export class IdentityProcessor {
           },
         );
 
-        // If the images match within the specified threshold, merge clusters
-        if (numberDiffPixels <= (
-          (Math.min(imgData.length, otherImgData.length) * exactMatchDifferentPixelPercent)
-        )) {
-          if (this.clusterMap.get(clusterId) !== this.clusterMap.get(otherClusterId)) {
-            // eslint-disable-next-line no-console
-            console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.min(imgData.length, otherImgData.length)) * 100}%`);
-            this.clusterMap.get(otherClusterId).mergeCluster(this.clusterMap.get(clusterId));
-          }
-        } else if (numberDiffPixels <= (
-          Math.min(imgData.length, otherImgData.length) * similarityDifferentPixelPercent
-        ) && this.clusterMap.get(clusterId).id !== this.clusterMap.get(otherClusterId).id) {
-          const hereToThere = new Identity(`sim:${otherClusterId}`, 'similar-img-identity', false);
-          hereToThere.identityData.similarClusterId = otherClusterId;
-          this.clusterMap.get(clusterId).addIdentity(hereToThere);
+        const matchingPoints = await this.#getPointScore(
+          clusterId,
+          otherClusterId,
+          imgData,
+          otherImgData,
+          numberDiffPixels,
+          identifiers,
+        );
 
-          const thereToHere = new Identity(`sim:${clusterId}`, 'similar-img-identity', false);
-          thereToHere.identityData.similarClusterId = clusterId;
-          this.clusterMap.get(otherClusterId).addIdentity(thereToHere);
+        if (matchingPoints >= matchingPointsThreshold) {
           // eslint-disable-next-line no-console
-          console.log(`Marking cluster ${clusterId} with url ${src} as similar to cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity with ${numberDiffPixels} different pixels at ${(numberDiffPixels / Math.min(imgData.length, otherImgData.length)) * 100}%`);
+          console.log(`Merging cluster ${clusterId} with url ${src} into cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} because of perceptual similarity at ${matchingPoints} points`);
+          this.clusterMap.get(otherClusterId).mergeCluster(this.clusterMap.get(clusterId));
+        } else if (matchingPoints >= similarPointsThreshold) {
+          // eslint-disable-next-line no-console
+          console.log(`Marking cluster ${clusterId} with url ${this.clusterMap.get(clusterId)?.elementForCluster?.src} as perceptually similar to cluster ${otherClusterId} with url ${this.clusterMap.get(otherClusterId)?.elementForCluster?.src} at ${matchingPoints} points`);
+          this.#markSimilarClusters(clusterId, matchingClusterIds, identity);
         }
       });
 
       // Wait for all comparisons to finish
       await Promise.allSettled(promises);
     }
-  }
-
-  // use Hammning to reduce the number of images to compare from every image to < 20 or so.
-  // this is a very fast operation, but there should be a type of map that can help.
-  getClustersWithHammingDistance(clusterId, src, hash) {
-    const matchingClusterIds = new Set();
-    // TODO: Isn't there a better map type for this?
-    this.perceptualHashMap.forEach((data, otherSrc) => {
-      const otherClusterId = data.clusterId;
-      const otherHash = data.hash;
-      if (otherClusterId !== clusterId && src !== otherSrc) {
-        const distance = hash.hammingDistance(otherHash);
-        if (distance <= hammingDistanceThreshold) {
-          matchingClusterIds.add(otherClusterId);
-        }
-      }
-      // else : no need to merge already duplicate things which will be merged anyway.
-    });
-    return matchingClusterIds;
-  }
-
-  // another quick check to remove images with different top color palettes
-  // Function to filter clusters based on color palette matching
-  async filterClustersWithMatchingColors(clusterId, matchingClusterIds) {
-    if (!(await this.#waitForVariable(
-      () => this.clusterMap.get(clusterId).clusterData.colorsIdentified
-    ))) {
-      console.error('unable to find any colors after waiting', clusterId);
-      return;
-    }
-
-    const cluster = this.clusterMap.get(clusterId);
-    const colors = new Set(cluster.getSingletonOf('color-identity').identityData.topColors);
-
-    matchingClusterIds.forEach((otherClusterId) => {
-      const otherCluster = this.clusterMap.get(otherClusterId);
-      const otherColors = new Set(otherCluster.getSingletonOf('color-identity').identityData.topColors);
-
-      // Symmetric difference between two sets of colors
-      const diffColors = new Set([
-        ...[...colors].filter((color) => !otherColors.has(color)),
-        ...[...otherColors].filter((color) => !colors.has(color)),
-      ]);
-
-      // If the difference exceeds the threshold, remove the cluster
-      if (diffColors.size > exactColorMatchThreshold) {
-        matchingClusterIds.delete(otherClusterId);
-      }
-    });
-  }
-
-  async filterClustersWithIdentityText(clusterId, matchingClusterIds) {
-    if (!(await this.#waitForVariable(
-      () => this.clusterMap.get(clusterId).clusterData.textIdentified,
-    ))) {
-      console.error('unable to find text after waiting', clusterId);
-      return;
-    }
-    const cluster = this.clusterMap.get(clusterId);
-    const textIdentity = cluster.getSingletonOf('text-identity');
-    const identificationText = new Set(textIdentity
-      ? textIdentity.identityData.identityText.split(' ') : []);
-    if (identificationText.has('')) {
-      identificationText.delete('');
-    }
-
-    matchingClusterIds.forEach((otherClusterId) => {
-      const otherTextIdentity = this.clusterMap.get(otherClusterId).getSingletonOf('text-identity');
-      if (otherTextIdentity) {
-        const otherIdentificationText = new Set(otherTextIdentity
-          ? otherTextIdentity.identityData.identityText.split(' ') : []);
-        if (otherIdentificationText.has('')) {
-          otherIdentificationText.delete('');
-        }
-
-        // Symmetric difference between two sets of colors
-        const diffText = new Set([
-          ...[...identificationText].filter((word) => !otherIdentificationText.has(word)),
-          ...[...otherIdentificationText].filter((word) => !identificationText.has(word)),
-        ]);
-
-        // If the difference exceeds the threshold, remove the cluster
-        const threshold = Math.min(
-          Math.round(exactTextMatchThresholdPercent * identificationText.size),
-          1,
-        );
-        if (diffText.size > threshold) {
-          matchingClusterIds.delete(otherClusterId);
-        }
-      }
-    });
   }
 
   getAllClusters() {
