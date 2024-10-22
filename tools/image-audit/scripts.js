@@ -86,6 +86,13 @@ function getColorSpan(color, clickable) {
   return colorSpan;
 }
 
+function getShapeForRatio(ratio) {
+  if (ratio === 1) return 'Square';
+  if (ratio < 1) return 'Portrait';
+  if (ratio > 1.7) return 'Widescreen';
+  return 'Landscape';
+}
+
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
@@ -172,10 +179,7 @@ class RewrittenData {
   aspectRatio(value) {
     if (!value) return '-';
     const ar = (v, symbol) => `<i class="symbol symbol-${symbol.toLowerCase()}"></i> ${symbol} (${v})`;
-    if (value === 1) return ar(value, 'Square');
-    if (value < 1) return ar(value, 'Portrait');
-    if (value > 1.7) return ar(value, 'Widescreen');
-    return ar(value, 'Landscape');
+    return ar(value, getShapeForRatio(value));
   }
 
   src(value) {
@@ -527,6 +531,7 @@ function updateFigureData(clusterId) {
   if (identity && identity.identityData.aspectRatio) {
     const aspect = identity.identityData.aspectRatio;
     figure.dataset.aspect = aspect;
+    figure.dataset.shape = getShapeForRatio(aspect);
   }
 }
 
