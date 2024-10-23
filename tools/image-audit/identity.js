@@ -6,6 +6,14 @@ import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/
 // eslint-disable-next-line import/no-unresolved
 import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js';
 
+// import Slicer from 'https://www.aem.live/tools/rum/slicer.js'
+
+// eslint-disable-next-line import/no-unresolved
+import { DataChunks } from 'https://www.aem.live/tools/rum/cruncher.js';
+
+// eslint-disable-next-line import/no-unresolved
+import DataLoader from 'https://www.aem.live/tools/rum/loader.js';
+
 // trims sha and alpha detection to this many pixels.
 const maxPixelsToEval = 250000; // 500x500 pixels
 
@@ -31,6 +39,10 @@ const similarPointsThreshold = 40;
 const concurrentOCR = 5;
 
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
+
+const BUNDLER_ENDPOINT = 'https://rum.fastly-aem.page';
+// const BUNDLER_ENDPOINT = 'http://localhost:3000';
+const API_ENDPOINT = BUNDLER_ENDPOINT;
 
 // this should come from some standard library.
 // If you revisit it, the color-name library didn't have the names formatted well.
@@ -624,7 +636,7 @@ export class IdentityProcessor {
         ? colorThief.getPalette(elementForCluster, numberOfTopColors)
         : [colorThief.getColor(elementForCluster)];
 
-      if (colors === null || colors.length === 0) {
+      if (!(colors) || colors.length === 0) {
         // can be all alpha, and colorthief wont detect.
         return;
       }
@@ -778,6 +790,75 @@ export class IdentityProcessor {
     identity.identityData.height = values.height;
     identity.identityData.aspectRatio = values.aspectRatio;
     identity.identityData.instance = values.instance;
+
+    if (values.domainKey) {
+      await this.#obtainRum(identity, values);
+    }
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  async #obtainRum(identity, values) {
+    try {
+      // TODO: Rum data should really be on a page cluster, not an image cluster.
+      // const siteURL = new URL(values.site);
+      const dataChunks = new DataChunks();
+      const loader = new DataLoader();
+      loader.apiEndpoint = API_ENDPOINT;
+      loader.domain = values.replacementDomain;
+      loader.domainKey = values.domainKey;
+      if (!this.loadedData) {
+        // TODO: Selectable range
+        this.loadedData = await loader.fetchPrevious12Months(null);
+      }
+
+      const conversionSpec = { checkpoint: ['click'] };
+
+      // set up metrics for dataChunks
+      dataChunks.addSeries('pageViews', (bundle) => bundle.weight);
+      dataChunks.addSeries('visits', (bundle) => (bundle.visit ? bundle.weight : 0));
+      // a bounce is a visit without a click
+      dataChunks.addSeries('bounces', (bundle) => (bundle.visit && !bundle.events.find(({ checkpoint }) => checkpoint === 'click')
+        ? bundle.weight
+        : 0));
+      dataChunks.addSeries('conversions', (bundle) => (dataChunks.hasConversion(bundle, conversionSpec)
+        ? bundle.weight
+        : 0));
+      dataChunks.addFacet('checkpoint', (bundle) => Array.from(bundle.events.reduce((acc, evt) => {
+        acc.add(evt.checkpoint);
+        return acc;
+      }, new Set())), 'every');
+
+      const siteURL = new URL(values.site);
+      siteURL.hostname = values.replacementDomain;
+
+      dataChunks.addFacet('url', (bundle) => {
+        const url = new URL(bundle.url);
+        return url.href;
+      });
+
+      dataChunks.addFacet('filter', (bundle) => {
+        const matching = bundle.url.toLowerCase() === siteURL.href.toLowerCase();
+        return matching;
+      });
+
+      dataChunks.load(this.loadedData);
+
+      dataChunks.filter = { url: [siteURL.href] };
+
+      const pageViews = dataChunks.totals?.pageViews?.sum ?? 0;
+      const conversions = dataChunks.totals?.conversions?.sum ?? 0;
+      const visits = dataChunks.totals?.visits?.sum ?? 0;
+      const bounces = dataChunks.totals?.bounces?.sum ?? 0;
+
+      identity.identityData.pageViews = pageViews;
+      identity.identityData.conversions = conversions;
+      identity.identityData.visits = visits;
+      identity.identityData.bounces = bounces;
+
+      identity.identityData.dataChunks = dataChunks;
+    } catch (error) {
+      console.error('error obtaining rum:', error);
+    }
   }
 
   async #waitForOCRSlot(maxAttempts = 6000, intervalMs = 100) {

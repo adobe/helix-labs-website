@@ -201,6 +201,17 @@ class RewrittenData {
   }
 }
 
+function getPerformanceScore(conversions, pageViews, visits, round) {
+  if (pageViews > 0 && conversions > 0) {
+    const rv = Math.min(Math.round((100 * (conversions / pageViews))), 100);
+    if (!round) return rv;
+    return Math.round(rv + 5) / 10;
+  }
+  if (visits === 0 && pageViews === 0) return 0;
+  if (visits * 2 >= pageViews) return 5;
+  return 1;
+}
+
 /**
  * Displays (and creates) a modal with image information.
  * @param {HTMLElement} figure - Figure element representing the image.
@@ -229,6 +240,7 @@ function displayModal(figure) {
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
+
     const { identityProcessor } = window;
     const cluster = identityProcessor.getCluster(clusterId);
 
@@ -255,6 +267,24 @@ function displayModal(figure) {
     if (colorIdentity) {
       rows.topColors = 'Top Colors';
       data.topColors = colorIdentity.identityData.topColors;
+    }
+
+    if (window.collectingRum) {
+      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+
+      rows.performanceScore = 'Performance Score';
+      rows.pageViews = 'Page Views';
+      rows.conversions = 'Conversions';
+      rows.visits = 'Visits';
+      rows.bounces = 'Bounces';
+      data.performanceScore = `${getPerformanceScore(conversions, pageViews, visits, true)}`;
+      data.pageViews = pageViews > 0 ? pageViews : ' < 100';
+      data.conversions = conversions > 0 ? conversions : ' < 100';
+      data.visits = visits > 0 ? visits : ' < 100';
+      data.bounces = bounces > 0 ? bounces : ' < 100';
     }
 
     const textIdentity = cluster.getSingletonOf('text-identity');
@@ -533,6 +563,19 @@ function updateFigureData(clusterId) {
     figure.dataset.aspect = aspect;
     figure.dataset.shape = getShapeForRatio(aspect);
   }
+
+  if (window.collectingRum) {
+    const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+    const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+    const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+
+    // percentage with 2 decimal places
+    const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
+    figure.dataset.performance = performanceScore;
+    figure.dataset.views = pageViews;
+    figure.dataset.visits = visits;
+    figure.dataset.clicks = conversions;
+  }
 }
 
 async function executePreflightFunctions(clusterId, values, identifiers) {
@@ -665,7 +708,13 @@ function displayImage(clusterId) {
   changeFilters();
 }
 
-async function loadImages(individualBatch, concurrency, identifiers) {
+async function loadImages(
+  individualBatch,
+  concurrency,
+  identifiers,
+  domainKey,
+  replacementDomain,
+) {
   // use a map to track unique images by their src attribute
   const promises = []; // Array to hold promises
   const batchEntries = [];
@@ -713,6 +762,8 @@ async function loadImages(individualBatch, concurrency, identifiers) {
       aspectRatio,
       instance,
       fileType,
+      domainKey,
+      replacementDomain,
     };
 
     batchEntries.push(clusterId);
@@ -853,6 +904,8 @@ async function handleBatch(
   imagesCounter,
   gallery,
   identifiers,
+  domainKey,
+  replacementDomain,
 ) {
   const batchData = await fetchBatch(batch, concurrency, pagesCounter);
   data.push(...batchData);
@@ -860,8 +913,42 @@ async function handleBatch(
   // Display images as they are fetched
   main.dataset.canvas = true;
   results.removeAttribute('aria-hidden');
-  await loadImages(batchData, concurrency, identifiers);
+  await loadImages(batchData, concurrency, identifiers, domainKey, replacementDomain);
   decorateIcons(gallery);
+}
+
+function sortImages(doc, target) {
+  const CANVAS = doc.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
+
+  const type = target.value;
+  const sortOrder = parseInt(target.dataset.order, 10);
+  const figures = [...GALLERY.querySelectorAll('figure')];
+
+  // Sort figures based on selected type and order
+  const sorted = figures.sort((a, b) => {
+    const aVal = parseFloat(a.dataset[type]);
+    const bVal = parseFloat(b.dataset[type]);
+    return sortOrder > 0 ? aVal - bVal : bVal - aVal;
+  });
+
+  // Append sorted figures to the gallery
+  GALLERY.append(...sorted);
+
+  // Toggle the sort order for the next click
+  target.dataset.order = sortOrder * -1;
+
+  // Remove existing arrows from all sort options
+  SORT_ACTIONS.forEach((action) => {
+    const label = action.nextElementSibling;
+    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
+  });
+
+  // Add the arrow to the selected sort option
+  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
+  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
 }
 
 /**
@@ -871,7 +958,14 @@ async function handleBatch(
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, identifiers, batchSize = 50, concurrency = 5) {
+async function fetchAndDisplayBatches(
+  urls,
+  identifiers,
+  domainKey,
+  replacementDomain,
+  batchSize = 50,
+  concurrency = 5,
+) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -916,6 +1010,8 @@ async function fetchAndDisplayBatches(urls, identifiers, batchSize = 50, concurr
       imagesCounter,
       gallery,
       identifiers,
+      domainKey,
+      replacementDomain,
     );
 
     batchPromises.push(trackPromise(promise));
@@ -929,6 +1025,8 @@ async function fetchAndDisplayBatches(urls, identifiers, batchSize = 50, concurr
   // eslint-disable-next-line no-console
   console.log('Batches complete.');
   download.disabled = false;
+  sortImages(document, document.getElementById('sort-performance'));
+
   clearInterval(timer);
 
   return data;
@@ -1044,7 +1142,7 @@ function hideOverlay() {
   document.getElementById('progress').style.width = '0%'; // Reset progress
 }
 
-async function processForm(sitemap, identifiers) {
+async function processForm(sitemap, identifiers, domainKey, replacementDomain) {
   setupWindowVariables();
   showOverlay();
   const colorPaletteContainer = document.getElementById('color-pallette');
@@ -1054,7 +1152,7 @@ async function processForm(sitemap, identifiers) {
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls, identifiers);
+  await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain);
   hideOverlay();
 }
 
@@ -1125,6 +1223,19 @@ function registerListeners(doc) {
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
 
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
+
+    if (savedData) {
+      Object.keys(savedData).forEach((key) => {
+        const input = document.querySelector(`[name="${key}"]`);
+        if (input) {
+          input.value = savedData[key];
+        }
+      });
+    }
+  });
+
   // handle form submission
   URL_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1138,14 +1249,24 @@ function registerListeners(doc) {
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
 
+    const domainKey = data['domain-key'];
+    if (domainKey) {
+      window.collectingRum = true;
+      doc.getElementById('collecting-rum').setAttribute('aria-hidden', false);
+    } else {
+      doc.getElementById('collecting-rum').setAttribute('aria-hidden', true);
+    }
+
+    const replacementDomain = data['replacement-domain'];
     const identifiers = new Set([...identificationActions]
       .filter((a) => a.checked)
       .map((a) => a.value));
 
     if (urlType.includes('sitemap')) {
       // fetch sitemap
+      localStorage.setItem('sitemapForm', JSON.stringify(data));
       const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap, identifiers);
+      processForm(sitemap, identifiers, domainKey, replacementDomain);
     }
   });
 
@@ -1177,19 +1298,7 @@ function registerListeners(doc) {
   SORT_ACTIONS.forEach((action) => {
     action.addEventListener('click', (e) => {
       const { target } = e;
-      const type = target.value;
-      // get the current sort order (1 for ascending, -1 for descending)
-      const sortOrder = parseInt(target.dataset.order, 10);
-      const figures = [...GALLERY.querySelectorAll('figure')];
-      // sort figures based on selected type and order
-      const sorted = figures.sort((a, b) => {
-        const aVal = parseFloat(a.dataset[type], 10);
-        const bVal = parseFloat(b.dataset[type], 10);
-        return sortOrder > 0 ? aVal - bVal : bVal - aVal;
-      });
-      GALLERY.append(...sorted);
-      // toggle the sort order for the next click
-      target.dataset.order = sortOrder * -1;
+      sortImages(doc, target);
     });
   });
 
