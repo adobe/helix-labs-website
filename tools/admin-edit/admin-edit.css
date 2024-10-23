@@ -19,7 +19,7 @@
 
 .admin-edit .body-wrapper {
   position: relative;
-  height: 50vmin;
+  height: 66vmin;
 }
 
 /**
@@ -44,6 +44,7 @@
   height: 100%;
   margin: 0;
   padding: 0.4em 0.85em;
+  padding-bottom: calc(0.85em + (var(--body-size-s) * var(--line-height-l)));
   border: var(--border-m) solid var(--gray-300);
   border-radius: var(--rounding-m);
   overflow: auto;
@@ -217,4 +218,60 @@ pre[class*='language-'] {
 
 .token.entity {
   cursor: help;
+}
+
+/* PrismJS Line Highlight Plugin, slightly altered
+https://prismjs.com/plugins/line-highlight/ */
+
+.line-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  border-bottom: var(--border-m) dotted var(--red-900);
+  background-color: #d7322026;
+  line-height: var(--line-height-l);
+  pointer-events: none;
+  white-space: pre;
+  transition: background-color 0.3s;
+}
+
+.line-highlight::before,
+.line-highlight::after {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.line-highlight::before {
+  content: '';
+  position: absolute;
+  top: calc(100% - (2 * var(--border-m)));
+  left: calc(2 * 0.85em);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 8px solid var(--layer-elevated);
+  z-index: 1;
+}
+
+.line-highlight::after {
+  content: attr(data-error);
+  position: absolute;
+  top: calc(100% + (2 * var(--border-m)));
+  left: 0.85em;
+  max-width: 100%;
+  border-radius: var(--rounding-s);
+  padding: 0.4em 0.85em;
+  box-shadow: var(--shadow-hover);
+  background-color: var(--layer-elevated);
+  color: var(--red-1100);
+  font-size: var(--body-size-xs);
+}
+
+.line-highlight.error-hover {
+  background-color: #d7322038;
+}
+
+.line-highlight.error-hover::before,
+.line-highlight.error-hover::after {
+  opacity: 1;
 }

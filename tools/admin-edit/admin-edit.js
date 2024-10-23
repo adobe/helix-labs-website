@@ -16,6 +16,70 @@ async function loadPrism() {
   adminForm.removeEventListener('submit', loadPrism);
   body.removeEventListener('focus', loadPrism);
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js');
+  await loadScript('../admin-edit/line-highlight.js');
+
+  /**
+   * Tracks the mouse position to check if hovering over a `.line-highlight` element.
+   * @param {MouseEvent} e - Mousemove event.
+   */
+  body.closest('.body-wrapper').addEventListener('mousemove', (e) => {
+    const highlight = document.querySelector('.line-highlight');
+    if (highlight) {
+      // get mouse position relative to .body-wrapper
+      const rect = e.target.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // check if mouse is inside highlight
+      const highlightRect = highlight.getBoundingClientRect();
+      const highlightX = highlightRect.left - rect.left;
+      const highlightY = highlightRect.top - rect.top;
+      const highlightWidth = highlightRect.width;
+      const highlightHeight = highlightRect.height;
+
+      // check if mouse is within bounding box of highlight
+      if (
+        x >= highlightX
+        && x <= highlightX + highlightWidth
+        && y >= highlightY
+        && y <= highlightY + highlightHeight
+      ) {
+        highlight.classList.add('error-hover');
+      } else {
+        highlight.classList.remove('error-hover');
+      }
+    }
+  });
+}
+
+function validateJSON(code) {
+  try {
+    const json = JSON.parse(code);
+    previewWrapper.removeAttribute('data-line');
+    previewWrapper.removeAttribute('data-error');
+    return !!json;
+  } catch (error) {
+    const { message } = error;
+    // extract line of error (if it exists)
+    const match = error.message.match(/line (\d+)/);
+    if (match) {
+      let line = parseInt(match[1], 10);
+      const prevLineErrors = ['after property value', 'after array element'];
+      if (prevLineErrors.some((err) => message.includes(err)) && line > 1) {
+        // subtract 1 from line number if error is suspected on previous line
+        line -= 1;
+      }
+      previewWrapper.dataset.line = line;
+
+      const splits = [' after JSON', ' in JSON'];
+      // find the first matching split string in the message
+      const foundSplit = splits.find((split) => message.includes(split));
+      const splitMessage = foundSplit ? message.split(foundSplit)[0] : message;
+
+      previewWrapper.dataset.error = splitMessage;
+    }
+  }
+  return false;
 }
 
 /**
@@ -38,6 +102,8 @@ function formatCode(code, text) {
 
   // sanitize text to prevent HTML injection
   code.innerHTML = text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+  validateJSON(code.textContent);
 
   // eslint-disable-next-line no-undef
   Prism.highlightElement(code);
