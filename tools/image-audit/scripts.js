@@ -1254,12 +1254,16 @@ function registerListeners(doc) {
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
 
+    const rumDiv = doc.getElementById('collecting-rum');
     const domainKey = data['domain-key'];
     if (domainKey) {
       window.collectingRum = true;
-      doc.getElementById('collecting-rum').setAttribute('aria-hidden', false);
+      rumDiv.setAttribute('aria-hidden', false)
+      rumDiv.setAttribute('class', 'form-field radio-field');
     } else {
+      window.collectingRum = false;
       doc.getElementById('collecting-rum').setAttribute('aria-hidden', true);
+      rumDiv.removeAttribute('class');
     }
 
     const replacementDomain = data['replacement-domain'];
