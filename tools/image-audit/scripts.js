@@ -33,7 +33,7 @@ const IDENTIFIERS = [
     identity: 'color-identity',
     display: 'Color Identity',
     checked: true,
-    hidden: true,
+    hidden: false,
   },
   {
     identity: 'text-identity',
@@ -203,9 +203,9 @@ class RewrittenData {
 
 function getPerformanceScore(conversions, pageViews, visits, round) {
   if (pageViews > 0 && conversions > 0) {
-    const rv = Math.min(Math.round((100 * (conversions / pageViews))), 100);
+    const rv = Math.round((100 * (conversions / pageViews)));
     if (!round) return rv;
-    return Math.round(rv + 5) / 10;
+    return Math.min(Math.round((rv + 5) / 10) * 10, 100);
   }
   if (visits === 0 && pageViews === 0) return 0;
   if (visits * 2 >= pageViews) return 5;
