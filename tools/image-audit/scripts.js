@@ -31,7 +31,7 @@ const IDENTIFIERS = [
   },
   {
     identity: 'color-identity',
-    display: 'Color Identity',
+    display: 'Color',
     checked: true,
     hidden: false,
   },
@@ -571,7 +571,7 @@ function updateFigureData(clusterId) {
 
     // percentage with 2 decimal places
     const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
-    figure.dataset.performance = performanceScore;
+    figure.dataset.performance = performanceScore * 1000000000 + pageViews;
     figure.dataset.views = pageViews;
     figure.dataset.visits = visits;
     figure.dataset.clicks = conversions;
@@ -1269,6 +1269,12 @@ function registerListeners(doc) {
     const identifiers = new Set([...identificationActions]
       .filter((a) => a.checked)
       .map((a) => a.value));
+
+    if (identifiers.has('color-identity')) {
+      doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
+    } else {
+      doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
+    }
 
     if (urlType.includes('sitemap')) {
       // fetch sitemap
