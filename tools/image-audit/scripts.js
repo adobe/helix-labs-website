@@ -1031,7 +1031,6 @@ async function fetchAndDisplayBatches(
     sortImages(document, document.getElementById('sort-count'));
   }
 
-
   clearInterval(timer);
 
   return data;
@@ -1258,7 +1257,7 @@ function registerListeners(doc) {
     const domainKey = data['domain-key'];
     if (domainKey) {
       window.collectingRum = true;
-      rumDiv.setAttribute('aria-hidden', false)
+      rumDiv.setAttribute('aria-hidden', false);
       rumDiv.setAttribute('class', 'form-field radio-field');
     } else {
       window.collectingRum = false;
