@@ -1025,7 +1025,12 @@ async function fetchAndDisplayBatches(
   // eslint-disable-next-line no-console
   console.log('Batches complete.');
   download.disabled = false;
-  sortImages(document, document.getElementById('sort-performance'));
+  if (window.collectingRum) {
+    sortImages(document, document.getElementById('sort-performance'));
+  } else {
+    sortImages(document, document.getElementById('sort-count'));
+  }
+
 
   clearInterval(timer);
 
