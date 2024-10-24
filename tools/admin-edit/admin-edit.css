@@ -142,7 +142,7 @@ pre[class*='language-'] {
 }
 
 pre[class*='language-'] {
-	overflow: auto;
+  overflow: auto;
 }
 
 .token.cdata,
