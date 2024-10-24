@@ -1,25 +1,155 @@
+/* eslint-disable max-classes-per-file */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
+import { Identity, IdentityCluster, IdentityProcessor } from './identity.js';
+
+const permittedProtocols = ['http', 'https', 'data'];
+/* url and sitemap utility */
+const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
+const CORS_ANONYMOUS = true;
+
+// TODO: Make this list dynamic from a list of classes with a registered interface
+const IDENTIFIERS = [
+  {
+    identity: 'sitemap-img-load-order',
+    display: 'Sitemap Image Load Order Identity',
+    checked: true,
+    hidden: true,
+  },
+  {
+    identity: 'url-page-img-identity',
+    display: 'Image Inside Page Identity',
+    checked: true,
+    hidden: true,
+  },
+  {
+    identity: 'url-img-identity',
+    display: 'URL',
+    checked: true,
+    hidden: false,
+  },
+  {
+    identity: 'color-identity',
+    display: 'Color',
+    checked: true,
+    hidden: false,
+  },
+  {
+    identity: 'text-identity',
+    display: 'OCR Text',
+    checked: false,
+    hidden: false,
+  },
+  {
+    identity: 'sha-img-identity',
+    display: 'Cryptographic',
+    checked: true,
+    hidden: false,
+  },
+  {
+    identity: 'perceptual-identity',
+    display: 'Perceptual',
+    checked: true,
+    hidden: false,
+  },
+];
+
+/**
+ * Creates a span element representing a color with optional clickability.
+ *
+ * @param {string} color - The color to be represented from the ccsColors list.
+ * @param {boolean} clickable - Determines if the formatting is for a clickable color.
+ * @returns {HTMLSpanElement} The span element representing the color.
+ */
+function getColorSpan(color, clickable) {
+  const colorSpan = document.createElement('span');
+
+  // Add title for hover text
+  colorSpan.title = color.replace(/([a-z])([A-Z])/g, '$1 $2'); // Set hover text
+
+  colorSpan.classList.add('color-span');
+
+  if (color === 'Unknown') {
+    colorSpan.classList.add('unknown');
+    colorSpan.style.backgroundImage = "url('/icons/question.svg')";
+  } else if (color === 'Transparency') {
+    colorSpan.classList.add('alpha');
+  } else {
+    colorSpan.style.backgroundColor = color; // Set background color if not "Unknown"
+  }
+
+  if (!clickable) {
+    colorSpan.style.cursor = 'default'; // Set cursor to pointer for colors
+  }
+
+  return colorSpan;
+}
+
+function getShapeForRatio(ratio) {
+  if (ratio === 1) return 'Square';
+  if (ratio < 1) return 'Portrait';
+  if (ratio > 1.7) return 'Widescreen';
+  return 'Landscape';
+}
+
+function getPerformanceScore(conversions, pageViews, visits, round) {
+  if (pageViews > 0 && conversions > 0) {
+    const rv = Math.round((100 * (conversions / pageViews)));
+    if (!round) return rv;
+    return Math.min(Math.round((rv + 5) / 10) * 10, 100);
+  }
+  if (visits === 0 && pageViews === 0) return 0;
+  if (visits * 2 >= pageViews) return 5;
+  return 1;
+}
 
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
  * @returns {Object[]} Sorted array of report rows.
  */
-function writeReportRows() {
-  const unique = window.audit;
+function writeReportRows(identifiers) {
   const entries = [];
-  unique.forEach((image) => {
-    if (image && image.site) {
-      image.site.forEach((site, i) => {
-        entries.push({
-          Site: site,
-          'Image Source': new URL(image.src, image.origin).href,
-          'Alt Text': image.alt[i],
-        });
-      });
+  window.identityProcessor.getAllClusters().values().forEach((cluster) => {
+    const upii = cluster.getFirstIdentityOf('url-page-img-identity');
+
+    const value = {
+      Site: upii.identityData.site,
+      'Image Source': new URL(upii.identityData.src, upii.identityData.origin).href,
+      'Alt Text': upii.identityData.alt,
+    };
+
+    if (identifiers.has('color-identity')) {
+      const ci = cluster.getSingletonOf('color-identity');
+      if (ci) {
+        value['Top Colors'] = (window.identityProcessor.sortColorNamesIntoArray(
+          ci.identityData.topColors,
+        )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
+      }
     }
+
+    if (identifiers.has('text-identity')) {
+      const ti = cluster.getSingletonOf('text-identity');
+      if (ti) {
+        value['OCR Text'] = ti.identityData.identityText;
+      }
+    }
+
+    if (window.collectingRum) {
+      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+
+      value['Performance Score'] = getPerformanceScore(conversions, pageViews, visits, true);
+      value['Page Views'] = pageViews > 0 ? pageViews : ' < 100';
+      value.Conversions = conversions > 0 ? conversions : ' < 100';
+      value.Visits = visits > 0 ? visits : ' < 100';
+      value.Bounces = bounces > 0 ? bounces : ' < 100';
+    }
+
+    entries.push(value);
   });
   // sort the entries array alphabetically by the 'Site' property
   const sorted = entries.sort((a, b) => a.Site.localeCompare(b.Site));
@@ -45,17 +175,6 @@ function generateCSV(rows) {
   return blob;
 }
 
-/* modal utilities */
-/**
- * Generates a unique ID for a modal based on the image source URL.
- * @param {string} src - Source URL of the image.
- * @returns {string} Generated or extracted modal ID.
- */
-function getModalId(src) {
-  if (src.includes('_')) return src.split('_')[1].split('.')[0];
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
-}
-
 class RewrittenData {
   constructor(data) {
     this.data = data;
@@ -69,7 +188,10 @@ class RewrittenData {
   site(value) {
     if (!value) return '-';
     const sites = value.map((site, i) => {
-      const alt = this.data.alt[i];
+      let alt = null;
+      if (this.data.alt.length <= i) {
+        alt = this.data.alt[i]; // this is not technically correct. They arent 1:1
+      }
       const a = `<a href="${new URL(site, this.data.origin).href}" target="_blank">${new URL(site).pathname}</a>`;
       return alt ? `<p>${a} (${alt})</p>` : `<p>${a}</p>`;
     });
@@ -85,14 +207,16 @@ class RewrittenData {
   aspectRatio(value) {
     if (!value) return '-';
     const ar = (v, symbol) => `<i class="symbol symbol-${symbol.toLowerCase()}"></i> ${symbol} (${v})`;
-    if (value === 1) return ar(value, 'Square');
-    if (value < 1) return ar(value, 'Portrait');
-    if (value > 1.7) return ar(value, 'Widescreen');
-    return ar(value, 'Landscape');
+    return ar(value, getShapeForRatio(value));
   }
 
   src(value) {
     return `<img src="${new URL(value, this.data.origin).href}" />`;
+  }
+
+  topColors(value) {
+    if (!value) return '-';
+    return window.identityProcessor.sortColorNamesIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
   // rewrite data based on key
@@ -110,17 +234,20 @@ class RewrittenData {
  * @param {HTMLElement} figure - Figure element representing the image.
  */
 function displayModal(figure) {
-  const { src } = figure.querySelector(':scope > img[data-src]').dataset;
-  const id = getModalId(src);
+  const clusterId = figure.querySelector(':scope > img[data-src]').dataset.src;
   // check if a modal with this ID already exists
-  let modal = document.getElementById(id);
+  const modalId = `m:${clusterId}`;
+  let modal = document.getElementById(modalId);
+
   if (!modal) {
     // build new modal
     const [newModal, body] = buildModal();
-    newModal.id = id;
+
+    newModal.id = modalId;
     modal = newModal;
     // define and populate modal content
     const table = document.createElement('table');
+
     table.innerHTML = '<tbody></tbody>';
     const rows = {
       fileType: 'Kind',
@@ -130,11 +257,93 @@ function displayModal(figure) {
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
     };
-    // format data for display
-    const data = window.audit.find((img) => src.includes(img.src.slice(2)));
-    if (!data) return;
+
+    const { identityProcessor } = window;
+    const cluster = identityProcessor.getCluster(clusterId);
+
+    const site = cluster.getAll('url-page-img-identity', 'site');
+    const alt = cluster.getAll('url-page-img-identity', 'alt');
+    // todo: this should be done as multiple entries of width, height, src. This is a quick fix.
+    const identity = cluster.getFirstIdentityOf('url-page-img-identity');
+    if (identity === null) {
+      return;
+    }
+
+    const data = {
+      fileType: identityProcessor.getCluster(clusterId).elementForCluster.src.split('.').pop(),
+      count: site.length,
+      site,
+      alt,
+      width: identity.identityData.width,
+      height: identity.identityData.height,
+      aspectRatio: identity.identityData.aspectRatio,
+      src: identityProcessor.getCluster(clusterId).elementForCluster.src,
+    };
+
+    const colorIdentity = cluster.getSingletonOf('color-identity');
+    if (colorIdentity) {
+      rows.topColors = 'Top Colors';
+      data.topColors = colorIdentity.identityData.topColors;
+    }
+
+    if (window.collectingRum) {
+      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+
+      rows.performanceScore = 'Performance Score';
+      rows.pageViews = 'Page Views';
+      rows.conversions = 'Conversions';
+      rows.visits = 'Visits';
+      rows.bounces = 'Bounces';
+      data.performanceScore = `${getPerformanceScore(conversions, pageViews, visits, true)}`;
+      data.pageViews = pageViews > 0 ? pageViews : ' < 100';
+      data.conversions = conversions > 0 ? conversions : ' < 100';
+      data.visits = visits > 0 ? visits : ' < 100';
+      data.bounces = bounces > 0 ? bounces : ' < 100';
+    }
+
+    const textIdentity = cluster.getSingletonOf('text-identity');
+    if (textIdentity) {
+      rows.text = 'OCR Text';
+      data.text = textIdentity.identityData.identityText;
+    }
+
+    /* work in progress
+    const similarClusters = cluster.getAllIdentitiesOf('similar-perceptual-identity');
+    if (similarClusters.length > 0) {
+      rows.similar = 'Similar Images';
+      // Assuming 'clusters' is an array containing your clusters
+      const urlMap = new Map();
+
+      // Step 1: Extract data and store in a Map
+      similarClusters.forEach((cluster) => {
+        const imgElement = cluster.figureForCluster;
+        if (imgElement) {
+          const { src } = imgElement;
+          const { width } = imgElement;
+          const { height } = imgElement;
+
+          // Step 2: Store the src as the key and width/height as the value in the map
+          urlMap.set(src, { width, height });
+        }
+      });
+
+      // Step 3: Iterate over the Map to generate the HTML string
+      let htmlString = '';
+
+      urlMap.forEach((value, src) => {
+        htmlString += `<img src="${src}" width="${value.width}" height="${value.height}" />\n`;
+      });
+
+      data.similar = htmlString;
+    }
+    */
+
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
+
     Object.keys(rows).forEach((key) => {
       if (formattedData.data[key]) {
         const tr = document.createElement('tr');
@@ -162,93 +371,326 @@ function validateAlt(alt, count) {
 }
 
 /**
- * Filters out duplicate images and compiles unique image data.
- * @param {Object[]} data - Array of image data objects.
- * @returns {Object[]} Array of unique image data objects.
+ * Checks if a given URL is valid based on its protocol.
+ *
+ * @param {string|URL|Object} url - The URL to validate. It can be a string,
+ * an instance of URL, or an object with `href`, `origin`, or `src` properties.
+ * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
  */
-function findUniqueImages(data) {
-  // use a map to track unique images by their src attribute
-  const unique = new Map();
-  data.forEach((img) => {
-    const {
-      src, origin, site, alt, width, height, aspectRatio, fileType,
-    } = img;
-    // if the image src is not already in the map, init a new entry
-    if (!unique.has(src)) {
-      unique.set(src, {
-        src,
-        origin,
-        count: 0,
-        site: [],
-        alt: [],
-        width,
-        height,
-        aspectRatio,
-        fileType,
-      });
+function isUrlValid(url) {
+  let protocol = '';
+  if (url instanceof URL) {
+    protocol = url.protocol.replace(':', '').toLowerCase();
+  } else if (typeof url === 'string') {
+    try {
+      const newUrl = new URL(url);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
     }
-    // update the existing entry with additional image data
-    const entry = unique.get(src);
-    entry.count += 1;
-    entry.site.push(site);
-    entry.alt.push(alt);
-  });
-  // convert the map values to an array
-  return [...unique.values()];
+  } else if (typeof url?.href === 'string') {
+    return isUrlValid(url.href);
+  } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
+    try {
+      const newUrl = new URL(url.src, url.origin);
+      return isUrlValid(newUrl);
+    } catch (error) {
+      return false;
+    }
+  } else if (typeof url?.origin === 'string') {
+    return isUrlValid(url.origin);
+  } else {
+    return false;
+  }
+
+  return permittedProtocols.includes(protocol);
 }
 
 /**
- * Displays a collection of images in the gallery.
- * @param {Object[]} images - Array of image data objects to be displayed.
+ * Filters and returns an array of valid URLs.
+ *
+ * @param {string[]} urls - An array of URLs to be validated.
+ * @returns {string[]} An array containing only the valid URLs.
  */
-function displayImages(images) {
-  const gallery = document.getElementById('image-gallery');
-  images.forEach((data) => {
-    // create a new figure to hold the image and its metadata
-    const figure = document.createElement('figure');
-    figure.dataset.alt = validateAlt(data.alt, data.count);
-    figure.dataset.aspect = data.aspectRatio;
-    figure.dataset.count = data.count;
-    // build image
-    const { href } = new URL(data.src, data.origin);
-    const img = document.createElement('img');
-    img.dataset.src = href;
-    img.width = data.width;
-    img.height = data.height;
-    img.loading = 'lazy';
-    figure.append(img);
-    // load the image when it comes into view
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.timeoutId = setTimeout(() => {
-            img.src = img.dataset.src;
-            observer.disconnect();
-          }, 500); // delay image loading
-        } else {
-          // cancel loading delay if image is scrolled out of view
-          clearTimeout(entry.target.timeoutId);
-        }
-      });
-    }, { threshold: 0 });
-    observer.observe(figure);
-    // build info button
-    const info = document.createElement('button');
-    info.setAttribute('aria-label', 'More information');
-    info.setAttribute('type', 'button');
-    info.innerHTML = '<span class="icon icon-info"></span>';
-    figure.append(info);
-    // check if image already exists in the gallery
-    const existingImg = gallery.querySelector(`figure img[src="${href}"], figure [data-src="${href}"]`);
-    if (existingImg) {
-      const existingFigure = existingImg.parentElement;
-      const existingCount = parseInt(existingFigure.dataset.count, 10);
-      if (existingCount !== data.count) {
-        // if count has changed, replace existing figure with the new one
-        gallery.replaceChild(figure, existingFigure);
+function cleanseUrls(urls) {
+  return urls.filter((url) => isUrlValid(url));
+}
+
+function changeFilters() {
+  const CANVAS = document.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+
+  const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+  const figures = [...GALLERY.querySelectorAll('figure')];
+
+  const checkColors = checked.filter((c) => c.startsWith('color-'));
+  const checkShapes = checked.filter((c) => c.startsWith('shape-'));
+
+  figures.forEach((figure) => {
+    const { shape } = figure.dataset;
+    let hide = true; // hide figures by default
+
+    // check images against filter critera
+    if (checked.length === 0) { // no filters are selected
+      // show all figures
+      hide = false;
+    } else {
+      let hiddenChanged = false;
+
+      if (checked.includes('missing-alt')) {
+        // only show figures without alt text
+        hide = figure.dataset.alt === 'true';
+        hiddenChanged = true;
       }
-    } else gallery.append(figure);
+
+      // shapes are subtractive against missing alt.
+      if (checkShapes.length > 0) {
+        // only one shape.
+        if (checkShapes.includes(`shape-${shape}`)) {
+          if (!hiddenChanged) {
+            hide = false;
+            hiddenChanged = true;
+          }
+        } else {
+          hide = true;
+          hiddenChanged = true;
+        }
+      }
+
+      // colors are subtractive against other matches.
+      if (checkColors.length > 0) {
+        let foundAnyColor = false;
+        if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
+          figure.dataset.topColors.split(',').forEach((color) => {
+            if (checked.includes(`color-${color}`)) {
+              foundAnyColor = true;
+            }
+          });
+        }
+
+        if (!foundAnyColor) {
+          hide = true;
+          hiddenChanged = true;
+        } else if (!hiddenChanged) {
+          hide = false;
+          hiddenChanged = true;
+        }
+      } else if (!hiddenChanged) {
+        hide = false;
+      }
+    }
+
+    figure.setAttribute('aria-hidden', hide);
   });
+}
+
+/**
+ * Adds an event listener to the specified action element that filters images in a gallery
+ * based on user selected criteria.
+ *
+ * @param {HTMLElement} action - The HTML element that is receiving the event listener.
+ *
+ * The function filters images in the gallery based on the following criteria:
+ * - Shape: Filters images by their aspect ratio (square, portrait, landscape, widescreen).
+ * - Color: Filters images by their top colors.
+ * - Missing Alt Text: Filters images that are missing alt text.
+ *
+ * The function updates the `aria-hidden` attribute of each figure element
+ * in the gallery to show or hide it based on the selected filters.
+ */
+function addFilterAction(action) {
+  action.addEventListener('change', () => changeFilters());
+}
+
+function addColorsToFilterList(sortedColorNames) {
+  const colorPaletteContainer = document.getElementById('color-pallette');
+  colorPaletteContainer.innerHTML = ''; // Clear the container
+
+  sortedColorNames.forEach((color) => {
+    // Create a list item (li) for each color
+    const listItem = document.createElement('li');
+    listItem.className = 'color-list-item'; // Corrected class name for styling
+
+    // Create a label for the color checkbox
+    const label = document.createElement('label');
+    label.className = 'color-label'; // Corrected class name for styling
+
+    // Create a checkbox input
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.name = 'filter';
+    checkbox.value = `color-${color}`;
+    checkbox.id = `filter-color-${color}`;
+    checkbox.className = 'color-checkbox'; // Corrected class name for styling
+    checkbox.style.display = 'none'; // Hide the default checkbox
+
+    // Create a square for the color representation
+    const colorSpan = getColorSpan(color, true);
+
+    // Add a click event to toggle the checkbox and change border on click
+    label.addEventListener('click', () => {
+      checkbox.checked = !checkbox.checked; // Toggle the checkbox state
+      if (checkbox.checked) colorSpan.classList.add('selected');
+      else colorSpan.classList.remove('selected');
+    });
+    addFilterAction(checkbox, document);
+
+    // Append the hidden checkbox and color square to the label
+    label.appendChild(checkbox);
+    label.appendChild(colorSpan);
+
+    // Append the label to the list item
+    listItem.appendChild(label);
+
+    // Append the list item to the main color palette container
+    colorPaletteContainer.appendChild(listItem);
+  });
+}
+
+/**
+ * Utility to updates the dataset attributes of a given figure element with provided data.
+ * Should be called after any update to the sorting or filtering attributes.
+ *
+ * @param {HTMLElement} figure - The figure element to update.
+ */
+function updateFigureData(clusterId) {
+  const { identityProcessor } = window;
+  const cluster = identityProcessor.getCluster(clusterId);
+  const figure = cluster.figureForCluster;
+  if (!figure || !figure.dataset) return;
+
+  const colorIdentity = cluster.getSingletonOf('color-identity');
+
+  if (colorIdentity && colorIdentity.identityData.topColors.length > 0) {
+    figure.dataset.topColors = colorIdentity.identityData.topColors.join(',');
+    figure.dataset.colorIndex = identityProcessor.getColorIndex(colorIdentity);
+  }
+
+  const altText = cluster.getAll('url-page-img-identity', 'alt');
+  const sites = cluster.getAll('url-page-img-identity', 'site');
+
+  figure.dataset.alt = validateAlt(altText, sites.length);
+  figure.dataset.count = sites.length;
+
+  // TODO: Different copies can have different aspect ratios.
+  const identity = cluster.getFirstIdentityOf('url-page-img-identity');
+  if (identity && identity.identityData.aspectRatio) {
+    const aspect = identity.identityData.aspectRatio;
+    figure.dataset.aspect = aspect;
+    figure.dataset.shape = getShapeForRatio(aspect);
+  }
+
+  if (window.collectingRum) {
+    const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+    const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+    const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+
+    const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
+    figure.dataset.performance = performanceScore * 1000000000 + pageViews;
+    figure.dataset.views = pageViews;
+    figure.dataset.visits = visits;
+    figure.dataset.clicks = conversions;
+  }
+}
+
+async function executePreflightFunctions(clusterId, values, identifiers) {
+  const { identityProcessor } = window;
+
+  const promises = [];
+  if (identifiers.has('url-img-identity')) {
+    promises.push(identityProcessor.identifyImgUrl(clusterId, values));
+  }
+  if (identifiers.has('url-page-img-identity')) {
+    promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values));
+  }
+
+  await Promise.allSettled(promises);
+}
+
+async function executePostFlightDomFunctions(clusterId, values, identifiers) {
+  const { identityProcessor } = window;
+  const promises = [];
+  if (identifiers.has('color-identity')) {
+    promises.push(identityProcessor.identifyColors(clusterId, values));
+  }
+  if (identifiers.has('text-identity')) {
+    promises.push(identityProcessor.identifyText(clusterId, values));
+  }
+
+  await Promise.allSettled(promises);
+}
+
+async function executePostFlightCanvasFunctions(clusterId, values, identifiers) {
+  const { identityProcessor } = window;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const { elementForCluster } = identityProcessor.getCluster(clusterId);
+
+  canvas.width = values.width;
+  canvas.height = values.height;
+
+  ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
+
+  const promises = [];
+  if (identifiers.has('sha-img-identity')) {
+    promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx));
+  }
+  if (identifiers.has('color-identity')) {
+    promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx));
+  }
+  if (identifiers.has('perceptual-identity')) {
+    promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx, identifiers));
+  }
+
+  await Promise.allSettled(promises);
+}
+
+async function imageOnLoad(clusterId, values, identifiers) {
+  await Promise.allSettled([
+    executePostFlightDomFunctions(clusterId, values, identifiers),
+    executePostFlightCanvasFunctions(clusterId, values, identifiers),
+  ]);
+}
+
+async function imageOnError(clusterId, values, href, identifiers, error) {
+  window.identityProcessor.identifyUnknownColorOnError(clusterId);
+  updateFigureData(clusterId);
+  // eslint-disable-next-line no-console
+  console.error(`Error loading img file at ${href}`, error);
+  // TODO: Show broken file image?
+}
+
+function trackPromise(promise) {
+  let isFulfilled = false;
+  const trackedPromise = promise.then(
+    (result) => {
+      isFulfilled = true;
+      return result; // Preserve the resolved value
+    },
+    (error) => {
+      isFulfilled = true;
+      // eslint-disable-next-line no-console
+      console.error('Promise rejected:', error);
+    },
+  );
+
+  // Attach the isFulfilled property
+  trackedPromise.isFulfilled = () => isFulfilled;
+
+  return trackedPromise;
+}
+
+function updateProgress() {
+  const pagesCounter = parseInt(document.getElementById('pages-counter').innerText, 10) || 0;
+  const totalCounter = parseInt(document.getElementById('total-counter').innerText, 10) || 1; // Avoid division by zero
+
+  // Calculate the percentage of completion
+  const percentage = (pagesCounter / (totalCounter * 1.1)) * 100;
+
+  // Update the progress bar width
+  document.getElementById('progress').style.width = `${percentage}%`;
 }
 
 /**
@@ -262,6 +704,120 @@ function updateCounter(counter, increment, float = false) {
   // calculate the new value (or reset to 0 if no increment is provided)
   const targetValue = increment ? value + increment : 0;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
+  if (counter.id === 'images-counter' || counter.id === 'total-counter') updateProgress();
+}
+
+/**
+ * Displays an cluster in the gallery.
+ */
+function displayImage(clusterId) {
+  const { identityProcessor } = window;
+  const cluster = identityProcessor.getCluster(clusterId);
+  if (cluster.id !== clusterId || cluster.figureForCluster.parentElement !== null) {
+    // This cluster was re-clustered and displayed or it's already displayed.
+    updateCounter(document.getElementById('duplicate-images-counter'), 1);
+    return;
+  }
+  const gallery = document.getElementById('image-gallery');
+  // append the figure to the gallery if needed
+  gallery.append(cluster.figureForCluster);
+  updateCounter(document.getElementById('images-counter'), 1);
+  changeFilters();
+}
+
+async function loadImages(
+  individualBatch,
+  concurrency,
+  identifiers,
+  domainKey,
+  replacementDomain,
+) {
+  // use a map to track unique images by their src attribute
+  const promises = []; // Array to hold promises
+  const batchEntries = [];
+
+  individualBatch.filter((img) => isUrlValid(img.origin));
+
+  for (let i = 0; i < individualBatch.length; i += 1) {
+    const img = individualBatch[i];
+    if (promises.length >= concurrency) {
+      // eslint-disable-next-line no-await-in-loop
+      await Promise.race(promises);
+      // Remove the completed promises
+      promises.splice(0, promises.findIndex((p) => p.isFulfilled()) + 1);
+    }
+
+    const {
+      src, origin, site, alt, width, height, aspectRatio, instance, fileType,
+    } = img;
+
+    window.imageCount += 1;
+    const { imageCount } = window;
+    const { href } = new URL(src, origin);
+    const { identityProcessor } = window;
+    const loadedImg = new Image(width, height);
+    if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
+    const figure = document.createElement('figure');
+    figure.append(loadedImg);
+
+    // build info button
+    const info = document.createElement('button');
+    info.setAttribute('aria-label', 'More information');
+    info.setAttribute('type', 'button');
+    info.innerHTML = '<span class="icon icon-info"></span>';
+    figure.append(info);
+
+    const originatingIdentity = new Identity(`slo:${imageCount}`, 'sitemap-img-load-order', false, false);
+    const clusterId = identityProcessor.addCluster(new IdentityCluster(identityProcessor, originatingIdentity, loadedImg, figure, 'image'));
+
+    const values = {
+      href,
+      site,
+      alt,
+      width,
+      height,
+      aspectRatio,
+      instance,
+      fileType,
+      domainKey,
+      replacementDomain,
+    };
+
+    batchEntries.push(clusterId);
+
+    // preflight checks are lightweight and must be done to prevent other
+    // heavywieght operations from running on meaningless items.
+    // eslint-disable-next-line no-await-in-loop
+    await executePreflightFunctions(clusterId, values, identifiers);
+    if (identityProcessor.getCluster(clusterId).id === clusterId) {
+      // This cluster was NOT re-clustered. Run more expensive functions.
+      const promise = trackPromise(new Promise((resolve) => {
+        loadedImg.onload = async () => {
+          await imageOnLoad(clusterId, values, identifiers)
+            .then(() => {
+              displayImage(clusterId);
+              updateFigureData(clusterId);
+            });
+          resolve(true);
+        };
+        loadedImg.onerror = async (error) => {
+          await imageOnError(clusterId, values, href, identifiers, error);
+          resolve(true);
+        };
+      }));
+
+      // dont start loading the image until here.
+      loadedImg.src = href;
+
+      promises.push(promise);
+    } else {
+      updateFigureData(identityProcessor.getCluster(clusterId).id);
+      updateCounter(document.getElementById('duplicate-images-counter'), 1);
+    }
+  }
+
+  await Promise.allSettled(promises);
+  return batchEntries;
 }
 
 /* fetching data */
@@ -289,9 +845,17 @@ async function fetchImageDataFromPage(url) {
   try {
     const html = await fetchPage(url.plain);
     if (html) {
+      const seenMap = new Map();
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
         const src = img.getAttribute('src').split('?')[0];
+
+        let instance = 1;
+        if (seenMap.has(src)) {
+          instance = seenMap.get(src) + 1;
+        }
+        seenMap.set(src, instance);
+
         const alt = img.getAttribute('alt') || '';
         const width = img.getAttribute('width') || img.naturalWidth;
         const height = img.getAttribute('height') || img.naturalHeight;
@@ -305,6 +869,7 @@ async function fetchImageDataFromPage(url) {
           width,
           height,
           aspectRatio,
+          instance,
           fileType,
         };
       });
@@ -334,28 +899,99 @@ async function fetchBatch(batch, concurrency, counter) {
       while (batch.length > 0) {
         // get the next URL from the batch
         const url = batch.shift();
-        updateCounter(counter, 1);
         // eslint-disable-next-line no-await-in-loop
         const imgData = await fetchImageDataFromPage(url);
         results.push(...imgData);
+        updateCounter(counter, 1);
       }
     })());
   }
 
-  await Promise.all(tasks); // wait for all concurrent tasks to complete
+  await Promise.allSettled(tasks); // wait for all concurrent tasks to complete
   return results;
+}
+
+async function handleBatch(
+  batch,
+  concurrency,
+  pagesCounter,
+  data,
+  main,
+  results,
+  imagesCounter,
+  gallery,
+  identifiers,
+  domainKey,
+  replacementDomain,
+) {
+  const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+  data.push(...batchData);
+
+  // Display images as they are fetched
+  main.dataset.canvas = true;
+  results.removeAttribute('aria-hidden');
+  await loadImages(batchData, concurrency, identifiers, domainKey, replacementDomain);
+  decorateIcons(gallery);
+}
+
+function sortImages(doc, target) {
+  const CANVAS = doc.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
+
+  const type = target.value;
+  const sortOrder = parseInt(target.dataset.order, 10);
+  const figures = [...GALLERY.querySelectorAll('figure')];
+
+  // Sort figures based on selected type and order
+  const sorted = figures.sort((a, b) => {
+    if (typeof a.dataset[type] !== 'string' || typeof b.dataset[type] !== 'string') {
+      return 0;
+    }
+
+    if (a.dataset[type].includes('.') || b.dataset[type].includes('.')) {
+      const aVal = parseFloat(a.dataset[type]);
+      const bVal = parseFloat(b.dataset[type]);
+      return sortOrder > 0 ? aVal - bVal : bVal - aVal;
+    }
+    const aVal = parseInt(a.dataset[type], 10);
+    const bVal = parseInt(b.dataset[type], 10);
+    return sortOrder > 0 ? aVal - bVal : bVal - aVal;
+  });
+
+  // Append sorted figures to the gallery
+  GALLERY.append(...sorted);
+
+  // Toggle the sort order for the next click
+  target.dataset.order = sortOrder * -1;
+
+  // Remove existing arrows from all sort options
+  SORT_ACTIONS.forEach((action) => {
+    const label = action.nextElementSibling;
+    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
+  });
+
+  // Add the arrow to the selected sort option
+  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
+  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
 }
 
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
  * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
- * @param {number} [delay = 2000] - Delay (in milliseconds) between each batch.
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concurrency = 5) {
-  window.audit = [];
+async function fetchAndDisplayBatches(
+  urls,
+  identifiers,
+  domainKey,
+  replacementDomain,
+  batchSize = 50,
+  concurrency = 5,
+) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -364,9 +1000,11 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
 
-  // reset counters
+  // Reset counters
   const imagesCounter = document.getElementById('images-counter');
   updateCounter(imagesCounter);
+  const duplicatesCounter = document.getElementById('duplicate-images-counter');
+  updateCounter(duplicatesCounter);
   const pagesCounter = document.getElementById('pages-counter');
   updateCounter(pagesCounter);
   const totalCounter = document.getElementById('total-counter');
@@ -376,42 +1014,53 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   updateCounter(elapsed);
   const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
 
-  // initialize concurrent tasks
+  // Collect promises for all batches
+  const batchPromises = [];
   for (let i = 0; i < urls.length; i += batchSize) {
-    // get the next batch of URLs
-    const batch = urls.slice(i, i + batchSize);
-    // eslint-disable-next-line no-await-in-loop
-    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
-    data.push(...batchData);
-
-    // display images as they are fetched
-    main.dataset.canvas = true;
-    results.removeAttribute('aria-hidden');
-
-    const uniqueBatchData = findUniqueImages(data);
-    window.audit = uniqueBatchData;
-    updateCounter(imagesCounter, uniqueBatchData.length);
-    displayImages(uniqueBatchData);
-    decorateIcons(gallery);
-
-    if (i + batchSize < urls.length) {
+    if (batchPromises.length >= concurrency) {
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { // wait before continuing to the next batch
-        setTimeout(resolve, delay);
-      });
+      await Promise.race(batchPromises);
+      // Remove the completed promises
+      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled()) + 1);
     }
+    const batch = urls.slice(i, i + batchSize);
 
-    batchData.length = 0;
+    // Process each batch and handle the delay between batches asynchronously
+    const promise = handleBatch(
+      batch,
+      concurrency,
+      pagesCounter,
+      data,
+      main,
+      results,
+      imagesCounter,
+      gallery,
+      identifiers,
+      domainKey,
+      replacementDomain,
+    );
+
+    batchPromises.push(trackPromise(promise));
   }
-  data.length = 0;
 
+  // Wait for all batches to finish processing
+  await Promise.allSettled(batchPromises);
+
+  // After all batches are done
+  data.length = 0;
+  // eslint-disable-next-line no-console
+  console.log('Batches complete.');
   download.disabled = false;
+  if (window.collectingRum) {
+    sortImages(document, document.getElementById('sort-performance'));
+  } else {
+    sortImages(document, document.getElementById('sort-count'));
+  }
+
   clearInterval(timer);
+
   return data;
 }
-
-/* url and sitemap utility */
-const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 
 /**
  * Determines the type of a URL based on its hostname and pathname.
@@ -420,7 +1069,7 @@ const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
  */
 function extractUrlType(url) {
   const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
+  const aemSite = AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
   if (pathname.endsWith('.xml')) return 'sitemap';
   if (pathname.includes('robots.txt')) return 'robots';
   if (aemSite || hostname.includes('github')) return 'write sitemap';
@@ -434,7 +1083,7 @@ function extractUrlType(url) {
  */
 function writeSitemapUrl(url) {
   const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
+  const aemSite = AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
   // construct sitemap URL for an AEM site
   if (aemSite) {
     const [ref, repo, owner] = hostname.replace(`.${aemSite}`, '').split('--');
@@ -486,7 +1135,7 @@ async function fetchSitemap(sitemap) {
         const nestedUrls = await fetchSitemap(originSwapped);
         allUrls.push(...nestedUrls);
       }
-      return allUrls;
+      return cleanseUrls(allUrls);
     }
     if (xml.querySelector('url')) {
       const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
@@ -495,17 +1144,46 @@ async function fetchSitemap(sitemap) {
         const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
         return { href: originSwapped, plain };
       });
-      return urls;
+      return cleanseUrls(urls);
     }
   }
   return [];
 }
 
 /* setup */
-async function processForm(sitemap) {
+
+function setupWindowVariables() {
+  window.imageCount = 0;
+  window.identityProcessor = new IdentityProcessor(AEM_EDS_HOSTS, addColorsToFilterList);
+}
+
+function showOverlay() {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'block'; // Show the overlay
+  overlay.classList.add('active');
+  document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
+}
+
+function hideOverlay() {
+  const overlay = document.getElementById('overlay');
+  overlay.style.display = 'none'; // Hide the overlay
+  overlay.classList.remove('active');
+  document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
+  document.getElementById('progress').style.width = '0%'; // Reset progress
+}
+
+async function processForm(sitemap, identifiers, domainKey, replacementDomain) {
+  setupWindowVariables();
+  showOverlay();
+  const colorPaletteContainer = document.getElementById('color-pallette');
+  colorPaletteContainer.innerHTML = ''; // Clear the container
+
+  document.querySelectorAll('dialog').forEach((dialog) => { dialog.remove(); });
+
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls);
+  await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain);
+  hideOverlay();
 }
 
 function getFormData(form) {
@@ -545,6 +1223,27 @@ function getFormData(form) {
   return data;
 }
 
+function overrideCreateCanvas(doc) {
+  document.originalCreateElement = doc.createElement;
+  document.createElement = function createElement(tagName, options) {
+    if (tagName === 'canvas') {
+      const canvas = document.originalCreateElement(tagName, options);
+      canvas.originalGetContext = canvas.getContext;
+      canvas.getContext = function getContext(contextId, contextAttributes) {
+        if (contextId === '2d' && !contextAttributes?.willReadFrequently) {
+          if (!contextAttributes) {
+            return canvas.originalGetContext(contextId, { willReadFrequently: true });
+          }
+          contextAttributes.willReadFrequently = true;
+        }
+        return canvas.originalGetContext(contextId, contextAttributes);
+      };
+      return canvas;
+    }
+    return document.originalCreateElement(tagName, options);
+  };
+}
+
 function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
@@ -553,6 +1252,19 @@ function registerListeners(doc) {
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
+
+    if (savedData) {
+      Object.keys(savedData).forEach((key) => {
+        const input = document.querySelector(`[name="${key}"]`);
+        if (input) {
+          input.value = savedData[key];
+        }
+      });
+    }
+  });
 
   // handle form submission
   URL_FORM.addEventListener('submit', async (e) => {
@@ -563,16 +1275,47 @@ function registerListeners(doc) {
     const data = getFormData(e.srcElement);
     const url = data['site-url'];
     const urlType = extractUrlType(url);
+
+    const sitemapForm = doc.getElementById('identity-selectors');
+    const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
+
+    const rumDiv = doc.getElementById('collecting-rum');
+    const domainKey = data['domain-key'];
+    if (domainKey) {
+      window.collectingRum = true;
+      rumDiv.setAttribute('aria-hidden', false);
+      rumDiv.setAttribute('class', 'form-field radio-field');
+    } else {
+      window.collectingRum = false;
+      doc.getElementById('collecting-rum').setAttribute('aria-hidden', true);
+      rumDiv.removeAttribute('class');
+    }
+
+    const replacementDomain = data['replacement-domain'];
+    const identifiers = new Set([...identificationActions]
+      .filter((a) => a.checked)
+      .map((a) => a.value));
+
+    if (identifiers.has('color-identity')) {
+      doc.getElementById('color-sort').removeAttribute('aria-hidden');
+      doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
+    } else {
+      doc.getElementById('color-sort').setAttribute('aria-hidden', true);
+      doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
+    }
+
     if (urlType.includes('sitemap')) {
       // fetch sitemap
+      localStorage.setItem('sitemapForm', JSON.stringify(data));
       const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap);
+      processForm(sitemap, identifiers, domainKey, replacementDomain);
     }
   });
 
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
+
     if (figure) displayModal(figure);
   });
 
@@ -597,56 +1340,50 @@ function registerListeners(doc) {
   SORT_ACTIONS.forEach((action) => {
     action.addEventListener('click', (e) => {
       const { target } = e;
-      const type = target.value;
-      // get the current sort order (1 for ascending, -1 for descending)
-      const sortOrder = parseInt(target.dataset.order, 10);
-      const figures = [...GALLERY.querySelectorAll('figure')];
-      // sort figures based on selected type and order
-      const sorted = figures.sort((a, b) => {
-        const aVal = parseFloat(a.dataset[type], 10);
-        const bVal = parseFloat(b.dataset[type], 10);
-        return sortOrder > 0 ? aVal - bVal : bVal - aVal;
-      });
-      GALLERY.append(...sorted);
-      // toggle the sort order for the next click
-      target.dataset.order = sortOrder * -1;
+      sortImages(doc, target);
     });
   });
 
-  FILTER_ACTIONS.forEach((action) => {
-    action.addEventListener('change', () => {
-      const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-      const figures = [...GALLERY.querySelectorAll('figure')];
+  FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
+}
 
-      figures.forEach((figure) => {
-        const hasAlt = figure.dataset.alt === 'true';
-        const aspect = parseFloat(figure.dataset.aspect, 10);
-        // eslint-disable-next-line no-nested-ternary
-        const shape = aspect === 1 ? 'square'
-          // eslint-disable-next-line no-nested-ternary
-          : aspect < 1 ? 'portrait'
-            : aspect > 1.7 ? 'widescreen' : 'landscape';
+function addIdentitySelectorsToForm(doc) {
+  const identitySelectors = document.getElementById('identity-selectors');
 
-        let hide = true; // hide figures by default
+  IDENTIFIERS.forEach((item) => {
+    const {
+      identity,
+      display,
+      checked,
+      hidden,
+    } = item;
 
-        // check images against filter critera
-        if (checked.includes('missing-alt') && !checked.some((f) => f !== 'missing-alt')) { // only 'missing-alt' is selected
-          // only show figures without alt text
-          hide = hasAlt;
-        } else if (checked.includes('missing-alt') && checked.some((f) => f !== 'missing-alt')) { // 'missing-alt' is selected along with shape(s)
-          // show figures without alt text that match any selected shape(s)
-          hide = !(checked.includes(shape) && !hasAlt);
-        } else if (!checked.includes('missing-alt') && checked.includes(shape)) { // only shapes are selected
-          // show figures that match the selected shape(s)
-          hide = false;
-        } else if (checked.length === 0) { // no filters are selected
-          // show all figures
-          hide = false;
-        }
-        figure.setAttribute('aria-hidden', hide);
-      });
-    });
+    // Create a list item
+    const li = doc.createElement('li');
+    if (hidden) li.setAttribute('aria-hidden', true);
+
+    // Create a label element
+    const label = doc.createElement('label');
+    label.setAttribute('for', `identity-${identity}`);
+    label.textContent = display;
+
+    // Create the checkbox input
+    const checkbox = doc.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `identity-${identity}`;
+    checkbox.value = identity;
+    checkbox.checked = checked;
+
+    // Append the checkbox and label to the list item
+    li.appendChild(checkbox);
+    li.appendChild(label);
+
+    // Append the list item to the identitySelectors element
+    identitySelectors.appendChild(li);
   });
 }
 
+setupWindowVariables();
 registerListeners(document);
+overrideCreateCanvas(document);
+addIdentitySelectorsToForm(document);

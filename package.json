@@ -24,6 +24,11 @@
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-plugin-import": "2.29.1",
     "stylelint": "16.7.0",
-    "stylelint-config-standard": "36.0.1"
+    "stylelint-config-standard": "36.0.1",
+    "imagehash-web": "^3.0.1",
+    "pixelmatch": "^6.0.0",
+    "tesseract.js": "^5.1.1",
+    "colorthief": "^2.4.0",
+    "crypto-js": "^4.1.1"
   }
 }
