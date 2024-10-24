@@ -227,7 +227,7 @@ https://prismjs.com/plugins/line-highlight/ */
   position: absolute;
   left: 0;
   right: 0;
-  margin-top: 8px;
+  margin-top: calc(var(--body-size-s) / 2.5);
   border-bottom: var(--border-m) dotted var(--red-900);
   background-color: #d7322026;
   line-height: var(--line-height-l);
