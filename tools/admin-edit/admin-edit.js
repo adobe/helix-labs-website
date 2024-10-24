@@ -52,16 +52,21 @@ async function loadPrism() {
   });
 }
 
+/**
+ * Validates a JSON string and updates error information.
+ * @param {string} code - JSON string to validate
+ */
 function validateJSON(code) {
   try {
+    // json IS valid
     const json = JSON.parse(code);
     previewWrapper.removeAttribute('data-line');
     previewWrapper.removeAttribute('data-error');
-    return !!json;
   } catch (error) {
+    // json is INVALID
     const { message } = error;
     // extract line of error (if it exists)
-    const match = error.message.match(/line (\d+)/);
+    const match = message.match(/line (\d+)/);
     if (match) {
       let line = parseInt(match[1], 10);
       const prevLineErrors = ['after property value', 'after array element'];
@@ -71,7 +76,7 @@ function validateJSON(code) {
       }
       previewWrapper.dataset.line = line;
 
-      const splits = [' after JSON', ' in JSON'];
+      const splits = [' after JSON', ' in JSON', ' ('];
       // find the first matching split string in the message
       const foundSplit = splits.find((split) => message.includes(split));
       const splitMessage = foundSplit ? message.split(foundSplit)[0] : message;
@@ -79,7 +84,6 @@ function validateJSON(code) {
       previewWrapper.dataset.error = splitMessage;
     }
   }
-  return false;
 }
 
 /**
@@ -241,7 +245,7 @@ adminForm.addEventListener('submit', async (e) => {
   localStorage.setItem('admin-url', adminURL.value);
   const resp = await fetch(adminURL.value);
   const text = await resp.text();
-  body.value = await text;
+  body.value = text;
   formatCode(preview, text);
   logResponse([resp.status, 'GET', adminURL.value, resp.headers.get('x-error') || '']);
 });
