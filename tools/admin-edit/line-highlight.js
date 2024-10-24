@@ -10,9 +10,9 @@
 !(function () {
   /**
    * Returns array of all elements with given CSS selector in specified context.
-   * @param {string} selector - CSS selector string.
-   * @param {HTMLElement|Document} - Context to search for selector (defaults to `document`).
-   * @returns {HTMLElement[]} Array of matched elements.
+   * @param {string} selector - CSS selector string
+   * @param {HTMLElement|Document} - Context to search for selector (defaults to `document`)
+   * @returns {HTMLElement[]} Array of matched elements
    */
   function selectElements(selector, context = document) {
     return [...context.querySelectorAll(selector)];
@@ -20,9 +20,9 @@
 
   /**
    * Checks if an element contains specified class name.
-   * @param {HTMLElement} element - Element to check.
-   * @param {string} className - Class name to look for.
-   * @returns {boolean} `true` if element has specified class, otherwise `false`.
+   * @param {HTMLElement} element - Element to check
+   * @param {string} className - Class name to look for
+   * @returns {boolean} `true` if element has specified class, otherwise `false`
    */
   function hasClass(element, className) {
     const formattedClass = ` ${className} `;
@@ -32,9 +32,9 @@
 
   /**
    * Highlights specific lines of code within an element by creating and positioning div elements.
-   * @param {HTMLElement} element - Element containing lines to highlight.
-   * @param {string} lineNumbers - String of line numbers or ranges to highlight (e.g., "1,2-4").
-   * @param {string} - Optional additional class to apply to each highlight element.
+   * @param {HTMLElement} element - Element containing lines to highlight
+   * @param {string} lineNumbers - String of line numbers or ranges to highlight (e.g., "1,2-4")
+   * @param {string} - Optional additional class to apply to each highlight element
    */
   function highlightLines(element, lineNumbers, additionalClass = '') {
     // normalize and split line numbers string ("1,2-4" becomes ["1", "2-4"])

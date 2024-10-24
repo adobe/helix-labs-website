@@ -11,7 +11,7 @@ const methodDropdown = document.querySelector('.picker-field ul');
 const methodOptions = methodDropdown.querySelectorAll('li');
 const logTable = document.querySelector('table tbody');
 
-// load Prism.js library (and remove event listeners to prevent reloading)
+// load Prism.js libraries (and remove event listeners to prevent reloading)
 async function loadPrism() {
   adminForm.removeEventListener('submit', loadPrism);
   body.removeEventListener('focus', loadPrism);
@@ -20,10 +20,10 @@ async function loadPrism() {
 
   /**
    * Tracks the mouse position to check if hovering over a `.line-highlight` element.
-   * @param {MouseEvent} e - Mousemove event.
+   * @param {MouseEvent} e - Mousemove event
    */
   body.closest('.body-wrapper').addEventListener('mousemove', (e) => {
-    const highlight = document.querySelector('.line-highlight');
+    const highlight = body.querySelector('.line-highlight');
     if (highlight) {
       // get mouse position relative to .body-wrapper
       const rect = e.target.getBoundingClientRect();
@@ -59,6 +59,7 @@ async function loadPrism() {
 function validateJSON(code) {
   try {
     // json IS valid
+    // eslint-disable-next-line no-unused-vars
     const json = JSON.parse(code);
     previewWrapper.removeAttribute('data-line');
     previewWrapper.removeAttribute('data-error');
@@ -76,10 +77,10 @@ function validateJSON(code) {
       }
       previewWrapper.dataset.line = line;
 
+      // find the first matching split substring in the message
       const splits = [' after JSON', ' in JSON', ' ('];
-      // find the first matching split string in the message
       const foundSplit = splits.find((split) => message.includes(split));
-      const splitMessage = foundSplit ? message.split(foundSplit)[0] : message;
+      const splitMessage = foundSplit ? message.split(foundSplit)[0].trim() : message;
 
       previewWrapper.dataset.error = splitMessage;
     }
@@ -145,7 +146,7 @@ function syncScroll(target, el) {
 
 /**
  * Logs the response information to the log table.
- * @param {Array} cols - Array containing response information.
+ * @param {Array} cols - Array containing response information
  */
 function logResponse(cols) {
   const hidden = logTable.closest('[aria-hidden]');
@@ -169,7 +170,7 @@ function logResponse(cols) {
 
 /**
  * Handles body form submission.
- * @param {Event} e - Submit event.
+ * @param {Event} e - Submit event
  */
 bodyForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -186,7 +187,7 @@ bodyForm.addEventListener('submit', async (e) => {
   });
 });
 
-// loads Prism.js library when #body focus event is fired for the first time
+// loads Prism.js libraries when #body focus event is fired for the first time
 body.addEventListener('focus', loadPrism, { once: true });
 
 /**
@@ -233,12 +234,12 @@ methodOptions.forEach((option) => {
   });
 });
 
-// loads the Prism.js library when #admin-form submit event is fired for the first time
+// loads the Prism.js libraries when #admin-form submit event is fired for the first time
 adminForm.addEventListener('submit', loadPrism, { once: true });
 
 /**
  * Handles admin form submission.
- * @param {Event} e - Submit event.
+ * @param {Event} e - Submit event
  */
 adminForm.addEventListener('submit', async (e) => {
   e.preventDefault();
