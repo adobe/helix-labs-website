@@ -169,6 +169,7 @@ export class IdentityCluster {
     this.replacedBy = null;
     this.singletons = new Map();
     this.addIdentity(originatingIdentity);
+    this.sortedColorNames = null;
   }
 
   // Method to add a single identity to the identities set
@@ -364,6 +365,31 @@ export class IdentityProcessor {
     this.clusterCount = 0;
     this.colorAddedCallback = colorAddedCallback;
     this.currentlyTextIdentifyingCount = 0;
+  }
+
+  // Function to get the index of a color in the sorted array
+  getColorIndex(colorIdentity) {
+    // accounting for unknown and transparency
+    const internalNumberOfTopColors = numberOfTopColors + 2;
+    const colorIndices = new Array(internalNumberOfTopColors + 2).fill(0);
+
+    if (!this.sortedColorNames) {
+      const colorNamesSet = new Set(cssColors.map((color) => color.name));
+      this.sortedColorNames = this.sortColorNamesIntoArray(colorNamesSet);
+    }
+    const { topColors } = colorIdentity.identityData;
+
+    for (let i = 0; i < internalNumberOfTopColors; i += 1) {
+      if (topColors[i]) {
+        colorIndices[i] = this.sortedColorNames.indexOf(topColors[i]) + 1;
+      }
+    }
+
+    const binaryString = colorIndices.map((num) => num.toString(2).padStart(7, '0')).join('');
+
+    // Convert the binary string back into a regular number
+    const combinedNumber = parseInt(binaryString, 2);
+    return combinedNumber;
   }
 
   addCluster(cluster) {

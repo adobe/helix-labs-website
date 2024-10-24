@@ -93,12 +93,23 @@ function getShapeForRatio(ratio) {
   return 'Landscape';
 }
 
+function getPerformanceScore(conversions, pageViews, visits, round) {
+  if (pageViews > 0 && conversions > 0) {
+    const rv = Math.round((100 * (conversions / pageViews)));
+    if (!round) return rv;
+    return Math.min(Math.round((rv + 5) / 10) * 10, 100);
+  }
+  if (visits === 0 && pageViews === 0) return 0;
+  if (visits * 2 >= pageViews) return 5;
+  return 1;
+}
+
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
  * @returns {Object[]} Sorted array of report rows.
  */
-function writeReportRows() {
+function writeReportRows(identifiers) {
   const entries = [];
   window.identityProcessor.getAllClusters().values().forEach((cluster) => {
     const upii = cluster.getFirstIdentityOf('url-page-img-identity');
@@ -109,16 +120,33 @@ function writeReportRows() {
       'Alt Text': upii.identityData.alt,
     };
 
-    const ci = cluster.getSingletonOf('color-identity');
-    if (ci) {
-      value['Top Colors'] = (window.identityProcessor.sortColorNamesIntoArray(
-        ci.identityData.topColors,
-      )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
+    if (identifiers.has('color-identity')) {
+      const ci = cluster.getSingletonOf('color-identity');
+      if (ci) {
+        value['Top Colors'] = (window.identityProcessor.sortColorNamesIntoArray(
+          ci.identityData.topColors,
+        )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
+      }
     }
 
-    const ti = cluster.getSingletonOf('text-identity');
-    if (ti) {
-      value['OCR Text'] = ti.identityData.identityText;
+    if (identifiers.has('text-identity')) {
+      const ti = cluster.getSingletonOf('text-identity');
+      if (ti) {
+        value['OCR Text'] = ti.identityData.identityText;
+      }
+    }
+
+    if (window.collectingRum) {
+      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+
+      value['Performance Score'] = getPerformanceScore(conversions, pageViews, visits, true);
+      value['Page Views'] = pageViews > 0 ? pageViews : ' < 100';
+      value.Conversions = conversions > 0 ? conversions : ' < 100';
+      value.Visits = visits > 0 ? visits : ' < 100';
+      value.Bounces = bounces > 0 ? bounces : ' < 100';
     }
 
     entries.push(value);
@@ -199,17 +227,6 @@ class RewrittenData {
       }
     });
   }
-}
-
-function getPerformanceScore(conversions, pageViews, visits, round) {
-  if (pageViews > 0 && conversions > 0) {
-    const rv = Math.round((100 * (conversions / pageViews)));
-    if (!round) return rv;
-    return Math.min(Math.round((rv + 5) / 10) * 10, 100);
-  }
-  if (visits === 0 && pageViews === 0) return 0;
-  if (visits * 2 >= pageViews) return 5;
-  return 1;
 }
 
 /**
@@ -548,6 +565,7 @@ function updateFigureData(clusterId) {
 
   if (colorIdentity && colorIdentity.identityData.topColors.length > 0) {
     figure.dataset.topColors = colorIdentity.identityData.topColors.join(',');
+    figure.dataset.colorIndex = identityProcessor.getColorIndex(colorIdentity);
   }
 
   const altText = cluster.getAll('url-page-img-identity', 'alt');
@@ -569,7 +587,6 @@ function updateFigureData(clusterId) {
     const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
     const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
 
-    // percentage with 2 decimal places
     const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
     figure.dataset.performance = performanceScore * 1000000000 + pageViews;
     figure.dataset.views = pageViews;
@@ -929,8 +946,17 @@ function sortImages(doc, target) {
 
   // Sort figures based on selected type and order
   const sorted = figures.sort((a, b) => {
-    const aVal = parseFloat(a.dataset[type]);
-    const bVal = parseFloat(b.dataset[type]);
+    if (typeof a.dataset[type] !== 'string' || typeof b.dataset[type] !== 'string') {
+      return 0;
+    }
+
+    if (a.dataset[type].includes('.') || b.dataset[type].includes('.')) {
+      const aVal = parseFloat(a.dataset[type]);
+      const bVal = parseFloat(b.dataset[type]);
+      return sortOrder > 0 ? aVal - bVal : bVal - aVal;
+    }
+    const aVal = parseInt(a.dataset[type], 10);
+    const bVal = parseInt(b.dataset[type], 10);
     return sortOrder > 0 ? aVal - bVal : bVal - aVal;
   });
 
@@ -1271,8 +1297,10 @@ function registerListeners(doc) {
       .map((a) => a.value));
 
     if (identifiers.has('color-identity')) {
+      doc.getElementById('color-sort').removeAttribute('aria-hidden');
       doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
     } else {
+      doc.getElementById('color-sort').setAttribute('aria-hidden', true);
       doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
     }
 
