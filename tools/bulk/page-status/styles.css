@@ -26,6 +26,9 @@
   }
 
   .page-status-results {
+    & .headers > div {
+      font-weight: var(--weight-bold);
+    }
 
     & .headers,
     & .results {
@@ -44,15 +47,12 @@
       & > div:nth-child(4n + 1) {
         text-align: left;
         padding-left: 3px;
+        text-wrap: auto;
       }
 
       &[aria-hidden='true'] {
         display: none;
       }
-    }
-
-    & .headers > div {
-      font-weight: var(--weight-bold);
     }
 
     & .loading {
@@ -68,7 +68,7 @@
 
       & i.symbol {
         --border-m: 7px;
-
+        
         width: 5em;
         height: 5em;
         color: var(--gray-200);
