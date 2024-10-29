@@ -26,11 +26,14 @@
   }
 
   .page-status-results {
+    & .headers > div {
+      font-weight: var(--weight-bold);
+    }
 
     & .headers,
     & .results {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
       column-gap: 10px;
 
       & > div {
@@ -41,18 +44,15 @@
         overflow-x: scroll;
       }
 
-      & > div:nth-child(3n + 1) {
+      & > div:nth-child(4n + 1) {
         text-align: left;
         padding-left: 3px;
+        text-wrap: auto;
       }
 
       &[aria-hidden='true'] {
         display: none;
       }
-    }
-
-    & .headers > div {
-      font-weight: var(--weight-bold);
     }
 
     & .loading {
@@ -68,7 +68,7 @@
 
       & i.symbol {
         --border-m: 7px;
-
+        
         width: 5em;
         height: 5em;
         color: var(--gray-200);
