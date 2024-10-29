@@ -30,7 +30,7 @@
     & .headers,
     & .results {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
       column-gap: 10px;
 
       & > div {
@@ -41,7 +41,7 @@
         overflow-x: scroll;
       }
 
-      & > div:nth-child(3n + 1) {
+      & > div:nth-child(4n + 1) {
         text-align: left;
         padding-left: 3px;
       }
