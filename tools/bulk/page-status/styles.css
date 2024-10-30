@@ -48,6 +48,7 @@
       & > div:nth-child(4n + 1) {
         text-align: left;
         text-wrap: auto;
+        white-space: normal;
       }
 
       &[aria-hidden='true'] {
