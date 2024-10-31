@@ -10,10 +10,13 @@ class UrlIdentity extends AbstractIdentity {
 
   #src;
 
-  constructor(identityId, src) {
+  #infinitelyDurable;
+
+  constructor(identityId, src, infinitelyDurable) {
     super();
     this.#id = identityId;
     this.#src = src;
+    this.#infinitelyDurable = infinitelyDurable;
   }
 
   static get type() {
@@ -37,6 +40,10 @@ class UrlIdentity extends AbstractIdentity {
     return true;
   }
 
+  get infinitelyDurable() {
+    return this.#infinitelyDurable;
+  }
+
   get signleton() {
     return false;
   }
@@ -54,13 +61,28 @@ class UrlIdentity extends AbstractIdentity {
 
     const { href } = identityValues.entryValues;
 
-    const identityId = await UrlIdentity
-      .getUrlIdentityID(clusterManager, href, originatingClusterId, UrlIdentity.type);
+    const durability = { durability: false };
+    const identityId = await UrlIdentity.getUrlIdentityID(
+      clusterManager,
+      href,
+      originatingClusterId,
+      UrlIdentity.type,
+      [],
+      durability,
+    );
+
     const identity = new UrlIdentity(identityId, href);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
-  static async getUrlIdentityID(clusterManager, href, clusterId, type, additionalTokensToSum = []) {
+  static async getUrlIdentityID(
+    clusterManager,
+    href,
+    clusterId,
+    type,
+    additionalTokensToSum = [],
+    durability = { durability: false },
+  ) {
     const url = new URL(href);
     const cluster = clusterManager.get(clusterId);
     const { elementForCluster } = cluster;
@@ -74,6 +96,7 @@ class UrlIdentity extends AbstractIdentity {
       // eslint-disable-next-line prefer-destructuring
       identificationParts.push(':eds:');
       identificationParts.push(href.split('://')[1].toLowerCase());
+      durability.durability = true;
     } else {
       try {
         // Fetch the image to get the ETag from headers (if available)
@@ -90,13 +113,20 @@ class UrlIdentity extends AbstractIdentity {
           // high fidelity identifier
           identificationParts.push('et');
           identificationParts.push(etag);
+          durability.durability = true;
         } else if (digest) {
           identificationParts.push('dg');
           identificationParts.push(digest);
+          durability.durability = true;
         } else {
           // try to join what we do know. Lower fidelity identifier
           identificationParts.push(href); // Start with the URL or other primary identifier
           identificationParts.push('wt');
+
+          if (lastModified && contentLength) {
+            durability.durability = true;
+            // close enough.
+          }
 
           // Check each field and add it to the array if it exists
           if (lastModified) {
@@ -116,6 +146,7 @@ class UrlIdentity extends AbstractIdentity {
           }
         }
       } catch (error) {
+        durability.durability = false; // reset
         identificationParts.length = 0;
         identificationParts.push(...additionalTokensToSum);
         identificationParts.push('er');
