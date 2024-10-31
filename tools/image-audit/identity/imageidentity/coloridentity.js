@@ -2,6 +2,7 @@
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import ColorUtility from '../util/colorutility.js';
+import SizeIdentity from './sizeidentity.js';
 
 const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 
@@ -11,8 +12,6 @@ const numberOfTopColors = 10;
 const colorThief = new ColorThief();
 
 const exactColorMatchThreshold = numberOfTopColors * 0.2;
-
-const maxPixelsToEvalForAlpha = 250000; // 500x500
 
 const COLOR_IDENTITY_TYPE = 'color-identity';
 
@@ -165,6 +164,17 @@ class ColorIdentity extends AbstractIdentity {
   static async identifyPostflightWithCanvas(identityValues, identityState) {
     const { originatingClusterId, clusterManager } = identityValues;
     const colorIdentity = new ColorIdentity(identityState);
+
+    const { href } = identityValues.entryValues;
+    const sizeIdentifier = clusterManager.get(originatingClusterId)
+      .get(await SizeIdentity.getSizeId(href));
+    if (sizeIdentifier?.tooBigForWeb) {
+      // don't bother with large images.
+      colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+      colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
+      return;
+    }
+
     await Promise.allSettled([
       ColorIdentity.#identifyColors(colorIdentity, identityValues),
       ColorIdentity.#identifyAlpha(colorIdentity, identityValues),
@@ -239,7 +249,7 @@ class ColorIdentity extends AbstractIdentity {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const { data } = imageData;
 
-    const alphaThreshold = Math.min(data.length, maxPixelsToEvalForAlpha) * 0.01;
+    const alphaThreshold = Math.min(data.length) * 0.01;
     let alphaPixelsCount = 0;
     for (let i = 3; i < data.length; i += 4) {
       if (data[i] < 255) {
@@ -253,9 +263,6 @@ class ColorIdentity extends AbstractIdentity {
         if (alphaPixelsCount >= alphaThreshold) {
           colorIdentity.#topColors.push(ColorUtility.TRANSPARENCY_NAME);
           colorIdentity.#addUsedColor(ColorUtility.TRANSPARENCY_NAME);
-          return;
-        }
-        if (i >= maxPixelsToEvalForAlpha) {
           return;
         }
       }
