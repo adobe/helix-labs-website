@@ -171,7 +171,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
         }
       }
     } catch (error) {
-      additionalTokensToSum.clear();
+      additionalTokensToSum.length = 0;
       additionalTokensToSum.push('er');
       additionalTokensToSum.push(site); // Start with the URL or other primary identifier
     }
@@ -210,13 +210,46 @@ class UrlAndPageIdentity extends AbstractIdentity {
       const dataChunks = new DataChunks();
 
       if (!identityState.rumLoadedData) {
+        if (identityState.rumLoadedError) {
+          return;
+        }
         // TODO: Selectable range
         const loader = new DataLoader();
         loader.apiEndpoint = API_ENDPOINT;
         loader.domain = values.replacementDomain;
         loader.domainKey = values.domainKey;
-        identityState.rumLoadedData = await loader.fetchPrevious12Months(null);
+        if (identityState.rumLoadingPromise) {
+          try {
+            await identityState.rumLoadingPromise;
+          } catch (error) {
+            this.#rumData = {
+              pageViews: 0,
+              conversions: 0,
+              visits: 0,
+              bounces: 0,
+            };
+            return;
+          }
+        } else {
+          try {
+            identityState.rumLoadingPromise = loader.fetchPrevious12Months(null);
+            await identityState.rumLoadingPromise;
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Error loading rum data:', error);
+            // fill it with a stub so we dont slam RUM with requests.
+            identityState.rumLoadedError = true;
+            this.#rumData = {
+              pageViews: 0,
+              conversions: 0,
+              visits: 0,
+              bounces: 0,
+            };
+            return;
+          }
+        }
       }
+      const { rumLoadedData } = identityState;
 
       const conversionSpec = { checkpoint: ['click'] };
 
@@ -248,7 +281,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
         return matching;
       });
 
-      dataChunks.load(identityState.rumLoadedData);
+      dataChunks.load(rumLoadedData);
 
       dataChunks.filter = { url: [siteURL.href] };
 
@@ -266,7 +299,14 @@ class UrlAndPageIdentity extends AbstractIdentity {
       };
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('error obtaining rum:', error);
+      console.error('Error parsing rum:', error);
+      this.#rumData = {
+        pageViews: 0,
+        conversions: 0,
+        visits: 0,
+        bounces: 0,
+      };
+      identityState.rumLoadedError = true;
     }
   }
 
