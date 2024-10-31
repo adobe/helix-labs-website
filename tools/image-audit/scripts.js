@@ -2,58 +2,22 @@
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
-import { Identity, IdentityCluster, IdentityProcessor } from './identity.js';
+import ClusterManager from './identity/clustermanager.js';
+import IdentityRegistry from './identity/identityregistry.js';
+import IdentityValues from './identity/identityvalues.js';
+import SitemapLoadOrderIdentity from './identity/sitemaploadorder.js';
+import ColorIdentity from './identity/imageidentity/coloridentity.js';
+import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
+import './identity/defaultidentityloader.js';
+
+import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
+
+// These imports register the classes with the IdentityRegistry
+// import './imageidentity/urlidentity.js'; not needed due to above import
 
 const permittedProtocols = ['http', 'https', 'data'];
 /* url and sitemap utility */
-const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const CORS_ANONYMOUS = true;
-
-// TODO: Make this list dynamic from a list of classes with a registered interface
-const IDENTIFIERS = [
-  {
-    identity: 'sitemap-img-load-order',
-    display: 'Sitemap Image Load Order Identity',
-    checked: true,
-    hidden: true,
-  },
-  {
-    identity: 'url-page-img-identity',
-    display: 'Image Inside Page Identity',
-    checked: true,
-    hidden: true,
-  },
-  {
-    identity: 'url-img-identity',
-    display: 'URL',
-    checked: true,
-    hidden: false,
-  },
-  {
-    identity: 'color-identity',
-    display: 'Color',
-    checked: true,
-    hidden: false,
-  },
-  {
-    identity: 'text-identity',
-    display: 'OCR Text',
-    checked: false,
-    hidden: false,
-  },
-  {
-    identity: 'sha-img-identity',
-    display: 'Cryptographic',
-    checked: true,
-    hidden: false,
-  },
-  {
-    identity: 'perceptual-identity',
-    display: 'Perceptual',
-    checked: true,
-    hidden: false,
-  },
-];
 
 /**
  * Creates a span element representing a color with optional clickability.
@@ -111,36 +75,35 @@ function getPerformanceScore(conversions, pageViews, visits, round) {
  */
 function writeReportRows(identifiers) {
   const entries = [];
-  window.identityProcessor.getAllClusters().values().forEach((cluster) => {
-    const upii = cluster.getFirstIdentityOf('url-page-img-identity');
+  window.clusterManager.getAllClusters().values().forEach((cluster) => {
+    const upii = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
 
     const value = {
-      Site: upii.identityData.site,
-      'Image Source': new URL(upii.identityData.src, upii.identityData.origin).href,
-      'Alt Text': upii.identityData.alt,
+      Site: upii.site,
+      'Image Source': new URL(upii.src, upii.origin).href,
+      'Alt Text': upii.alt,
     };
 
-    if (identifiers.has('color-identity')) {
-      const ci = cluster.getSingletonOf('color-identity');
+    if (identifiers.has(ColorIdentity.type)) {
+      const ci = cluster.getSingletonOf(ColorIdentity.type);
       if (ci) {
-        value['Top Colors'] = (window.identityProcessor.sortColorNamesIntoArray(
-          ci.identityData.topColors,
-        )).map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
+        value['Top Colors'] = ci.topColorsSorted
+          .map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
       }
     }
 
     if (identifiers.has('text-identity')) {
       const ti = cluster.getSingletonOf('text-identity');
       if (ti) {
-        value['OCR Text'] = ti.identityData.identityText;
+        value['OCR Text'] = ti.identityText;
       }
     }
 
     if (window.collectingRum) {
-      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
-      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
-      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
-      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+      const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
 
       value['Performance Score'] = getPerformanceScore(conversions, pageViews, visits, true);
       value['Page Views'] = pageViews > 0 ? pageViews : ' < 100';
@@ -216,7 +179,7 @@ class RewrittenData {
 
   topColors(value) {
     if (!value) return '-';
-    return window.identityProcessor.sortColorNamesIntoArray(new Set(value)).map((color) => getColorSpan(color, false).outerHTML).join(' ');
+    return value.map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
   // rewrite data based on key
@@ -258,39 +221,39 @@ function displayModal(figure) {
       src: 'Preview',
     };
 
-    const { identityProcessor } = window;
-    const cluster = identityProcessor.getCluster(clusterId);
+    const { clusterManager } = window;
+    const cluster = clusterManager.get(clusterId);
 
-    const site = cluster.getAll('url-page-img-identity', 'site');
-    const alt = cluster.getAll('url-page-img-identity', 'alt');
+    const site = cluster.getAll(UrlAndPageIdentity.type, 'site');
+    const alt = cluster.getAll(UrlAndPageIdentity.type, 'alt');
     // todo: this should be done as multiple entries of width, height, src. This is a quick fix.
-    const identity = cluster.getFirstIdentityOf('url-page-img-identity');
+    const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
     if (identity === null) {
       return;
     }
 
     const data = {
-      fileType: identityProcessor.getCluster(clusterId).elementForCluster.src.split('.').pop(),
+      fileType: clusterManager.get(clusterId).elementForCluster.src.split('.').pop(),
       count: site.length,
       site,
       alt,
-      width: identity.identityData.width,
-      height: identity.identityData.height,
-      aspectRatio: identity.identityData.aspectRatio,
-      src: identityProcessor.getCluster(clusterId).elementForCluster.src,
+      width: identity.width,
+      height: identity.height,
+      aspectRatio: identity.aspectRatio,
+      src: clusterManager.get(clusterId).elementForCluster.src,
     };
 
-    const colorIdentity = cluster.getSingletonOf('color-identity');
+    const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
     if (colorIdentity) {
       rows.topColors = 'Top Colors';
-      data.topColors = colorIdentity.identityData.topColors;
+      data.topColors = colorIdentity.topColorsSorted;
     }
 
     if (window.collectingRum) {
-      const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
-      const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
-      const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
-      const bounces = cluster.getAll('url-page-img-identity', 'bounces').reduce((acc, curr) => acc + curr, 0);
+      const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
+      const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
+      const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
+      const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
 
       rows.performanceScore = 'Performance Score';
       rows.pageViews = 'Page Views';
@@ -307,7 +270,7 @@ function displayModal(figure) {
     const textIdentity = cluster.getSingletonOf('text-identity');
     if (textIdentity) {
       rows.text = 'OCR Text';
-      data.text = textIdentity.identityData.identityText;
+      data.text = textIdentity.identityText;
     }
 
     /* work in progress
@@ -556,36 +519,36 @@ function addColorsToFilterList(sortedColorNames) {
  * @param {HTMLElement} figure - The figure element to update.
  */
 function updateFigureData(clusterId) {
-  const { identityProcessor } = window;
-  const cluster = identityProcessor.getCluster(clusterId);
+  const { clusterManager } = window;
+  const cluster = clusterManager.get(clusterId);
   const figure = cluster.figureForCluster;
   if (!figure || !figure.dataset) return;
 
-  const colorIdentity = cluster.getSingletonOf('color-identity');
+  const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
 
-  if (colorIdentity && colorIdentity.identityData.topColors.length > 0) {
-    figure.dataset.topColors = colorIdentity.identityData.topColors.join(',');
-    figure.dataset.colorIndex = identityProcessor.getColorIndex(colorIdentity);
+  if (colorIdentity && colorIdentity.topColors.length > 0) {
+    figure.dataset.topColors = colorIdentity.topColors.join(',');
+    figure.dataset.colorIndex = colorIdentity.colorIndex;
   }
 
-  const altText = cluster.getAll('url-page-img-identity', 'alt');
-  const sites = cluster.getAll('url-page-img-identity', 'site');
+  const altText = cluster.getAll(UrlAndPageIdentity.type, 'alt');
+  const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
 
   figure.dataset.alt = validateAlt(altText, sites.length);
   figure.dataset.count = sites.length;
 
   // TODO: Different copies can have different aspect ratios.
-  const identity = cluster.getFirstIdentityOf('url-page-img-identity');
-  if (identity && identity.identityData.aspectRatio) {
-    const aspect = identity.identityData.aspectRatio;
+  const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
+  if (identity && identity.aspectRatio) {
+    const aspect = identity.aspectRatio;
     figure.dataset.aspect = aspect;
     figure.dataset.shape = getShapeForRatio(aspect);
   }
 
   if (window.collectingRum) {
-    const pageViews = cluster.getAll('url-page-img-identity', 'pageViews').reduce((acc, curr) => acc + curr, 0);
-    const conversions = cluster.getAll('url-page-img-identity', 'conversions').reduce((acc, curr) => acc + curr, 0);
-    const visits = cluster.getAll('url-page-img-identity', 'visits').reduce((acc, curr) => acc + curr, 0);
+    const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
+    const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
+    const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
 
     const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
     figure.dataset.performance = performanceScore * 1000000000 + pageViews;
@@ -595,70 +558,39 @@ function updateFigureData(clusterId) {
   }
 }
 
-async function executePreflightFunctions(clusterId, values, identifiers) {
-  const { identityProcessor } = window;
-
-  const promises = [];
-  if (identifiers.has('url-img-identity')) {
-    promises.push(identityProcessor.identifyImgUrl(clusterId, values));
-  }
-  if (identifiers.has('url-page-img-identity')) {
-    promises.push(identityProcessor.identityImgUrlAndSiteUrl(clusterId, values));
-  }
-
-  await Promise.allSettled(promises);
+async function executePreflightFunctions(identityValues, identityState) {
+  await IdentityRegistry.identityRegistry
+    .identifyPreflight(identityValues, identityState);
 }
 
-async function executePostFlightDomFunctions(clusterId, values, identifiers) {
-  const { identityProcessor } = window;
-  const promises = [];
-  if (identifiers.has('color-identity')) {
-    promises.push(identityProcessor.identifyColors(clusterId, values));
-  }
-  if (identifiers.has('text-identity')) {
-    promises.push(identityProcessor.identifyText(clusterId, values));
-  }
+async function imageOnLoad(identityValues, identityState) {
+  await IdentityRegistry.identityRegistry
+    .identifyPostflight(identityValues, identityState);
 
-  await Promise.allSettled(promises);
-}
-
-async function executePostFlightCanvasFunctions(clusterId, values, identifiers) {
-  const { identityProcessor } = window;
+  const { clusterManager } = window;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const { elementForCluster } = identityProcessor.getCluster(clusterId);
+  const { elementForCluster } = clusterManager.get(identityValues.originatingClusterId);
 
-  canvas.width = values.width;
-  canvas.height = values.height;
+  canvas.width = identityValues.entryValues.width;
+  canvas.height = identityValues.entryValues.height;
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
-  const promises = [];
-  if (identifiers.has('sha-img-identity')) {
-    promises.push(identityProcessor.identityImgSha(clusterId, canvas, ctx));
-  }
-  if (identifiers.has('color-identity')) {
-    promises.push(identityProcessor.detectAlphaChannel(clusterId, canvas, ctx));
-  }
-  if (identifiers.has('perceptual-identity')) {
-    promises.push(identityProcessor.identifyByPerceptualImage(clusterId, canvas, ctx, identifiers));
-  }
+  identityValues.canvas = canvas;
+  identityValues.ctx = ctx;
 
-  await Promise.allSettled(promises);
+  await IdentityRegistry.identityRegistry
+    .identifyPostflightWithCanvas(identityValues, identityState);
 }
 
-async function imageOnLoad(clusterId, values, identifiers) {
-  await Promise.allSettled([
-    executePostFlightDomFunctions(clusterId, values, identifiers),
-    executePostFlightCanvasFunctions(clusterId, values, identifiers),
-  ]);
-}
+async function imageOnError(identityValues, identityState, error) {
+  await IdentityRegistry.identityRegistry
+    .identifyPostError(identityValues, identityState);
 
-async function imageOnError(clusterId, values, href, identifiers, error) {
-  window.identityProcessor.identifyUnknownColorOnError(clusterId);
-  updateFigureData(clusterId);
+  updateFigureData(identityValues.originatingClusterId);
   // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${href}`, error);
+  console.error(`Error loading img file at ${identityValues.href}`, error);
   // TODO: Show broken file image?
 }
 
@@ -711,8 +643,8 @@ function updateCounter(counter, increment, float = false) {
  * Displays an cluster in the gallery.
  */
 function displayImage(clusterId) {
-  const { identityProcessor } = window;
-  const cluster = identityProcessor.getCluster(clusterId);
+  const { clusterManager } = window;
+  const cluster = clusterManager.get(clusterId);
   if (cluster.id !== clusterId || cluster.figureForCluster.parentElement !== null) {
     // This cluster was re-clustered and displayed or it's already displayed.
     updateCounter(document.getElementById('duplicate-images-counter'), 1);
@@ -728,10 +660,13 @@ function displayImage(clusterId) {
 async function loadImages(
   individualBatch,
   concurrency,
-  identifiers,
+  selectedIdentifiers,
   domainKey,
   replacementDomain,
+  submissionValues,
 ) {
+  const { clusterManager, identityState } = window;
+
   // use a map to track unique images by their src attribute
   const promises = []; // Array to hold promises
   const batchEntries = [];
@@ -754,7 +689,6 @@ async function loadImages(
     window.imageCount += 1;
     const { imageCount } = window;
     const { href } = new URL(src, origin);
-    const { identityProcessor } = window;
     const loadedImg = new Image(width, height);
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
     const figure = document.createElement('figure');
@@ -767,10 +701,14 @@ async function loadImages(
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
 
-    const originatingIdentity = new Identity(`slo:${imageCount}`, 'sitemap-img-load-order', false, false);
-    const clusterId = identityProcessor.addCluster(new IdentityCluster(identityProcessor, originatingIdentity, loadedImg, figure, 'image'));
+    const originatingClusterId = clusterManager.newCluster(
+      new SitemapLoadOrderIdentity(imageCount),
+      loadedImg,
+      figure,
+      'image',
+    );
 
-    const values = {
+    const entryValues = {
       href,
       site,
       alt,
@@ -783,25 +721,35 @@ async function loadImages(
       replacementDomain,
     };
 
-    batchEntries.push(clusterId);
+    const identityValues = new IdentityValues(
+      originatingClusterId,
+      clusterManager,
+      selectedIdentifiers,
+      submissionValues,
+      entryValues,
+    );
+
+    batchEntries.push(originatingClusterId);
 
     // preflight checks are lightweight and must be done to prevent other
     // heavywieght operations from running on meaningless items.
     // eslint-disable-next-line no-await-in-loop
-    await executePreflightFunctions(clusterId, values, identifiers);
-    if (identityProcessor.getCluster(clusterId).id === clusterId) {
+    await executePreflightFunctions(identityValues, identityState);
+    if (clusterManager.get(originatingClusterId).id === originatingClusterId) {
       // This cluster was NOT re-clustered. Run more expensive functions.
       const promise = trackPromise(new Promise((resolve) => {
         loadedImg.onload = async () => {
-          await imageOnLoad(clusterId, values, identifiers)
+          await imageOnLoad(identityValues, identityState)
             .then(() => {
-              displayImage(clusterId);
-              updateFigureData(clusterId);
+              displayImage(originatingClusterId);
+              updateFigureData(originatingClusterId);
+              return true;
             });
           resolve(true);
         };
+        // eslint-disable-next-line no-unused-vars
         loadedImg.onerror = async (error) => {
-          await imageOnError(clusterId, values, href, identifiers, error);
+          await imageOnError(identityValues, identityState, error);
           resolve(true);
         };
       }));
@@ -811,12 +759,26 @@ async function loadImages(
 
       promises.push(promise);
     } else {
-      updateFigureData(identityProcessor.getCluster(clusterId).id);
+      updateFigureData(clusterManager.get(originatingClusterId).id);
       updateCounter(document.getElementById('duplicate-images-counter'), 1);
     }
   }
 
-  await Promise.allSettled(promises);
+  const results = await Promise.allSettled(promises);
+  results
+    .filter((result) => result.status === 'rejected')
+    // eslint-disable-next-line no-console
+    .forEach((error) => console.error('Error handling image loading', error));
+  // batch complete.
+
+  await clusterManager.detectSimilarity(batchEntries, concurrency);
+  // similarity recomputed per batch
+
+  if (identityState[ColorIdentity.type].usedColors) {
+    addColorsToFilterList(identityState[ColorIdentity.type].usedColorsSorted);
+  }
+  // colors updated per batch
+
   return batchEntries;
 }
 
@@ -899,15 +861,26 @@ async function fetchBatch(batch, concurrency, counter) {
       while (batch.length > 0) {
         // get the next URL from the batch
         const url = batch.shift();
-        // eslint-disable-next-line no-await-in-loop
-        const imgData = await fetchImageDataFromPage(url);
-        results.push(...imgData);
-        updateCounter(counter, 1);
+        if (!window.duplicateFilter.has(url.plain)) {
+          // eslint-disable-next-line no-await-in-loop
+          const imgData = await fetchImageDataFromPage(url);
+          results.push(...imgData);
+          updateCounter(counter, 1);
+          window.duplicateFilter.add(url.plain);
+        } else {
+          // eslint-disable-next-line no-console
+          console.log('Duplicate URL found:', url.plain);
+        }
       }
     })());
   }
 
-  await Promise.allSettled(tasks); // wait for all concurrent tasks to complete
+  const promiseResults = await Promise.allSettled(tasks);
+  promiseResults
+    .filter((result) => result.status === 'rejected')
+    // eslint-disable-next-line no-console
+    .forEach((error) => console.error('Error processing batch', error));
+
   return results;
 }
 
@@ -923,6 +896,7 @@ async function handleBatch(
   identifiers,
   domainKey,
   replacementDomain,
+  submissionValues,
 ) {
   const batchData = await fetchBatch(batch, concurrency, pagesCounter);
   data.push(...batchData);
@@ -930,7 +904,14 @@ async function handleBatch(
   // Display images as they are fetched
   main.dataset.canvas = true;
   results.removeAttribute('aria-hidden');
-  await loadImages(batchData, concurrency, identifiers, domainKey, replacementDomain);
+  await loadImages(
+    batchData,
+    concurrency,
+    identifiers,
+    domainKey,
+    replacementDomain,
+    submissionValues,
+  );
   decorateIcons(gallery);
 }
 
@@ -989,6 +970,7 @@ async function fetchAndDisplayBatches(
   identifiers,
   domainKey,
   replacementDomain,
+  submissionValues,
   batchSize = 50,
   concurrency = 5,
 ) {
@@ -1038,13 +1020,18 @@ async function fetchAndDisplayBatches(
       identifiers,
       domainKey,
       replacementDomain,
+      submissionValues,
     );
 
     batchPromises.push(trackPromise(promise));
   }
 
   // Wait for all batches to finish processing
-  await Promise.allSettled(batchPromises);
+  const promiseResults = await Promise.allSettled(batchPromises);
+  promiseResults
+    .filter((result) => result.status === 'rejected')
+    // eslint-disable-next-line no-console
+    .forEach((error) => console.error('Error displaying batches', error));
 
   // After all batches are done
   data.length = 0;
@@ -1154,7 +1141,9 @@ async function fetchSitemap(sitemap) {
 
 function setupWindowVariables() {
   window.imageCount = 0;
-  window.identityProcessor = new IdentityProcessor(AEM_EDS_HOSTS, addColorsToFilterList);
+  window.clusterManager = new ClusterManager();
+  window.identityState = {};
+  window.duplicateFilter = new Set();
 }
 
 function showOverlay() {
@@ -1172,7 +1161,7 @@ function hideOverlay() {
   document.getElementById('progress').style.width = '0%'; // Reset progress
 }
 
-async function processForm(sitemap, identifiers, domainKey, replacementDomain) {
+async function processForm(sitemap, identifiers, domainKey, replacementDomain, submissionValues) {
   setupWindowVariables();
   showOverlay();
   const colorPaletteContainer = document.getElementById('color-pallette');
@@ -1182,7 +1171,7 @@ async function processForm(sitemap, identifiers, domainKey, replacementDomain) {
 
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain);
+  await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain, submissionValues);
   hideOverlay();
 }
 
@@ -1296,7 +1285,7 @@ function registerListeners(doc) {
       .filter((a) => a.checked)
       .map((a) => a.value));
 
-    if (identifiers.has('color-identity')) {
+    if (identifiers.has(ColorIdentity.type)) {
       doc.getElementById('color-sort').removeAttribute('aria-hidden');
       doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
     } else {
@@ -1308,7 +1297,7 @@ function registerListeners(doc) {
       // fetch sitemap
       localStorage.setItem('sitemapForm', JSON.stringify(data));
       const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap, identifiers, domainKey, replacementDomain);
+      processForm(sitemap, identifiers, domainKey, replacementDomain, data);
     }
   });
 
@@ -1350,13 +1339,13 @@ function registerListeners(doc) {
 function addIdentitySelectorsToForm(doc) {
   const identitySelectors = document.getElementById('identity-selectors');
 
-  IDENTIFIERS.forEach((item) => {
+  IdentityRegistry.registeredClasses.forEach((clazz) => {
     const {
       identity,
       display,
       checked,
       hidden,
-    } = item;
+    } = clazz.uiSelectorProperties;
 
     // Create a list item
     const li = doc.createElement('li');
@@ -1387,3 +1376,8 @@ setupWindowVariables();
 registerListeners(document);
 overrideCreateCanvas(document);
 addIdentitySelectorsToForm(document);
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled Rejection:', event.reason);
+  // Custom error handling here
+});
