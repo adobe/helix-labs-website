@@ -143,8 +143,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
     additionalTokensToSum.push(instance);
 
     try {
-      // TODO: Lets cache these fields so we limit the amount of time they could change during.
-
       // Fetch the image to get the ETag from headers (if available)
       const response = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
       const etag = response.headers.get('ETag'); // Get the ETag if available

@@ -226,7 +226,7 @@ function displayModal(figure) {
 
     const site = cluster.getAll(UrlAndPageIdentity.type, 'site');
     const alt = cluster.getAll(UrlAndPageIdentity.type, 'alt');
-    // todo: this should be done as multiple entries of width, height, src. This is a quick fix.
+    // todo: this should be done as multiple entries of width, height, src.
     const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
     if (identity === null) {
       return;

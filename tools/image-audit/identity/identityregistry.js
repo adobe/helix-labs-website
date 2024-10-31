@@ -33,7 +33,7 @@ class IdentityRegistry {
   static register(registeredClass) {
     const identityRegistry = IdentityRegistry.#identityRegistry;
 
-    if (identityRegistry.registeredClasses.has(registeredClass)) {
+    if (identityRegistry.#registeredClasses.has(registeredClass)) {
       return;
     }
     identityRegistry.#registeredClasses.add(registeredClass);

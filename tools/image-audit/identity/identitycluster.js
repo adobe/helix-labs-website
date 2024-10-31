@@ -75,8 +75,6 @@ class IdentityCluster {
     return this.#typeToIdentitiesMap.get(type);
   }
 
-  // Method to add a single identity to the identities set
-  // TODO: This can trigger merging of clusters
   addIdentity(identity) {
     if (this.#replacedBy) {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
@@ -164,10 +162,6 @@ class IdentityCluster {
       // otherwise we have the identity. We dont need to move it.
       // could consider merging it, but I dont know why it would have any
       // different fields from the one in this identity.
-      // TODO: Remove this line
-      if (identity.type === 'sitemap-load-order-identity') {
-        throw new Error('This should never happen');
-      }
     } else if (this.#identities.has(identity.id)) {
       // this is a soft identity that is already in this cluster.
       // we have the identity. I dont think we dont need to move it.

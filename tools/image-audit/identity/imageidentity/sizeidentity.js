@@ -82,8 +82,6 @@ class SizeIdentity extends AbstractIdentity {
     const { href, height, width } = entryValues;
     const url = new URL(href);
     try {
-      // TODO: Lets cache these fields so we limit the amount of time they could change during.
-
       // Fetch the image to get the ETag from headers (if available)
       const headResponse = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
       const contentLength = headResponse.headers.get('Content-Length'); // Get the Content-Length if available
