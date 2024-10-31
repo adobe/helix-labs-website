@@ -48,6 +48,8 @@
       & > div:nth-child(4n + 1) {
         text-align: left;
         text-wrap: auto;
+        white-space: normal;
+        max-width: 350px;
       }
 
       &[aria-hidden='true'] {
