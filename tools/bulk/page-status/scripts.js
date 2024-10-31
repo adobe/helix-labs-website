@@ -52,10 +52,16 @@ async function populateResults(url) {
   resources.forEach((resource) => {
     const {
       path,
+      sourceLastModified,
       previewLastModified,
       publishLastModified,
     } = resource;
-    results.append(div({ class: 'path' }, path), div(previewLastModified || ''), div(publishLastModified || ''));
+    results.append(
+      div({ class: 'path' }, path),
+      div(sourceLastModified || ''),
+      div(previewLastModified || ''),
+      div(publishLastModified || ''),
+    );
   });
   document.querySelector('.page-status-results .loading').setAttribute('aria-hidden', 'true');
   results.setAttribute('aria-hidden', 'false');
@@ -84,7 +90,7 @@ async function startJob(owner, repo, path) {
   }
 
   const opts = {
-    body: JSON.stringify({ paths: [path] }),
+    body: JSON.stringify({ paths: [path], select: ['edit', 'preview', 'live'] }),
     ...OPTIONS,
   };
   const resp = await fetch(`https://admin.hlx.page/status/${owner}/${repo}/main/*`, opts);
