@@ -95,12 +95,13 @@ class UrlIdentity extends AbstractIdentity {
       // no need to include the host. The path contains an immutable reference.
       // eslint-disable-next-line prefer-destructuring
       identificationParts.push(':eds:');
-      identificationParts.push(href.split('://')[1].toLowerCase());
+      identificationParts.push(href.split('://')[1].split('?')[0].toLowerCase());
+
       durability.durability = true;
     } else {
       try {
         // Fetch the image to get the ETag from headers (if available)
-        const response = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
+        const response = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
         const etag = response.headers.get('ETag'); // Get the ETag if available
         const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
         const contentLength = response.headers.get('Content-Length'); // Get the Content-Length if available

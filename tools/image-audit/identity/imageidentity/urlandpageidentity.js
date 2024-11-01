@@ -144,7 +144,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
     try {
       // Fetch the image to get the ETag from headers (if available)
-      const response = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
+      const response = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
       const etag = response.headers.get('ETag'); // Get the ETag if available
       const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
       const contentLength = response.headers.get('Content-Length'); // Get the Content-Length if available

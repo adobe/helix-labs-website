@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
-import { decorateIcons } from '../../scripts/aem.js';
+import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
 import ClusterManager from './identity/clustermanager.js';
 import IdentityRegistry from './identity/identityregistry.js';
 import IdentityValues from './identity/identityvalues.js';
@@ -785,6 +785,32 @@ async function fetchPage(url) {
   return null;
 }
 
+function getOptimizedImageUrl(src, origin, defaultWidth) {
+  const originalUrl = new URL(src, origin);
+  const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
+  if (!aemSite) {
+    return src;
+  }
+
+  // Use the width from the query parameter if available, otherwise use the provided defaultWidth
+  const width = originalUrl.searchParams.has('width')
+    ? originalUrl.searchParams.get('width')
+    : defaultWidth;
+
+  const pictureElement = createOptimizedPicture(
+    originalUrl,
+    false,
+    'Optimized Image',
+    [
+      { media: `(min-width: ${width}px)`, width: `${width}` },
+      { width: `${width}` },
+    ],
+  );
+
+  // Extract the URL of the best-matched <source> for this device from pictureElement
+  return `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
+}
+
 /**
  * Fetches image data from a page URL.
  * @param {Object} url - URL object.
@@ -797,7 +823,8 @@ async function fetchImageDataFromPage(url) {
       const seenMap = new Map();
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
-        const src = img.getAttribute('src').split('?')[0];
+        const width = img.getAttribute('width') || img.naturalWidth;
+        const src = getOptimizedImageUrl(img.getAttribute('src'), new URL(url.href).origin, width);
 
         let instance = 1;
         if (seenMap.has(src)) {
@@ -806,7 +833,6 @@ async function fetchImageDataFromPage(url) {
         seenMap.set(src, instance);
 
         const alt = img.getAttribute('alt') || '';
-        const width = img.getAttribute('width') || img.naturalWidth;
         const height = img.getAttribute('height') || img.naturalHeight;
         const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
         const fileType = src.split('.').pop();

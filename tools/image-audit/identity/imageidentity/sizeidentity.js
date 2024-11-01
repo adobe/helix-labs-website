@@ -21,8 +21,12 @@ class SizeIdentity extends AbstractIdentity {
     return `size:${await Hash.createHash(href)}`;
   }
 
-  static get maxBytes() {
-    return 100000;
+  static get fileSizeTooLargeForWeb() {
+    return 100000; // 1KB
+  }
+
+  static get maxBytesToCount() {
+    return 10000000; // 10MB
   }
 
   static get type() {
@@ -55,7 +59,7 @@ class SizeIdentity extends AbstractIdentity {
   }
 
   get tooBigForWeb() {
-    return this.#size >= this.maxBytes;
+    return this.#size >= this.fileSizeTooLargeForWeb;
   }
 
   get size() {
@@ -83,26 +87,26 @@ class SizeIdentity extends AbstractIdentity {
     const url = new URL(href);
     try {
       // Fetch the image to get the ETag from headers (if available)
-      const headResponse = await fetch(url, { method: 'HEAD' }); // HEAD request to only fetch headers
+      const headResponse = await fetch(url, { method: 'HEAD', cache: 'force-cache' }); // HEAD request to only fetch headers
       const contentLength = headResponse.headers.get('Content-Length'); // Get the Content-Length if available
       if (contentLength) {
         return contentLength;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, { cache: 'force-cache' });
       if (!response.body) throw new Error('ReadableStream not supported');
 
       let totalBytes = 0;
       const reader = response.body.getReader();
 
-      while (totalBytes < this.maxBytes) {
+      while (totalBytes < this.maxBytesToCount) {
         // eslint-disable-next-line no-await-in-loop
         const { done, value } = await reader.read();
         if (done) break;
 
         totalBytes += value.length;
       }
-      if (totalBytes >= this.maxBytes) return this.maxBytes;
+      if (totalBytes >= this.maxBytesToCount) return this.maxBytesToCount;
       return totalBytes;
     } catch (error) {
       // eslint-disable-next-line no-console
