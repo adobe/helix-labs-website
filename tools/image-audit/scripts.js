@@ -8,6 +8,7 @@ import IdentityValues from './identity/identityvalues.js';
 import SitemapLoadOrderIdentity from './identity/sitemaploadorder.js';
 import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
+import PromisePool from './promisepool.js';
 import './identity/defaultidentityloader.js';
 
 import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
@@ -594,26 +595,6 @@ async function imageOnError(identityValues, identityState, error) {
   // TODO: Show broken file image?
 }
 
-function trackPromise(promise) {
-  let isFulfilled = false;
-  const trackedPromise = promise.then(
-    (result) => {
-      isFulfilled = true;
-      return result; // Preserve the resolved value
-    },
-    (error) => {
-      isFulfilled = true;
-      // eslint-disable-next-line no-console
-      console.error('Promise rejected:', error);
-    },
-  );
-
-  // Attach the isFulfilled property
-  trackedPromise.isFulfilled = () => isFulfilled;
-
-  return trackedPromise;
-}
-
 function updateProgress() {
   const pagesCounter = parseInt(document.getElementById('pages-counter').innerText, 10) || 0;
   const totalCounter = parseInt(document.getElementById('total-counter').innerText, 10) || 1; // Avoid division by zero
@@ -657,6 +638,46 @@ function displayImage(clusterId) {
   changeFilters();
 }
 
+async function loadImage(
+  identityValues,
+  identityState,
+  clusterManager,
+  originatingClusterId,
+  loadedImg,
+  href,
+) {
+  // preflight checks are lightweight and must be done to prevent other
+  // heavywieght operations from running on meaningless items.
+  // eslint-disable-next-line no-await-in-loop
+  await executePreflightFunctions(identityValues, identityState);
+  if (clusterManager.get(originatingClusterId).id === originatingClusterId) {
+    // This cluster was NOT re-clustered. Run more expensive functions.
+    const imageLoaded = new Promise((resolve) => {
+      loadedImg.onload = async () => {
+        await imageOnLoad(identityValues, identityState)
+          .then(() => {
+            displayImage(originatingClusterId);
+            updateFigureData(originatingClusterId);
+            return true;
+          });
+        resolve(true);
+      };
+      // eslint-disable-next-line no-unused-vars
+      loadedImg.onerror = async (error) => {
+        await imageOnError(identityValues, identityState, error);
+        resolve(true);
+      };
+    });
+
+    // dont start loading the image until here.
+    loadedImg.src = href;
+    return imageLoaded;
+  } // else
+  updateFigureData(clusterManager.get(originatingClusterId).id);
+  updateCounter(document.getElementById('duplicate-images-counter'), 1);
+  return Promise.resolve(true);
+}
+
 async function loadImages(
   individualBatch,
   concurrency,
@@ -668,19 +689,13 @@ async function loadImages(
   const { clusterManager, identityState } = window;
 
   // use a map to track unique images by their src attribute
-  const promises = []; // Array to hold promises
+  const promisePool = new PromisePool(concurrency, 'Load Images', false);
   const batchEntries = [];
 
   individualBatch.filter((img) => isUrlValid(img.origin));
 
   for (let i = 0; i < individualBatch.length; i += 1) {
     const img = individualBatch[i];
-    if (promises.length >= concurrency) {
-      // eslint-disable-next-line no-await-in-loop
-      await Promise.race(promises);
-      // Remove the completed promises
-      promises.splice(0, promises.findIndex((p) => p.isFulfilled()) + 1);
-    }
 
     const {
       src, origin, site, alt, width, height, aspectRatio, instance, fileType,
@@ -731,53 +746,25 @@ async function loadImages(
 
     batchEntries.push(originatingClusterId);
 
-    // preflight checks are lightweight and must be done to prevent other
-    // heavywieght operations from running on meaningless items.
-    // eslint-disable-next-line no-await-in-loop
-    await executePreflightFunctions(identityValues, identityState);
-    if (clusterManager.get(originatingClusterId).id === originatingClusterId) {
-      // This cluster was NOT re-clustered. Run more expensive functions.
-      const promise = trackPromise(new Promise((resolve) => {
-        loadedImg.onload = async () => {
-          await imageOnLoad(identityValues, identityState)
-            .then(() => {
-              displayImage(originatingClusterId);
-              updateFigureData(originatingClusterId);
-              return true;
-            });
-          resolve(true);
-        };
-        // eslint-disable-next-line no-unused-vars
-        loadedImg.onerror = async (error) => {
-          await imageOnError(identityValues, identityState, error);
-          resolve(true);
-        };
-      }));
-
-      // dont start loading the image until here.
-      loadedImg.src = href;
-
-      promises.push(promise);
-    } else {
-      updateFigureData(clusterManager.get(originatingClusterId).id);
-      updateCounter(document.getElementById('duplicate-images-counter'), 1);
-    }
+    promisePool.run(() => loadImage(
+      identityValues,
+      identityState,
+      clusterManager,
+      originatingClusterId,
+      loadedImg,
+      href,
+    ));
   }
 
-  const results = await Promise.allSettled(promises);
-  results
-    .filter((result) => result.status === 'rejected')
-    // eslint-disable-next-line no-console
-    .forEach((error) => console.error('Error handling image loading', error));
-  // batch complete.
+  await promisePool.allSettled();
 
-  await clusterManager.detectSimilarity(batchEntries, concurrency);
-  // similarity recomputed per batch
+  // similarity computed per batch
+  await clusterManager.detectSimilarity(batchEntries, identityState, concurrency);
 
+  // colors updated per batch
   if (identityState[ColorIdentity.type].usedColors) {
     addColorsToFilterList(identityState[ColorIdentity.type].usedColorsSorted);
   }
-  // colors updated per batch
 
   return batchEntries;
 }
@@ -898,21 +885,26 @@ async function handleBatch(
   replacementDomain,
   submissionValues,
 ) {
-  const batchData = await fetchBatch(batch, concurrency, pagesCounter);
-  data.push(...batchData);
+  try {
+    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+    data.push(...batchData);
 
-  // Display images as they are fetched
-  main.dataset.canvas = true;
-  results.removeAttribute('aria-hidden');
-  await loadImages(
-    batchData,
-    concurrency,
-    identifiers,
-    domainKey,
-    replacementDomain,
-    submissionValues,
-  );
-  decorateIcons(gallery);
+    // Display images as they are fetched
+    main.dataset.canvas = true;
+    results.removeAttribute('aria-hidden');
+    await loadImages(
+      batchData,
+      concurrency,
+      identifiers,
+      domainKey,
+      replacementDomain,
+      submissionValues,
+    );
+    decorateIcons(gallery);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching batch:', error);
+  }
 }
 
 function sortImages(doc, target) {
@@ -994,23 +986,24 @@ async function fetchAndDisplayBatches(
   updateCounter(totalCounter, urls.length);
   const elapsed = document.getElementById('elapsed');
   updateCounter(elapsed);
-  const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
+  const timer = setInterval(() => {
+    const now = Date.now();
+    const timeSinceLastRun = Math.round((now - window.lastExecutionTime) / 1000);
+    if (timeSinceLastRun > 0) {
+      updateCounter(elapsed, timeSinceLastRun, false);
+      window.lastExecutionTime = now;
+    }
+  }, 1000);
 
   // Collect promises for all batches
-  const batchPromises = [];
+  const promisePool = new PromisePool(concurrency, 'Handle Batches', false);
   for (let i = 0; i < urls.length; i += batchSize) {
-    if (batchPromises.length >= concurrency) {
-      // eslint-disable-next-line no-await-in-loop
-      await Promise.race(batchPromises);
-      // Remove the completed promises
-      batchPromises.splice(0, batchPromises.findIndex((p) => p.isFulfilled()) + 1);
-    }
     const batch = urls.slice(i, i + batchSize);
 
     // Process each batch and handle the delay between batches asynchronously
-    const promise = handleBatch(
+    promisePool.run(() => handleBatch(
       batch,
-      concurrency,
+      concurrency, // this means each concurrent batch also gets concurrent tasks = 25.
       pagesCounter,
       data,
       main,
@@ -1021,17 +1014,10 @@ async function fetchAndDisplayBatches(
       domainKey,
       replacementDomain,
       submissionValues,
-    );
-
-    batchPromises.push(trackPromise(promise));
+    ));
   }
 
-  // Wait for all batches to finish processing
-  const promiseResults = await Promise.allSettled(batchPromises);
-  promiseResults
-    .filter((result) => result.status === 'rejected')
-    // eslint-disable-next-line no-console
-    .forEach((error) => console.error('Error displaying batches', error));
+  await promisePool.allSettled();
 
   // After all batches are done
   data.length = 0;
@@ -1144,6 +1130,7 @@ function setupWindowVariables() {
   window.clusterManager = new ClusterManager();
   window.identityState = {};
   window.duplicateFilter = new Set();
+  window.lastExecutionTime = Date.now();
 }
 
 function showOverlay() {
@@ -1378,6 +1365,7 @@ overrideCreateCanvas(document);
 addIdentitySelectorsToForm(document);
 
 window.addEventListener('unhandledrejection', (event) => {
+  // eslint-disable-next-line no-console
   console.error('Unhandled Rejection:', event.reason);
   // Custom error handling here
 });

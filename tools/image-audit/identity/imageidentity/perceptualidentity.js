@@ -2,6 +2,7 @@
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
+import PromisePool from '../../promisepool.js';
 
 // eslint-disable-next-line import/no-unresolved, import/order
 import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
@@ -15,6 +16,8 @@ const imageMatchingThreshold = 0.1;
 // Percentage of pixels can be different between two images ot be identified the same
 // 0.001 -> .1% different pixels
 const exactMatchDifferentPixelPercent = 0.004;
+
+const phashConcurrency = 20;
 
 class PerceptualIdentity extends AbstractIdentity {
   #phash;
@@ -69,8 +72,14 @@ class PerceptualIdentity extends AbstractIdentity {
     // getting the element and holding it here in case re-clustering switches it --
     // it is atomic with the hash.
     const { elementForCluster } = clusterManager.get(originatingClusterId);
+
+    if (!identityState.promisePool) {
+      // this ensures a limited number of text identifications happening simultaneously.
+      // shared between instances.
+      identityState.promisePool = new PromisePool(phashConcurrency, 'Perceptual Hash');
+    }
     // eslint-disable-next-line no-undef
-    const hash = await phash(elementForCluster, 8);
+    const hash = await identityState.promisePool.run(() => phash(elementForCluster, 8));
 
     const identity = new PerceptualIdentity(
       hash,

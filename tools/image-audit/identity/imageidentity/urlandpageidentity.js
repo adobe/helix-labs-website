@@ -233,7 +233,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
         } else {
           try {
             identityState.rumLoadingPromise = loader.fetchPrevious12Months(null);
-            await identityState.rumLoadingPromise;
+            identityState.rumLoadedData = await identityState.rumLoadingPromise;
+            identityState.rumLoadingPromise = null;
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error('Error loading rum data:', error);

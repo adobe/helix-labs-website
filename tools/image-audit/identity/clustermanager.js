@@ -1,4 +1,6 @@
+/* eslint-disable no-restricted-syntax */
 import IdentityCluster from './identitycluster.js';
+import SimilarClusterIdentity from './similarclusteridentity.js';
 
 /* eslint-disable no-console */
 /* eslint-disable class-methods-use-this */
@@ -88,11 +90,11 @@ class ClusterManager {
     }
   }
 
-  async detectSimilarity(batchedClusterIds, concurrency) {
+  async detectSimilarity(batchedClusterIds, identityState, concurrency) {
     const callCount = { value: 0 }; // Use an object to hold the count
-
     const clusterInfoWithInstigator = [];
 
+    // Gather cluster info with instigator identities
     batchedClusterIds.forEach((clusterId) => {
       const cluster = this.get(clusterId);
       cluster.identities.forEach((identity) => {
@@ -106,7 +108,14 @@ class ClusterManager {
       });
     });
 
-    const results = await Promise.allSettled(clusterInfoWithInstigator.map((clusterInfo) => {
+    // Initialize identity state if it doesn't exist
+    const similarityIdentityState = identityState[SimilarClusterIdentity.type];
+    if (!similarityIdentityState) {
+      identityState[SimilarClusterIdentity.type] = {};
+    }
+
+    // Process each cluster info sequentially
+    for (const clusterInfo of clusterInfoWithInstigator) {
       const { clusterId, instigatorIdentityType, instigatingIdentity } = clusterInfo;
       const instigatingCluster = this.get(clusterId);
 
@@ -114,40 +123,24 @@ class ClusterManager {
       const clustersToCompare = instigatingIdentity.filterSimilarClusters(allClustersWithIdentity);
       const { similarityCollaboratorIdentityTypes } = instigatingCluster;
 
-      return Promise.allSettled(clustersToCompare.map((similarCluster) => this
-        .#compareClustersForSimilarity(
+      // Compare clusters sequentially
+      for (const similarCluster of clustersToCompare) {
+        // eslint-disable-next-line no-await-in-loop
+        await this.#compareClustersForSimilarity(
           instigatingCluster,
           similarCluster,
           similarityCollaboratorIdentityTypes,
           callCount,
           concurrency,
-        )));
-    }));
-
-    results
-      .filter((result) => result.status === 'rejected')
-      .forEach((error) => console.error('Error handling similarity', error));
-  }
-
-  async #waitForSimilaritySlot(concurrency, maxAttempts = 6000, intervalMs = 100) {
-    let attempts = 0;
-
-    while (this.#currentlyRunningSimilarity >= concurrency) {
-      if (attempts >= maxAttempts) {
-        return false;
+        );
       }
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
-      attempts += 1;
     }
-    return true;
   }
 
   async #compareClustersForSimilarity(
     instigatingCluster,
     similarCluster,
     identityTypes,
-    concurrency,
   ) {
     if (
       instigatingCluster.reclustered
@@ -155,71 +148,52 @@ class ClusterManager {
       || instigatingCluster.id === similarCluster.id
     ) return;
 
-    if (await this.#waitForSimilaritySlot(concurrency)) {
-      this.#currentlyRunningSimilarity += 1;
-      let mergeScore = 0;
-      try {
-        // Await the merge score calculation
-        mergeScore = await this.#calculateMergeScore(
-          instigatingCluster,
-          similarCluster,
-          identityTypes,
-        );
-      } finally {
-        this.#currentlyRunningSimilarity -= 1;
-      }
+    // Await the merge score calculation
+    const mergeScore = await this.#calculateMergeScore(
+      instigatingCluster,
+      similarCluster,
+      identityTypes,
+    );
 
-      // always merge the other cluster into the instigating cluster
-      // otherwise the instigating cluster gets replaced half way though,
-      // but we keep trying to merge against it.
-      if (mergeScore >= matchingPointsThreshold) {
-        this.#mergeSimilarCluster(instigatingCluster, similarCluster, mergeScore);
-      } else if (mergeScore >= similarPointsThreshold) {
-        this.#markSimilarCluster(instigatingCluster, similarCluster, mergeScore);
-      }
-    } else {
-      console.error('Failed to get a similarity slot');
+    // always merge the other cluster into the instigating cluster
+    // otherwise the instigating cluster gets replaced half way though,
+    // but we keep trying to merge against it.
+    if (mergeScore >= matchingPointsThreshold) {
+      this.#mergeSimilarCluster(instigatingCluster, similarCluster, mergeScore);
+    } else if (mergeScore >= similarPointsThreshold) {
+      this.#markSimilarCluster(instigatingCluster, similarCluster, mergeScore);
     }
   }
 
   // eslint-disable-next-line class-methods-use-this
   async #calculateMergeScore(sourceCluster, compareCluster, identityTypes) {
-    const scores = await Promise.allSettled(identityTypes.map(async (identityType) => {
+    let totalScore = 0; // Initialize total score
+
+    for (const identityType of identityTypes) {
       const sourceClusterIdentities = sourceCluster.getAllIdentitiesOf(identityType)
         .filter((identity) => identity.similarityCollaborator);
       const compareClusterIdentities = compareCluster.getAllIdentitiesOf(identityType)
         .filter((identity) => identity.similarityCollaborator);
 
-      // Use Promise.allSettled to handle potential async calls to getMergeWeight
-      const identityScores = await Promise.allSettled(
-        sourceClusterIdentities.map(async (sourceIdentity) => {
-          const subScores = await Promise.allSettled(
-            compareClusterIdentities
-              .map(async (compareIdentity) => sourceIdentity.getMergeWeight(compareIdentity)),
-          );
+      let identityScore = 0; // Initialize identity score for this type
 
-          subScores
-            .filter((result) => result.status === 'rejected')
-            .forEach((error) => console.error('Error processing similarity', error));
+      for (const sourceIdentity of sourceClusterIdentities) {
+        let sourceScore = 0; // Initialize source score for this identity
 
-          // Extract values from Promise.allSettled and sum them
-          return subScores.reduce((sum, res) => sum + (res.status === 'fulfilled' ? res.value : 0), 0);
-        }),
-      );
-      identityScores
-        .filter((result) => result.status === 'rejected')
-        .forEach((error) => console.error('Error processing similarity', error));
+        for (const compareIdentity of compareClusterIdentities) {
+          // eslint-disable-next-line no-await-in-loop
+          const weight = await sourceIdentity
+            .getMergeWeight(compareIdentity); // Await the async function
+          sourceScore += weight; // Accumulate the score
+        }
 
-      // Sum each subScore value from identityScores
-      return identityScores.reduce((total, res) => total + (res.status === 'fulfilled' ? res.value : 0), 0);
-    }));
+        identityScore += sourceScore; // Accumulate identity score
+      }
 
-    scores
-      .filter((result) => result.status === 'rejected')
-      .forEach((error) => console.error('Error processing similarity', error));
+      totalScore += identityScore; // Accumulate total score
+    }
 
-    // Sum all the identity type scores
-    return scores.reduce((total, res) => total + (res.status === 'fulfilled' ? res.value : 0), 0);
+    return totalScore; // Return the total score
   }
 
   #mergeSimilarCluster(clusterToMerge, clusterToMergeInto, score) {

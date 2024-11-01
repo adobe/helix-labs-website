@@ -126,15 +126,15 @@ class IdentityCluster {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
     if (identity.type === SimilarClusterIdentity.type) {
-      if (identity.matchingIdentity.similarClusterId === this.id) {
+      if (identity.similarClusterId === this.id) {
         // previously, these clusters were similar, now they are the same.
         identity.releaseSimilarity();
         // since it's now reclustered, nothing to add.
       } else {
         const farSideIdentity = identity.matchingIdentity;
-        const farSideCluster = this.#clusterManager.get(farSideIdentity.ownerClusterId);
+        const farSideCluster = this.#clusterManager.get(farSideIdentity.owningClusterId);
         // release old similarity
-        farSideIdentity.releaseSimilarity();
+        identity.releaseSimilarity();
         // reattach the similarity to here.
         this.markSimilarCluster(farSideCluster);
       }
@@ -164,11 +164,10 @@ class IdentityCluster {
       // different fields from the one in this identity.
     } else if (this.#identities.has(identity.id)) {
       // this is a soft identity that is already in this cluster.
-      // we have the identity. I dont think we dont need to move it.
-      // could consider merging it, but I dont know why it would have any
       // different fields from the one in this identity.
       // eslint-disable-next-line no-console
-      console.log(`Not re-adding soft identity ${identity.id} already with a matching ID in cluster ${this.id}`);
+      const localIdentity = this.#identities.get(identity.id);
+      localIdentity.mergeOther(identity);
     } else {
       this.#insertIdentity(identity);
     }
@@ -239,9 +238,6 @@ class IdentityCluster {
     );
     const hereToThere = new SimilarClusterIdentity(this.#clusterManager, this.#id, otherCluster.id);
 
-    hereToThere.matchingIdentity = thereToHere;
-    thereToHere.matchingIdentity = hereToThere;
-
     this.addIdentity(hereToThere);
     otherCluster.addIdentity(thereToHere);
   }
@@ -290,7 +286,8 @@ class IdentityCluster {
     this.replacedBy = replacedBy;
 
     if (this.#identities.size !== 0) {
-      throw new Error(`Cluster ${this.id} was replaced with ${replacedBy.id} but still has ${this.#identities.size} identities`);
+      // eslint-disable-next-line no-console
+      console.error(`Cluster ${this.id} was replaced with ${replacedBy.id} but still has ${this.#identities.size} identities`, this.#identities);
     }
 
     this.figureForCluster?.parentElement?.removeChild(this.figureForCluster);

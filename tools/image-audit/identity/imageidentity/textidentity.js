@@ -5,6 +5,7 @@ import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
+import PromisePool from '../../promisepool.js';
 
 const concurrentOCR = 5;
 
@@ -34,60 +35,50 @@ class TextIdentity extends AbstractIdentity {
       return;
     }
 
-    const sloted = await this.#waitForOCRSlot(identityState);
+    if (!identityState.promisePool) {
+      // this ensures a limited number of text identifications happening simultaneously.
+      // shared between instances.
+      identityState.promisePool = new PromisePool(concurrentOCR, 'OCR Pool', false);
+    }
+
+    const { promisePool } = identityState;
+
+    await promisePool.run(() => TextIdentity.identifyText(
+      originatingClusterId,
+      identityState,
+      clusterManager,
+    ));
+  }
+
+  static async identifyText(originatingClusterId, identityState, clusterManager) {
     let text = '';
     let identityText = '';
-    if (!sloted) {
-      // eslint-disable-next-line no-console
-      console.error(`Failed to get OCR slot for cluster ${originatingClusterId} Unable to process more OCR requests at this time.`);
-    } else {
-      identityState.currentlyTextIdentifyingCount += 1;
+    try {
+      // eslint-disable-next-line no-undef
+      await Tesseract.recognize(
+        clusterManager.get(originatingClusterId).elementForCluster,
+        'eng',
+      ).then(async ({ data: { words } }) => {
+        // Filter words based on confidence level
+        const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
 
-      try {
-        // eslint-disable-next-line no-undef
-        await Tesseract.recognize(
-          clusterManager.get(originatingClusterId).elementForCluster,
-          'eng',
-        ).then(async ({ data: { words } }) => {
-          // Filter words based on confidence level
-          const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
-
-          if (confidentWords.length === 0) {
-            return true;
-          }
-          text = confidentWords
-            .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
-            .join(' ').replace(/\s+/g, ' ').trim();
-
-          identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
+        if (confidentWords.length === 0) {
           return true;
-        });
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`Error processing OCR for cluster ${originatingClusterId}`, error);
-      } finally {
-        identityState.currentlyTextIdentifyingCount -= 1;
-      }
+        }
+        text = confidentWords
+          .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
+          .join(' ').replace(/\s+/g, ' ').trim();
+
+        identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
+        return true;
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Error processing OCR for cluster ${originatingClusterId}`, error);
     }
     const identity = new TextIdentity(text, identityText);
 
     clusterManager.get(originatingClusterId).addIdentity(identity);
-  }
-
-  static async #waitForOCRSlot(identityState, maxAttempts = 6000, intervalMs = 100) {
-    let attempts = 0;
-    if (!identityState.currentlyTextIdentifyingCount) {
-      identityState.currentlyTextIdentifyingCount = 0;
-    }
-    while (identityState.currentlyTextIdentifyingCount >= concurrentOCR) {
-      if (attempts >= maxAttempts) {
-        return false;
-      }
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
-      attempts += 1;
-    }
-    return true;
   }
 
   static get type() {

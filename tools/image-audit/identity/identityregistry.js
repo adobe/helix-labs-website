@@ -70,6 +70,7 @@ class IdentityRegistry {
     const results = await Promise.allSettled(promises);
     results
       .filter((result) => result.status === 'rejected')
+      // eslint-disable-next-line no-console
       .forEach((error) => console.error('Error handling identification', error));
   }
 

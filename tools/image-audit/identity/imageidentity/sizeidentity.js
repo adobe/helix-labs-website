@@ -110,6 +110,11 @@ class SizeIdentity extends AbstractIdentity {
       return width * height * 4; // a "best guess" based on the image dimensions
     }
   }
+
+  // eslint-disable-next-line no-unused-vars
+  mergeOther(otherIdentity) {
+    // nothing to merge. If they have the same id, they are the same identity.
+  }
 }
 
 export default SizeIdentity;

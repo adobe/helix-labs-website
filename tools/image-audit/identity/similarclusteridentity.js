@@ -28,6 +28,10 @@ class SimilarClusterIdentity extends AbstractIdentity {
     return false;
   }
 
+  get owningClusterId() {
+    return this.#owningClusterId;
+  }
+
   get similarClusterId() {
     return this.#similarClusterId;
   }
@@ -46,7 +50,7 @@ class SimilarClusterIdentity extends AbstractIdentity {
 
   get matchingIdentity() {
     const otherCluster = this.clusterManager.get(this.#similarClusterId);
-    return otherCluster.identities
+    return otherCluster
       .get(this.#obtainId(this.#similarClusterId, this.#owningClusterId));
   }
 

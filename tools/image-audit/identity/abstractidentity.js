@@ -75,7 +75,7 @@ class AbstractIdentity {
     throw new Error('AbstractIdentity.getSignleton is an abstract method');
   }
 
-  // called only for singletons during cluster merge.
+  // called for singletons, or soft identities with matching ids during cluster merge.
   mergeOther(otherIdentity) {
     throw new Error('AbstractIdentity.mergeWith is an abstract method');
   }
