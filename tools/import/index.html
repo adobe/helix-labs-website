@@ -26,8 +26,11 @@
                     <label for="apiKey-input">API Key</label>
                     <input id="apiKey-input" type="password" autocomplete="apiKey" required/>
                 </div>
-                <div class="field">
-                    <label for="url-input">URLs</label>
+                <div class="field" id="url-drop-zone">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label for="url-input">URLs</label>
+                        <span style="{align-content: flex-end; font-size: 6px}"><em>Drop text file to populate.</em></span>
+                    </div>
                     <textarea id="url-input" required placeholder="One URL per line"></textarea>
                 </div>
                 <div class="field">

@@ -254,4 +254,35 @@ function addJobsList(jobs) {
       scriptName.textContent = `${file.name} (${fileSizeInKB} KB)`;
     }
   });
+
+  fields.urls.addEventListener('dragenter', (event) => {
+    event.preventDefault();
+    event.target.classList.add('dragover');
+  });
+  fields.urls.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    event.target.classList.remove('dragover');
+  });
+
+  fields.urls.addEventListener('drop', (event) => {
+    event.preventDefault();
+    event.target.classList.remove('dragover');
+    fields.urls.value = '';
+    if (event.dataTransfer.files) {
+      // Use DataTransferItemList interface to access the file first URL file.
+      [...event.dataTransfer.files].forEach((droppedFile) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const lines = e.target.result.split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line.startsWith('http'));
+          // If there are URLs in the file, add them to the textarea if it is still empty.
+          if (lines.length > 0 && fields.urls.value.length === 0) {
+            fields.urls.value = lines.join('\n');
+          }
+        };
+        reader.readAsText(droppedFile);
+      });
+    }
+  });
 })();
