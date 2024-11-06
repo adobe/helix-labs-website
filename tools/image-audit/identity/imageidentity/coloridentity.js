@@ -1,4 +1,5 @@
 /* eslint-disable class-methods-use-this */
+// import * as ColorThiefModule from 'colorthief';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import ColorUtility from '../util/colorutility.js';
@@ -9,7 +10,7 @@ const ALPHA_ALLOWED_FORMATS = ['png', 'webp', 'gif', 'tiff'];
 const numberOfTopColors = 10;
 // const numberOfTopRawColors = 20;
 // eslint-disable-next-line no-undef
-const colorThief = new ColorThief();
+const colorThief = new window.ColorThief();
 
 const exactColorMatchThreshold = numberOfTopColors * 0.2;
 

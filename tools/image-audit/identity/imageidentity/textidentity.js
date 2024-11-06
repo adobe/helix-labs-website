@@ -1,6 +1,6 @@
 /* eslint-disable class-methods-use-this */
 // eslint-disable-next-line import/no-unresolved
-import Tesseract from 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js';
+import Tesseract from 'tesseract';
 
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';

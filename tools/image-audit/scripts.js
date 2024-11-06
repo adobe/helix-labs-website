@@ -774,25 +774,6 @@ async function loadImages(
   return batchEntries;
 }
 
-/* fetching data */
-/**
- * Fetches the HTML content of a page.
- * @param {string} url - URL of the page to fetch.
- * @returns {Promise<HTMLElement|null>} - Promise that resolves to HTML (or `null` if fetch fails).
- */
-async function fetchPage(url) {
-  const req = await fetch(url, { redirect: 'manual' });
-  if (req.ok) {
-    const temp = document.createElement('div');
-    // TODO: The HTML injected here causes images to be loaded from the wrong domain.
-    // suggest to find another way, but also, maybe a
-    // bulk replace of these img tags to make them load lazy
-    temp.innerHTML = await req.text();
-    return temp;
-  }
-  return null;
-}
-
 async function fetchPageHtml(url) {
   const req = await fetch(url, { redirect: 'manual' });
   if (req.ok) {
@@ -836,11 +817,10 @@ async function fetchImageDataFromPage(url) {
   const html = document.createElement('div');
 
   try {
+    // this counts on url.plain, which wont work for non eds sites.
     const rawHtml = await fetchPageHtml(url.plain);
     // everything from here to the end needs to be synchronous or the document will load.
-    // TODO: The HTML injected here causes images to be loaded from the wrong domain.
-    // suggest to find another way, but also, maybe a
-    // bulk replace of these img tags to make them load lazy
+    // TODO: innerhtml here isn't great.
     html.innerHTML = rawHtml;
     if (html) {
       const seenMap = new Map();

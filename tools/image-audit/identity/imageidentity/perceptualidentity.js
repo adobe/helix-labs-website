@@ -1,11 +1,10 @@
 /* eslint-disable class-methods-use-this */
+// import * as ImageHashModule from 'imagehash-web';
+import pixelmatch from 'pixelmatch';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
 import PromisePool from '../../promisepool.js';
-
-// eslint-disable-next-line import/no-unresolved, import/order
-import pixelmatch from 'https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js';
 
 const hammingDistanceThreshold = 20;
 
@@ -53,7 +52,7 @@ class PerceptualIdentity extends AbstractIdentity {
 
   static async #getPhash(elementForCluster) {
     // eslint-disable-next-line no-undef
-    const imageHash = await phash(elementForCluster, 8);
+    const imageHash = await window.phash(elementForCluster, 8);
     if (imageHash) return imageHash?.binArray;
     return null;
   }
@@ -96,7 +95,7 @@ class PerceptualIdentity extends AbstractIdentity {
 
     const identity = new PerceptualIdentity(
       // eslint-disable-next-line no-undef
-      new ImageHash(hash),
+      new window.ImageHash(hash),
       identityValues,
       elementForCluster,
       identityState,
@@ -131,7 +130,7 @@ class PerceptualIdentity extends AbstractIdentity {
   getMergeWeight(otherIdentity) {
     this.#identityValues.getSync(
       this,
-      ['merge-weight', this.#phash.toBase64(), otherIdentity.#phash.toBase64].join(':'),
+      ['merge-weight', this.#phash.toBase64(), otherIdentity.#phash.toBase64()].join(':'),
       () => this.#getMergeWeight(otherIdentity),
     );
   }
