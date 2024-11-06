@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import IdentityCluster from './identitycluster.js';
 import SimilarClusterIdentity from './similarclusteridentity.js';
+// eslint-disable-next-line no-unused-vars
 import IdentityRegistry from './identityregistry.js'; // Add this line to import IdentityRegistry
 
 /* eslint-disable no-console */
@@ -206,7 +207,7 @@ class ClusterManager {
       return;
     }
 
-    console.log(`Merging ${clusterToMerge.id} into ${clusterToMergeInto.id} because of similarity score ${score}`);
+    console.info(`Merging ${clusterToMerge.id} into ${clusterToMergeInto.id} because of similarity score ${score}`);
     clusterToMergeInto.mergeCluster(clusterToMerge);
   }
 
@@ -215,7 +216,7 @@ class ClusterManager {
       return;
     }
 
-    console.log(`Marking ${clusterToMerge.id} similar to ${clusterToMergeInto.id} because of similarity score ${score}`);
+    console.info(`Marking ${clusterToMerge.id} similar to ${clusterToMergeInto.id} because of similarity score ${score}`);
     clusterToMergeInto.markSimilarCluster(clusterToMerge);
   }
 
@@ -228,7 +229,7 @@ class ClusterManager {
       return; // already merged
     }
 
-    console.log(`Merging ${clusterToMerge.id} into ${existingCluster.id} because of identity ${triggeringStrongIdentity.id}`);
+    console.info(`Merging ${clusterToMerge.id} into ${existingCluster.id} because of identity ${triggeringStrongIdentity.id}`);
     existingCluster.mergeCluster(clusterToMerge);
   }
 

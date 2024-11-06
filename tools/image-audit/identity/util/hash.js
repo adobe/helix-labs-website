@@ -11,7 +11,7 @@ class Hash {
     if (crypto?.subtle?.digest) {
       if (!previouslyHashInitialized) {
         // eslint-disable-next-line no-console
-        console.log('Using crypto.subtle.digest for hashing');
+        console.debug('Using crypto.subtle.digest for hashing');
       }
       let hashBuffer = null;
       const encoder = new TextEncoder();
@@ -25,14 +25,14 @@ class Hash {
       const rv = hashArray.map((byte) => byte.toString(36).padStart(2, '0')).join('');
       // if (typeof value === 'string') {
       // eslint-disable-next-line max-len
-      //   console.log(`Hashed ${value} to b16: ${hashArray.map((byte) => byte.toString(36).padStart(2, '0')).join('')} b36: ${rv}`);
+      //   console.debug(`Hashed ${value} to b16: ${hashArray.map((byte) => byte.toString(36).padStart(2, '0')).join('')} b36: ${rv}`);
       // }
       return rv;
     }
 
     if (!previouslyHashInitialized) {
       // eslint-disable-next-line no-console
-      console.log('Using CryptoJS hashing. Next time make the call with https');
+      console.debug('Using CryptoJS hashing. Next time make the call with https');
     }
     let hash = null;
     if (typeof value === 'string') {
@@ -48,7 +48,7 @@ class Hash {
     // eslint-disable-next-line no-undef
     const rv = BigInt(`0x${hexHash}`).toString(36);
     // if (typeof value === 'string') {
-    //  console.log(`Hashed ${value} to b16: ${hexHash} b36: ${rv}`);
+    //  console.debug(`Hashed ${value} to b16: ${hexHash} b36: ${rv}`);
     // }
     return rv;
   }

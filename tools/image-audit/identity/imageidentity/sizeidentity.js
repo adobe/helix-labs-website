@@ -111,7 +111,7 @@ class SizeIdentity extends AbstractIdentity {
       return totalBytes;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.log('Unable to fetch image directly to calculate size. Will use fallback', error);
+      console.info('Unable to fetch image directly to calculate size. Will use fallback', error);
       return width * height * 4; // a "best guess" based on the image dimensions
     }
   }

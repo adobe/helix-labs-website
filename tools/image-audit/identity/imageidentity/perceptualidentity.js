@@ -90,7 +90,7 @@ class PerceptualIdentity extends AbstractIdentity {
       .run(() => identityValues
         .get(PerceptualIdentity, 'phash', () => PerceptualIdentity.#getPhash(elementForCluster)));
 
-    if (!hash) {
+    if (!hash || hash.length === 0) {
       return;
     }
 

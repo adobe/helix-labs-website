@@ -342,6 +342,7 @@ function validateAlt(alt, count) {
  * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
  */
 function isUrlValid(url) {
+  if (!url) return false;
   let protocol = '';
   if (url instanceof URL) {
     if (url.hostname === 'localhost') {
@@ -695,10 +696,10 @@ async function loadImages(
   const promisePool = new PromisePool(concurrency, 'Load Images', false);
   const batchEntries = [];
 
-  individualBatch.filter((img) => isUrlValid(img.origin));
+  const filteredBatch = individualBatch.filter((img) => img && isUrlValid(img.origin));
 
-  for (let i = 0; i < individualBatch.length; i += 1) {
-    const img = individualBatch[i];
+  for (let i = 0; i < filteredBatch.length; i += 1) {
+    const img = filteredBatch[i];
 
     const {
       src, origin, site, alt, width, height, aspectRatio, instance, fileType,
@@ -792,6 +793,14 @@ async function fetchPage(url) {
   return null;
 }
 
+async function fetchPageHtml(url) {
+  const req = await fetch(url, { redirect: 'manual' });
+  if (req.ok) {
+    return req.text();
+  }
+  return null;
+}
+
 function getOptimizedImageUrl(src, origin, defaultWidth) {
   const originalUrl = new URL(src, origin);
   const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
@@ -806,8 +815,8 @@ function getOptimizedImageUrl(src, origin, defaultWidth) {
 
   const pictureElement = createOptimizedPicture(
     originalUrl,
-    false,
     'Optimized Image',
+    false,
     [
       { media: `(min-width: ${width}px)`, width: `${width}` },
       { width: `${width}` },
@@ -824,8 +833,15 @@ function getOptimizedImageUrl(src, origin, defaultWidth) {
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
 async function fetchImageDataFromPage(url) {
+  const html = document.createElement('div');
+
   try {
-    const html = await fetchPage(url.plain);
+    const rawHtml = await fetchPageHtml(url.plain);
+    // everything from here to the end needs to be synchronous or the document will load.
+    // TODO: The HTML injected here causes images to be loaded from the wrong domain.
+    // suggest to find another way, but also, maybe a
+    // bulk replace of these img tags to make them load lazy
+    html.innerHTML = rawHtml;
     if (html) {
       const seenMap = new Map();
       const images = html.querySelectorAll('img[src]');
@@ -863,7 +879,6 @@ async function fetchImageDataFromPage(url) {
           fileType,
         };
       });
-      html.innerHTML = '';
       return imgData;
     }
     return [];
@@ -871,6 +886,8 @@ async function fetchImageDataFromPage(url) {
     // eslint-disable-next-line no-console
     console.error(`unable to fetch ${url.href}:`, error);
     return [];
+  } finally {
+    html.innerHTML = '';
   }
 }
 
@@ -899,7 +916,7 @@ async function fetchBatch(batch, concurrency, counter) {
           window.duplicateFilter.add(url.plain);
         } else {
           // eslint-disable-next-line no-console
-          console.log('Duplicate URL found:', url.plain);
+          console.debug('Duplicate URL found:', url.plain);
         }
       }
     })());
@@ -1065,7 +1082,7 @@ async function fetchAndDisplayBatches(
   // After all batches are done
   data.length = 0;
   // eslint-disable-next-line no-console
-  console.log('Batches complete.');
+  console.debug('Batches complete.');
   download.disabled = false;
   if (window.collectingRum) {
     sortImages(document, document.getElementById('sort-performance'));

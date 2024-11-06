@@ -207,7 +207,7 @@ class IdentityCluster {
     }
     if (this === otherCluster) {
       // eslint-disable-next-line no-console
-      console.log(`Cowardly refusing to merge the same cluster with itself ${this.id}`);
+      console.info(`Cowardly refusing to merge the same cluster with itself ${this.id}`);
       return;
     }
 

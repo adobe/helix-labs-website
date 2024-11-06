@@ -40,7 +40,7 @@ class PromisePool {
   activateTimer() {
     if (!this.#timerActive && this.#debugpool) {
       this.#timerActive = true;
-      console.log(`${this.#poolName} created with maxConcurrency ${this.#maxConcurrency}`);
+      console.debug(`${this.#poolName} created with maxConcurrency ${this.#maxConcurrency}`);
       this.#timer = setInterval(() => {
         if (this.#activeTasks.length === 0
           && this.#queue.length === 0
@@ -48,7 +48,7 @@ class PromisePool {
           clearInterval(this.#timer);
           this.#timerActive = false;
         }
-        console.log(`${this.#poolName}: ${this.#activeTasks.length} active tasks, ${this.#queue.length} queued tasks, ${this.#awaitingFinish} processes awaiting finish`);
+        console.debug(`${this.#poolName}: ${this.#activeTasks.length} active tasks, ${this.#queue.length} queued tasks, ${this.#awaitingFinish} processes awaiting finish`);
       }, 1000);
     }
   }
@@ -75,13 +75,13 @@ class PromisePool {
     taskName = taskName.substring(firstIndex, lastIndex).trim();
 
     if (this.#activeCount >= this.#maxConcurrency) {
-      if (this.#debugpool) console.log(`${this.#poolName}.run ${taskName} waiting for slot, ${this.#activeTasks.length} active tasks, ${this.#queue.length + 1} queued tasks`);
+      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} waiting for slot, ${this.#activeTasks.length} active tasks, ${this.#queue.length + 1} queued tasks`);
       await new Promise((resolve) => {
         this.#queue.push(resolve);
       });
     }
     this.#activeCount += 1;
-    if (this.#debugpool) console.log(`${this.#poolName}.run ${taskName} executing in slot ${this.#activeCount}`);
+    if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} executing in slot ${this.#activeCount}`);
 
     let taskPromise;
 
@@ -89,13 +89,13 @@ class PromisePool {
       taskPromise = task();
       this.#activeTasks.push(taskPromise); // Track active task
       const rv = await taskPromise;
-      if (this.#debugpool) console.log(`${this.#poolName}.run ${taskName} finished executing - status: ${taskPromise.status}`);
+      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing - status: ${taskPromise.status}`);
       return rv;
     } catch (error) {
       this.#errorHandler(error);
       return Promise.reject(error);
     } finally {
-      if (this.#debugpool) console.log(`${this.#poolName}.run releasing ${taskName} slot`);
+      if (this.#debugpool) console.debug(`${this.#poolName}.run releasing ${taskName} slot`);
 
       this.#activeCount -= 1;
       if (taskPromise) {
@@ -114,7 +114,7 @@ class PromisePool {
     // Wait for all active and queued tasks to settle
     this.#awaitingFinish += 1;
     try {
-      if (this.#debugpool) console.log(`${this.#poolName}: Awaiting ${this.#activeTasks.length + this.#queue.length} tasks to complete`);
+      if (this.#debugpool) console.debug(`${this.#poolName}: Awaiting ${this.#activeTasks.length + this.#queue.length} tasks to complete`);
       // Process any queued tasks
       if (this.#queue.length > 0) {
         const queueEmptyPromise = new Promise((resolve) => {
@@ -125,7 +125,7 @@ class PromisePool {
 
       if (this.#activeTasks.length !== 0) {
         return Promise.allSettled(this.#activeTasks).then(() => {
-          if (this.#debugpool) console.log(`${this.#poolName} Finished waiting for tasks to settle`);
+          if (this.#debugpool) console.debug(`${this.#poolName} Finished waiting for tasks to settle`);
         });
       }
       return Promise.resolve();
