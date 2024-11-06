@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import IdentityCluster from './identitycluster.js';
 import SimilarClusterIdentity from './similarclusteridentity.js';
+import IdentityRegistry from './identityregistry.js'; // Add this line to import IdentityRegistry
 
 /* eslint-disable no-console */
 /* eslint-disable class-methods-use-this */

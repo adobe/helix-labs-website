@@ -1,6 +1,6 @@
 /* eslint-disable class-methods-use-this */
 // eslint-disable-next-line import/no-unresolved
-import { DataChunks } from 'https://www.aem.live/tools/rum/cruncher.js';
+import { DataChunks } from '@adobe/rum-distiller';
 // eslint-disable-next-line import/no-unresolved
 import DataLoader from 'https://www.aem.live/tools/rum/loader.js';
 import AbstractIdentity from '../abstractidentity.js';
@@ -142,8 +142,44 @@ class UrlAndPageIdentity extends AbstractIdentity {
     const additionalTokensToSum = [site];
     additionalTokensToSum.push(instance);
 
+    const identityId = await identityValues
+      .get(UrlAndPageIdentity, 'identityId', () => UrlAndPageIdentity
+        .#getIdentityID(
+          url,
+          additionalTokensToSum,
+          site,
+          clusterManager,
+          href,
+          originatingClusterId,
+        ));
+
+    const identity = new UrlAndPageIdentity(
+      identityId,
+      href,
+      site,
+      alt,
+      width,
+      height,
+      aspectRatio,
+      instance,
+    );
+
+    if (identityValues.entryValues.domainKey) {
+      await identity.#obtainRum(identityValues.entryValues, identityState);
+    }
+
+    clusterManager.get(originatingClusterId).addIdentity(identity);
+  }
+
+  static async #getIdentityID(
+    url,
+    additionalTokensToSum,
+    site,
+    clusterManager,
+    href,
+    originatingClusterId,
+  ) {
     try {
-      // Fetch the image to get the ETag from headers (if available)
       const response = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
       const etag = response.headers.get('ETag'); // Get the ETag if available
       const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
@@ -176,30 +212,14 @@ class UrlAndPageIdentity extends AbstractIdentity {
       additionalTokensToSum.push(site); // Start with the URL or other primary identifier
     }
 
-    const identityId = await UrlIdentity.getUrlIdentityID(
+    const { identityId } = await UrlIdentity.getUrlIdentityID(
       clusterManager,
       href,
       originatingClusterId,
       UrlAndPageIdentity.type,
       additionalTokensToSum,
     );
-
-    const identity = new UrlAndPageIdentity(
-      identityId,
-      href,
-      site,
-      alt,
-      width,
-      height,
-      aspectRatio,
-      instance,
-    );
-
-    if (identityValues.entryValues.domainKey) {
-      await identity.#obtainRum(identityValues.entryValues, identityState);
-    }
-
-    clusterManager.get(originatingClusterId).addIdentity(identity);
+    return identityId;
   }
 
   // eslint-disable-next-line class-methods-use-this

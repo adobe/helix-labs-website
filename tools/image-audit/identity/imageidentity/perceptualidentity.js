@@ -24,6 +24,8 @@ class PerceptualIdentity extends AbstractIdentity {
 
   #identityState;
 
+  #identityValues; // kept for caching calls.
+
   #canvas;
 
   #ctx;
@@ -36,23 +38,29 @@ class PerceptualIdentity extends AbstractIdentity {
 
   #elementForCluster;
 
-  constructor(phash, canvas, ctx, elementForCluster, clusterManager, identityState) {
+  constructor(phash, identityValues, elementForCluster, identityState) {
     super();
     this.#phash = phash;
     this.#identityState = identityState;
-    this.#canvas = canvas;
-    this.#ctx = ctx;
-    this.#clusterManager = clusterManager;
+    this.#identityValues = identityValues;
+    this.#canvas = identityValues.canvas;
+    this.#ctx = identityValues.ctx;
+    this.#clusterManager = identityValues.clusterManager;
     this.#width = elementForCluster.width;
     this.#height = elementForCluster.height;
     this.#elementForCluster = elementForCluster;
   }
 
+  static async #getPhash(elementForCluster) {
+    // eslint-disable-next-line no-undef
+    const imageHash = await phash(elementForCluster, 8);
+    if (imageHash) return imageHash?.binArray;
+    return null;
+  }
+
   static async identifyPostflightWithCanvas(identityValues, identityState) {
     const {
       originatingClusterId,
-      canvas,
-      ctx,
       clusterManager,
     } = identityValues;
 
@@ -78,15 +86,19 @@ class PerceptualIdentity extends AbstractIdentity {
       // shared between instances.
       identityState.promisePool = new PromisePool(phashConcurrency, 'Perceptual Hash');
     }
-    // eslint-disable-next-line no-undef
-    const hash = await identityState.promisePool.run(() => phash(elementForCluster, 8));
+    const hash = await identityState.promisePool
+      .run(() => identityValues
+        .get(PerceptualIdentity, 'phash', () => PerceptualIdentity.#getPhash(elementForCluster)));
+
+    if (!hash) {
+      return;
+    }
 
     const identity = new PerceptualIdentity(
-      hash,
-      canvas,
-      ctx,
+      // eslint-disable-next-line no-undef
+      new ImageHash(hash),
+      identityValues,
       elementForCluster,
-      clusterManager,
       identityState,
     );
 
@@ -117,6 +129,14 @@ class PerceptualIdentity extends AbstractIdentity {
   }
 
   getMergeWeight(otherIdentity) {
+    this.#identityValues.getSync(
+      this,
+      ['merge-weight', this.#phash.toBase64(), otherIdentity.#phash.toBase64].join(':'),
+      () => this.#getMergeWeight(otherIdentity),
+    );
+  }
+
+  #getMergeWeight(otherIdentity) {
     const distance = this.#phash.hammingDistance(otherIdentity.#phash);
     if (distance > hammingDistanceThreshold) {
       return 0;
@@ -265,6 +285,8 @@ class PerceptualIdentity extends AbstractIdentity {
       this.#width = otherIdentity.#width;
       this.#height = otherIdentity.#height;
       this.#elementForCluster = otherIdentity.#elementForCluster;
+      this.#identityValues = otherIdentity.#identityValues;
+      this.#identityState = otherIdentity.#identityState;
     }
   }
 }

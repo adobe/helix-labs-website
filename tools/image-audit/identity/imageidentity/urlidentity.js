@@ -10,13 +10,10 @@ class UrlIdentity extends AbstractIdentity {
 
   #src;
 
-  #infinitelyDurable;
-
-  constructor(identityId, src, infinitelyDurable) {
+  constructor(identityId, src) {
     super();
     this.#id = identityId;
     this.#src = src;
-    this.#infinitelyDurable = infinitelyDurable;
   }
 
   static get type() {
@@ -40,10 +37,6 @@ class UrlIdentity extends AbstractIdentity {
     return true;
   }
 
-  get infinitelyDurable() {
-    return this.#infinitelyDurable;
-  }
-
   get signleton() {
     return false;
   }
@@ -61,17 +54,16 @@ class UrlIdentity extends AbstractIdentity {
 
     const { href } = identityValues.entryValues;
 
-    const durability = { durability: false };
-    const identityId = await UrlIdentity.getUrlIdentityID(
-      clusterManager,
-      href,
-      originatingClusterId,
-      UrlIdentity.type,
-      [],
-      durability,
-    );
+    const { identityId, durability } = await identityValues
+      .get(UrlIdentity, 'identityId', () => UrlIdentity.getUrlIdentityID(
+        clusterManager,
+        href,
+        originatingClusterId,
+        UrlIdentity.type,
+        [],
+      ));
 
-    const identity = new UrlIdentity(identityId, href);
+    const identity = new UrlIdentity(identityId, href, durability);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
@@ -81,8 +73,8 @@ class UrlIdentity extends AbstractIdentity {
     clusterId,
     type,
     additionalTokensToSum = [],
-    durability = { durability: false },
   ) {
+    let durability = false;
     const url = new URL(href);
     const cluster = clusterManager.get(clusterId);
     const { elementForCluster } = cluster;
@@ -97,7 +89,7 @@ class UrlIdentity extends AbstractIdentity {
       identificationParts.push(':eds:');
       identificationParts.push(href.split('://')[1].split('?')[0].toLowerCase());
 
-      durability.durability = true;
+      durability = true;
     } else {
       try {
         // Fetch the image to get the ETag from headers (if available)
@@ -114,18 +106,18 @@ class UrlIdentity extends AbstractIdentity {
           // high fidelity identifier
           identificationParts.push('et');
           identificationParts.push(etag);
-          durability.durability = true;
+          durability = true;
         } else if (digest) {
           identificationParts.push('dg');
           identificationParts.push(digest);
-          durability.durability = true;
+          durability = true;
         } else {
           // try to join what we do know. Lower fidelity identifier
           identificationParts.push(href); // Start with the URL or other primary identifier
           identificationParts.push('wt');
 
           if (lastModified && contentLength) {
-            durability.durability = true;
+            durability = true;
             // close enough.
           }
 
@@ -137,6 +129,7 @@ class UrlIdentity extends AbstractIdentity {
             identificationParts.push(contentLength);
           }
           if (!lastModified && !contentLength) {
+            durability = false;
             // use what we've got
             if (elementForCluster.width) {
               identificationParts.push(elementForCluster.width);
@@ -147,7 +140,7 @@ class UrlIdentity extends AbstractIdentity {
           }
         }
       } catch (error) {
-        durability.durability = false; // reset
+        durability = false; // reset
         identificationParts.length = 0;
         identificationParts.push(...additionalTokensToSum);
         identificationParts.push('er');
@@ -161,8 +154,11 @@ class UrlIdentity extends AbstractIdentity {
         }
       }
     }
-    const hash = `${type.split('-').map((chunk) => chunk.charAt(0)).join('')}:${await Hash.createHash(identificationParts.join('::'))}`;
-    return hash;
+    const identityId = `${type.split('-').map((chunk) => chunk.charAt(0)).join('')}:${await Hash.createHash(identificationParts.join('::'))}`;
+    return {
+      identityId,
+      durability,
+    };
   }
 }
 

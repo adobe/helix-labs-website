@@ -33,6 +33,12 @@ class ColorIdentity extends AbstractIdentity {
     this.#topColors = [];
   }
 
+  get dataObject() {
+    return {
+      topColors: this.#topColors,
+    };
+  }
+
   static get type() {
     return COLOR_IDENTITY_TYPE;
   }
@@ -101,8 +107,8 @@ class ColorIdentity extends AbstractIdentity {
   // Function to find the nearest standard color
   static #findNearestColor(color) {
     return ColorUtility.cssColors.reduce((nearestColor, standardColor) => {
-      const distance = this.#colorDistance(color, standardColor.rgb);
-      return distance < this.#colorDistance(color, nearestColor.rgb)
+      const distance = ColorIdentity.#colorDistance(color, standardColor.rgb);
+      return distance < ColorIdentity.#colorDistance(color, nearestColor.rgb)
         ? standardColor
         : nearestColor;
     }).name;
@@ -196,6 +202,19 @@ class ColorIdentity extends AbstractIdentity {
     clusterManager.get(originatingClusterId).addIdentity(colorIdentity);
   }
 
+  static #getColors(elementForCluster) {
+    const colors = numberOfTopColors > 1
+      ? colorThief.getPalette(elementForCluster, numberOfTopColors)
+      : [colorThief.getColor(elementForCluster)];
+
+    // RGB Values. Disabled for now.
+    // const rawColors = numberOfTopRawColors > 1
+    //  ? colorThief.getPalette(elementForCluster, numberOfTopRawColors)
+    //  : [colorThief.getColor(elementForCluster)];
+    if (!colors) return [];
+    return [...new Set(colors.map((color) => this.#findNearestColor(color)))];
+  }
+
   // eslint-disable-next-line no-unused-vars
   static async #identifyColors(colorIdentity, identityValues) {
     const { originatingClusterId } = identityValues;
@@ -208,20 +227,13 @@ class ColorIdentity extends AbstractIdentity {
         throw new Error('No element for cluster');
       }
 
-      const colors = numberOfTopColors > 1
-        ? colorThief.getPalette(elementForCluster, numberOfTopColors)
-        : [colorThief.getColor(elementForCluster)];
+      const roundedColors = await identityValues
+        .get(ColorIdentity, 'colors', () => ColorIdentity.#getColors(elementForCluster));
 
-      if (!(colors) || colors.length === 0) {
+      if (!(roundedColors) || roundedColors.length === 0) {
         // can be all alpha
         return;
       }
-
-      // RGB Values. Disabled for now.
-      // const rawColors = numberOfTopRawColors > 1
-      //  ? colorThief.getPalette(elementForCluster, numberOfTopRawColors)
-      //  : [colorThief.getColor(elementForCluster)];
-      const roundedColors = [...new Set(colors.map((color) => this.#findNearestColor(color)))];
 
       roundedColors.forEach((color) => {
         colorIdentity.#topColors.push(color);
@@ -235,14 +247,14 @@ class ColorIdentity extends AbstractIdentity {
     }
   }
 
-  static async #identifyAlpha(colorIdentity, identityValues) {
+  static async #isAlpha(colorIdentity, identityValues) {
     const { originatingClusterId, canvas, ctx } = identityValues;
     const { src } = identityValues.clusterManager
       .get(originatingClusterId).elementForCluster;
 
     const ext = src.split('.').pop().toLowerCase();
     if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
-      return;
+      return false;
     }
 
     // Get the pixel data from the canvas
@@ -261,11 +273,18 @@ class ColorIdentity extends AbstractIdentity {
         // only detecting alpha if 1% of pixels have alpha. This trims small alpha borders.
         // TODO: Should we limit this to the first xx pixels?
         if (alphaPixelsCount >= alphaThreshold) {
-          colorIdentity.#topColors.push(ColorUtility.TRANSPARENCY_NAME);
-          colorIdentity.#addUsedColor(ColorUtility.TRANSPARENCY_NAME);
-          return;
+          return true;
         }
       }
+    }
+    return false;
+  }
+
+  static async #identifyAlpha(colorIdentity, identityValues) {
+    if (await identityValues
+      .get(ColorIdentity, 'alpha', () => ColorIdentity.#isAlpha(colorIdentity, identityValues))) {
+      colorIdentity.#topColors.push(ColorUtility.TRANSPARENCY_NAME);
+      colorIdentity.#addUsedColor(ColorUtility.TRANSPARENCY_NAME);
     }
   }
 

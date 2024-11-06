@@ -1,3 +1,7 @@
+import AbstractIdentity from './abstractidentity.js';
+import AbstractIdentityHashProvider from './cacheprovider/abstractidentityhashprovider.js';
+import AbstractCacheProvider from './cacheprovider/abstractcacheprovider.js';
+
 class IdentityRegistry {
   static #identityRegistry = new IdentityRegistry();
 
@@ -5,7 +9,7 @@ class IdentityRegistry {
     return this.#identityRegistry;
   }
 
-  #registeredClasses;
+  #registeredIdentityClasses;
 
   #identifyPreflightSet;
 
@@ -17,40 +21,67 @@ class IdentityRegistry {
 
   #types;
 
+  #identityHashProvider;
+
+  #identityCache;
+
   constructor() {
     this.#identifyPreflightSet = new Set();
     this.#identifyPostflightSet = new Set();
     this.#identifyPostflightWithCanvasSet = new Set();
     this.#identifyPostErrorSet = new Set();
-    this.#registeredClasses = new Set();
+    this.#registeredIdentityClasses = new Set();
+    this.#identityHashProvider = null;
     this.#types = [];
   }
 
-  static get registeredClasses() {
-    return Array.from(this.identityRegistry.#registeredClasses);
+  static get registeredIdentityClasses() {
+    return Array.from(this.identityRegistry.#registeredIdentityClasses);
   }
 
   static register(registeredClass) {
     const identityRegistry = IdentityRegistry.#identityRegistry;
 
-    if (identityRegistry.#registeredClasses.has(registeredClass)) {
-      return;
+    if (Object.prototype.isPrototypeOf
+      .call(AbstractIdentity.prototype, registeredClass.prototype)) {
+      // Identity classes
+      if (registeredClass.identifyPreflight) {
+        identityRegistry.#identifyPreflightSet.add(registeredClass);
+      }
+      if (registeredClass.identifyPostflight) {
+        identityRegistry.#identifyPostflightSet.add(registeredClass);
+      }
+      if (registeredClass.identifyPostflightWithCanvas) {
+        identityRegistry.#identifyPostflightWithCanvasSet.add(registeredClass);
+      }
+      if (registeredClass.identifyPostError) {
+        identityRegistry.#identifyPostErrorSet.add(registeredClass);
+      }
+      if (registeredClass.type) {
+        identityRegistry.#types.push(registeredClass.type);
+      }
+      identityRegistry.#registeredIdentityClasses.add(registeredClass);
+    } else if (Object.prototype.isPrototypeOf
+      .call(AbstractIdentityHashProvider.prototype, registeredClass.prototype)) {
+      // Hash classes
+      if (!identityRegistry.#identityHashProvider) {
+        identityRegistry.#identityHashProvider = registeredClass;
+      } else if (identityRegistry.#identityHashProvider.providerPriority
+        > registeredClass.providerPriority) {
+        identityRegistry.#identityHashProvider = registeredClass;
+      }
+    } else if (Object.prototype.isPrototypeOf
+      .call(AbstractCacheProvider.prototype, registeredClass.prototype)) {
+      // Cache classes
+      if (!identityRegistry.#identityCache) {
+        // eslint-disable-next-line new-cap
+        identityRegistry.#identityCache = new registeredClass();
+      } else if (identityRegistry.#identityCache.providerPriority
+        > registeredClass.providerPriority) {
+        // eslint-disable-next-line new-cap
+        identityRegistry.#identityCache = new registeredClass();
+      }
     }
-    identityRegistry.#registeredClasses.add(registeredClass);
-    if (registeredClass.identifyPreflight) {
-      identityRegistry.#identifyPreflightSet.add(registeredClass);
-    }
-    if (registeredClass.identifyPostflight) {
-      identityRegistry.#identifyPostflightSet.add(registeredClass);
-    }
-    // eslint-disable-next-line max-len
-    if (registeredClass.identifyPostflightWithCanvas) {
-      identityRegistry.#identifyPostflightWithCanvasSet.add(registeredClass);
-    }
-    if (registeredClass.identifyPostError) {
-      identityRegistry.#identifyPostErrorSet.add(registeredClass);
-    }
-    identityRegistry.#types.push(registeredClass.type);
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -64,6 +95,7 @@ class IdentityRegistry {
       if (!identityState[clazz.type]) {
         identityState[clazz.type] = {};
       }
+
       promises.push(clazz[methodName](identityValues, identityState[clazz.type]));
     });
 
@@ -92,6 +124,14 @@ class IdentityRegistry {
 
   get types() {
     return this.#types;
+  }
+
+  get identityCache() {
+    return this.#identityCache;
+  }
+
+  get identityHashProvider() {
+    return this.#identityHashProvider;
   }
 }
 

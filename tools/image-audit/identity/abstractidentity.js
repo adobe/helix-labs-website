@@ -20,6 +20,7 @@ class AbstractIdentity {
   static async identifyPostError(identityValues, identityState) {
     throw new Error('AbstractIdentity.identify is an abstract method');
   }
+
   */
 
   static #hashInitialized = false;
@@ -73,6 +74,10 @@ class AbstractIdentity {
 
   get signleton() {
     throw new Error('AbstractIdentity.getSignleton is an abstract method');
+  }
+
+  get dataObject() {
+    throw new Error('AbstractIdentity.getDataObject is an abstract method');
   }
 
   // called for singletons, or soft identities with matching ids during cluster merge.

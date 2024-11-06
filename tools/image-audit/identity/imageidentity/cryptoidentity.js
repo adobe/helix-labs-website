@@ -55,12 +55,16 @@ class CryptoIdentity extends AbstractIdentity {
       return;
     }
 
+    const hash = await identityValues.get(CryptoIdentity, 'hash', () => CryptoIdentity.#getHash(canvas, ctx));
+    const identity = new CryptoIdentity(hash);
+    clusterManager.get(originatingClusterId).addIdentity(identity);
+  }
+
+  static async #getHash(canvas, ctx) {
     // Get image data (raw pixels) directly from the canvas
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    const hash = `cryi:${await Hash.createHash(imageData.data.buffer)}`;
-    const identity = new CryptoIdentity(hash);
-    clusterManager.get(originatingClusterId).addIdentity(identity);
+    return `cryi:${await Hash.createHash(imageData.data.buffer)}`;
   }
 }
 

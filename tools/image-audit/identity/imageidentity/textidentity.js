@@ -43,14 +43,23 @@ class TextIdentity extends AbstractIdentity {
 
     const { promisePool } = identityState;
 
-    await promisePool.run(() => TextIdentity.identifyText(
-      originatingClusterId,
-      identityState,
-      clusterManager,
-    ));
+    const { identityText, text } = await promisePool.run(() => identityValues
+      .get(TextIdentity, 'text', () => TextIdentity
+        .#identifyText(
+          originatingClusterId,
+          identityValues,
+          identityState,
+          clusterManager,
+        )));
+
+    if (!text || !identityText) return;
+
+    const identity = new TextIdentity(text, identityText);
+
+    clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
-  static async identifyText(originatingClusterId, identityState, clusterManager) {
+  static async #identifyText(originatingClusterId, identityValues, identityState, clusterManager) {
     let text = '';
     let identityText = '';
     try {
@@ -76,9 +85,10 @@ class TextIdentity extends AbstractIdentity {
       // eslint-disable-next-line no-console
       console.error(`Error processing OCR for cluster ${originatingClusterId}`, error);
     }
-    const identity = new TextIdentity(text, identityText);
-
-    clusterManager.get(originatingClusterId).addIdentity(identity);
+    return {
+      text,
+      identityText,
+    };
   }
 
   static get type() {

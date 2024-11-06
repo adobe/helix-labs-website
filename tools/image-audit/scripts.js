@@ -5,7 +5,7 @@ import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
 import ClusterManager from './identity/clustermanager.js';
 import IdentityRegistry from './identity/identityregistry.js';
 import IdentityValues from './identity/identityvalues.js';
-import SitemapLoadOrderIdentity from './identity/sitemaploadorder.js';
+import SitemapLoadOrderIdentity from './identity/sitemaploadorderidentity.js';
 import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
 import PromisePool from './promisepool.js';
@@ -344,6 +344,9 @@ function validateAlt(alt, count) {
 function isUrlValid(url) {
   let protocol = '';
   if (url instanceof URL) {
+    if (url.hostname === 'localhost') {
+      return false;
+    }
     protocol = url.protocol.replace(':', '').toLowerCase();
   } else if (typeof url === 'string') {
     try {
@@ -739,6 +742,7 @@ async function loadImages(
     const identityValues = new IdentityValues(
       originatingClusterId,
       clusterManager,
+      window.identityCache,
       selectedIdentifiers,
       submissionValues,
       entryValues,
@@ -779,6 +783,9 @@ async function fetchPage(url) {
   const req = await fetch(url, { redirect: 'manual' });
   if (req.ok) {
     const temp = document.createElement('div');
+    // TODO: The HTML injected here causes images to be loaded from the wrong domain.
+    // suggest to find another way, but also, maybe a
+    // bulk replace of these img tags to make them load lazy
     temp.innerHTML = await req.text();
     return temp;
   }
@@ -824,7 +831,15 @@ async function fetchImageDataFromPage(url) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
         const width = img.getAttribute('width') || img.naturalWidth;
-        const src = getOptimizedImageUrl(img.getAttribute('src'), new URL(url.href).origin, width);
+        const { origin } = new URL(url.href);
+        const imgSrc = img.getAttribute('src');
+        const originalUrl = new URL(imgSrc, origin);
+
+        if (!isUrlValid(originalUrl)) {
+          return null;
+        }
+
+        const src = getOptimizedImageUrl(imgSrc, origin, width);
 
         let instance = 1;
         if (seenMap.has(src)) {
@@ -838,7 +853,7 @@ async function fetchImageDataFromPage(url) {
         const fileType = src.split('.').pop();
         return {
           site: url.href,
-          origin: new URL(url.href).origin,
+          origin,
           src,
           alt,
           width,
@@ -877,8 +892,10 @@ async function fetchBatch(batch, concurrency, counter) {
         if (!window.duplicateFilter.has(url.plain)) {
           // eslint-disable-next-line no-await-in-loop
           const imgData = await fetchImageDataFromPage(url);
-          results.push(...imgData);
-          updateCounter(counter, 1);
+          if (imgData) {
+            results.push(...imgData);
+            updateCounter(counter, 1);
+          }
           window.duplicateFilter.add(url.plain);
         } else {
           // eslint-disable-next-line no-console
@@ -1157,6 +1174,7 @@ function setupWindowVariables() {
   window.identityState = {};
   window.duplicateFilter = new Set();
   window.lastExecutionTime = Date.now();
+  window.identityCache = IdentityRegistry.identityRegistry.identityCache;
 }
 
 function showOverlay() {
@@ -1352,7 +1370,7 @@ function registerListeners(doc) {
 function addIdentitySelectorsToForm(doc) {
   const identitySelectors = document.getElementById('identity-selectors');
 
-  IdentityRegistry.registeredClasses.forEach((clazz) => {
+  IdentityRegistry.registeredIdentityClasses.forEach((clazz) => {
     const {
       identity,
       display,
