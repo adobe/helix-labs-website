@@ -86,7 +86,7 @@ class PerceptualIdentity extends AbstractIdentity {
       identityState.promisePool = new PromisePool(phashConcurrency, 'Perceptual Hash');
     }
     const hash = await identityState.promisePool
-      .run(() => identityValues
+      .run(async () => identityValues
         .get(PerceptualIdentity, 'phash', () => PerceptualIdentity.#getPhash(elementForCluster)));
 
     if (!hash || hash.length === 0) {
@@ -128,9 +128,9 @@ class PerceptualIdentity extends AbstractIdentity {
   }
 
   getMergeWeight(otherIdentity) {
-    this.#identityValues.getSync(
+    return this.#identityValues.getSync(
       this,
-      ['merge-weight', this.#phash.toBase64(), otherIdentity.#phash.toBase64()].join(':'),
+      ['merge-weight', this.#phash.toHexString(), otherIdentity.#phash.toHexString()].join(':'),
       () => this.#getMergeWeight(otherIdentity),
     );
   }

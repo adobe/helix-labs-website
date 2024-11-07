@@ -193,6 +193,14 @@ class RewrittenData {
   }
 }
 
+function getFileType(src) {
+  const fileType = src.split('.')
+    .pop().split('?')
+    .shift()
+    .toLowerCase();
+  return fileType;
+}
+
 /**
  * Displays (and creates) a modal with image information.
  * @param {HTMLElement} figure - Figure element representing the image.
@@ -234,7 +242,7 @@ function displayModal(figure) {
     }
 
     const data = {
-      fileType: clusterManager.get(clusterId).elementForCluster.src.split('.').pop(),
+      fileType: getFileType(clusterManager.get(clusterId).elementForCluster.src),
       count: site.length,
       site,
       alt,
@@ -662,9 +670,9 @@ async function loadImage(
           .then(() => {
             displayImage(originatingClusterId);
             updateFigureData(originatingClusterId);
+            resolve(true);
             return true;
           });
-        resolve(true);
       };
       // eslint-disable-next-line no-unused-vars
       loadedImg.onerror = async (error) => {
@@ -751,14 +759,17 @@ async function loadImages(
 
     batchEntries.push(originatingClusterId);
 
-    promisePool.run(() => loadImage(
-      identityValues,
-      identityState,
-      clusterManager,
-      originatingClusterId,
-      loadedImg,
-      href,
-    ));
+    promisePool.run(async () => {
+      await identityValues.initializeIdentityHash();
+      return loadImage(
+        identityValues,
+        identityState,
+        clusterManager,
+        originatingClusterId,
+        loadedImg,
+        href,
+      );
+    });
   }
 
   await promisePool.allSettled();
@@ -846,7 +857,8 @@ async function fetchImageDataFromPage(url) {
         const alt = img.getAttribute('alt') || '';
         const height = img.getAttribute('height') || img.naturalHeight;
         const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
-        const fileType = src.split('.').pop();
+        const fileType = getFileType(imgSrc);
+
         return {
           site: url.href,
           origin,
@@ -1041,7 +1053,7 @@ async function fetchAndDisplayBatches(
     const batch = urls.slice(i, i + batchSize);
 
     // Process each batch and handle the delay between batches asynchronously
-    promisePool.run(() => handleBatch(
+    promisePool.run(async () => handleBatch(
       batch,
       concurrency, // this means each concurrent batch also gets concurrent tasks = 25.
       pagesCounter,
@@ -1153,7 +1165,14 @@ async function fetchSitemap(sitemap) {
     if (xml.querySelector('url')) {
       const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
         const { href, origin } = new URL(loc.textContent.trim());
-        const originSwapped = href.replace(origin, new URL(sitemap).origin);
+        const siteMapUrl = new URL(sitemap);
+        const swap = siteMapUrl.origin;
+        let originSwapped = null;
+        if (!siteMapUrl.host.startsWith('localhost')) {
+          originSwapped = href.replace(origin, swap);
+        } else {
+          originSwapped = href;
+        }
         const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
         return { href: originSwapped, plain };
       });
@@ -1338,7 +1357,13 @@ function registerListeners(doc) {
 
   // handle csv report download
   DOWNLOAD.addEventListener('click', () => {
-    const rows = writeReportRows();
+    const sitemapForm = doc.getElementById('identity-selectors');
+    const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
+    const identifiers = new Set([...identificationActions]
+      .filter((a) => a.checked)
+      .map((a) => a.value));
+
+    const rows = writeReportRows(identifiers);
     if (rows[0]) {
       const site = new URL(rows[0].Site).hostname.split('.')[0];
       const csv = generateCSV(rows);

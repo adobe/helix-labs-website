@@ -64,6 +64,10 @@ class PromisePool {
       throw new Error('Cannot run new tasks while waiting for all tasks to settle');
     }
 
+    if (task.constructor.name !== 'AsyncFunction') {
+      throw new Error(`Task ${task} must be an async function`);
+    }
+
     this.activateTimer();
     let taskName = task.name ? task.name : `${task}`;
     [taskName] = taskName.split('\n');
@@ -86,7 +90,7 @@ class PromisePool {
     let taskPromise;
 
     try {
-      taskPromise = task();
+      taskPromise = Promise.resolve(task());
       this.#activeTasks.push(taskPromise); // Track active task
       const rv = await taskPromise;
       if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing - status: ${taskPromise.status}`);

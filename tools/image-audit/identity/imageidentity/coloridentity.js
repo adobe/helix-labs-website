@@ -182,10 +182,20 @@ class ColorIdentity extends AbstractIdentity {
       return;
     }
 
-    await Promise.allSettled([
+    const results = await Promise.allSettled([
       ColorIdentity.#identifyColors(colorIdentity, identityValues),
       ColorIdentity.#identifyAlpha(colorIdentity, identityValues),
     ]);
+
+    results
+      .filter((result) => result.status === 'rejected')
+      // eslint-disable-next-line no-console
+      .forEach((error) => console.error('Error handling colors', error));
+
+    if (!colorIdentity.#topColors.length === 0) {
+      colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+      colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
+    }
 
     clusterManager.get(originatingClusterId).addIdentity(colorIdentity);
   }
@@ -248,12 +258,10 @@ class ColorIdentity extends AbstractIdentity {
     }
   }
 
-  static async #isAlpha(colorIdentity, identityValues) {
-    const { originatingClusterId, canvas, ctx } = identityValues;
-    const { src } = identityValues.clusterManager
-      .get(originatingClusterId).elementForCluster;
+  static async #isAlpha(identityValues) {
+    const { canvas, ctx } = identityValues;
 
-    const ext = src.split('.').pop().toLowerCase();
+    const ext = identityValues.entryValues.fileType;
     if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
       return false;
     }
@@ -282,8 +290,10 @@ class ColorIdentity extends AbstractIdentity {
   }
 
   static async #identifyAlpha(colorIdentity, identityValues) {
-    if (await identityValues
-      .get(ColorIdentity, 'alpha', () => ColorIdentity.#isAlpha(colorIdentity, identityValues))) {
+    const isAlpha = await identityValues
+      .get(ColorIdentity, 'alpha', () => ColorIdentity.#isAlpha(identityValues));
+
+    if (isAlpha) {
       colorIdentity.#topColors.push(ColorUtility.TRANSPARENCY_NAME);
       colorIdentity.#addUsedColor(ColorUtility.TRANSPARENCY_NAME);
     }

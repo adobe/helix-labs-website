@@ -186,7 +186,11 @@ class ClusterManager {
           // eslint-disable-next-line no-await-in-loop
           const weight = await sourceIdentity
             .getMergeWeight(compareIdentity); // Await the async function
-          sourceScore += weight; // Accumulate the score
+          if (Number.isNaN(weight)) {
+            console.error(`Invalid weight for ${sourceIdentity.id} and ${compareIdentity.id}`);
+          }
+
+          if (weight) sourceScore += weight; // Accumulate the score
         }
 
         identityScore += sourceScore; // Accumulate identity score

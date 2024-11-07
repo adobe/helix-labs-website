@@ -9,6 +9,7 @@
     {
       "imports": {
         "@adobe/rum-distiller": "https://esm.sh/@adobe/rum-distiller@1.6.0",
+        "@adobe/rum-loader": "https://www.aem.live/tools/rum/loader.js",
         "crypto-js": "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.js",
         "pixelmatch": "https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js",
         "tesseract": "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js"
@@ -31,6 +32,21 @@
       <h1>Image Audit</h1>
       <p>
         The <strong>Image Audit</strong> tool provides a way to analyze images on AEM websites. The tool offers insights into image use across a site, including identifying gaps in alt text usage.
+      </p>
+    </div>
+    <div id="audit-results" aria-hidden="true">
+      <p id="info" >
+        <span id="images-counter">0</span> unique images<br/>
+        <span id="duplicate-images-counter">0</span> repeated images<br/>
+        found on <span id="pages-counter">0</span> pages<br/>
+        (out of <span id="total-counter">0</span>)<br/>
+        in <span id="elapsed">0</span> s.
+        <div class="progress-bar" id="progress-bar">
+          <div class="progress" id="progress"></div>
+        </div>  
+      </p>
+      <p class="button-wrapper">
+        <button type="button" class="button" id="download-report" disabled>Download Audit Report</button>
       </p>
     </div>
     <div>
@@ -70,21 +86,6 @@
           </ul>
         </div>
       </form>
-    </div>
-    <div id="audit-results" aria-hidden="true">
-      <p id="info" >
-        <span id="images-counter">0</span> unique images<br/>
-        <span id="duplicate-images-counter">0</span> repeated images<br/>
-        found on <span id="pages-counter">0</span> pages<br/>
-        (out of <span id="total-counter">0</span>)<br/>
-        in <span id="elapsed">0</span> s.
-        <div class="progress-bar" id="progress-bar">
-          <div class="progress" id="progress"></div>
-        </div>  
-      </p>
-      <p class="button-wrapper">
-        <button type="button" class="button" id="download-report" disabled>Download Audit Report</button>
-      </p>
     </div>
     <div class="canvas" id="canvas">
       <div class="action-bar">

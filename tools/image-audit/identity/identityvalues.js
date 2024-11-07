@@ -36,6 +36,16 @@ class IdentityValues {
     this.#identityHash = null;
   }
 
+  async initializeIdentityHash() {
+    if (
+      this.#identityCache
+      && IdentityRegistry.identityRegistry.identityHashProvider
+      && !this.#identityHash) {
+      this.#identityHash = await IdentityRegistry.identityRegistry
+        .identityHashProvider.hashIdentityValues(this);
+    }
+  }
+
   get selectedIdentifiers() {
     return this.#selectedIdentifiers;
   }
@@ -86,14 +96,6 @@ class IdentityValues {
   }
 
   async get(identity, key, callthroughFunction, version = 1) {
-    if (
-      this.#identityCache
-      && IdentityRegistry.identityRegistry.identityHashProvider
-      && !this.#identityHash) {
-      this.#identityHash = await IdentityRegistry.identityRegistry
-        .identityHashProvider.hashIdentityValues(this);
-    }
-
     if (!this.#identityCache || !this.#identityHash) {
       // can't retrieve from hash, passthrough.
       const rv = Promise.resolve(await callthroughFunction());
@@ -103,14 +105,6 @@ class IdentityValues {
   }
 
   getSync(identity, key, callthroughFunction, version = 1) {
-    if (
-      this.#identityCache
-      && IdentityRegistry.identityRegistry.identityHashProvider
-      && !this.#identityHash) {
-      this.#identityHash = IdentityRegistry.identityRegistry
-        .identityHashProvider.hashIdentityValues(this);
-    }
-
     if (!this.#identityCache || !this.#identityHash) {
       // can't retrieve from hash, passthrough.
       const rv = callthroughFunction();

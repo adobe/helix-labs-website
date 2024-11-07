@@ -14,7 +14,7 @@ class UrlHashProvider extends AbstractIdentityHashProvider {
       clusterManager,
       entryValues.href,
       originatingClusterId,
-      UrlIdentity.type,
+      'url-hash',
       [],
     );
 

@@ -2,7 +2,7 @@
 // eslint-disable-next-line import/no-unresolved
 import { DataChunks } from '@adobe/rum-distiller';
 // eslint-disable-next-line import/no-unresolved
-import DataLoader from 'https://www.aem.live/tools/rum/loader.js';
+import DataLoader from '@adobe/rum-loader';
 import AbstractIdentity from '../abstractidentity.js';
 import UrlIdentity from './urlidentity.js';
 import IdentityRegistry from '../identityregistry.js';

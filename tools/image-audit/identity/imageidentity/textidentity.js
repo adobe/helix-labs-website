@@ -43,7 +43,7 @@ class TextIdentity extends AbstractIdentity {
 
     const { promisePool } = identityState;
 
-    const { identityText, text } = await promisePool.run(() => identityValues
+    const { identityText, text } = await promisePool.run(async () => identityValues
       .get(TextIdentity, 'text', () => TextIdentity
         .#identifyText(
           originatingClusterId,
