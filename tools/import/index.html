@@ -27,11 +27,13 @@
                     <input id="apiKey-input" type="password" autocomplete="apiKey" required/>
                 </div>
                 <div class="field" id="url-drop-zone">
-                    <div style="display: flex; justify-content: space-between;">
-                        <label for="url-input">URLs</label>
-                        <span style="{align-content: flex-end; font-size: 6px}"><em>Drop text file to populate.</em></span>
-                    </div>
+                    <label for="url-input">URLs</label>
                     <textarea id="url-input" required placeholder="One URL per line"></textarea>
+                    <div class="field-help-text">
+                        <p>
+                            You may drop a text file which has one URL per line into this field to populate it.
+                        </p>
+                    </div>
                 </div>
                 <div class="field">
                     <label for="import-script">Import Script</label>
