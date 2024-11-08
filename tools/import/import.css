@@ -79,6 +79,10 @@
   border-top: var(--border-m) solid var(--gray-300);
 }
 
+.import .form .dragover {
+  border: var(--border-l) solid var(--green-500);
+}
+
 .import .heading {
   display: flex;
   flex-direction: row;
