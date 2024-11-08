@@ -2,11 +2,8 @@
 import AbstractIdentity from './abstractidentity.js';
 
 class SitemapLoadOrderIdentity extends AbstractIdentity {
-  #id;
-
   constructor(loadOrder) {
-    super();
-    this.#id = `sloi:${loadOrder}`;
+    super(`sloi:${loadOrder}`);
   }
 
   static get type() {
@@ -22,17 +19,9 @@ class SitemapLoadOrderIdentity extends AbstractIdentity {
     };
   }
 
-  get id() {
-    return this.#id;
-  }
-
   get strong() {
     // There would never be a collision so it would never be merged.
     return true;
-  }
-
-  get signleton() {
-    return false;
   }
 }
 

@@ -5,23 +5,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Audit</title>
-  <script type="importmap">
+  <script type="importmap" defer>
     {
       "imports": {
         "@adobe/rum-distiller": "https://esm.sh/@adobe/rum-distiller@1.6.0",
-        "@adobe/rum-loader": "https://www.aem.live/tools/rum/loader.js",
+        "@adobe/rum-loader": "/scripts/loader.js",
         "crypto-js": "https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.js",
         "pixelmatch": "https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js",
         "tesseract": "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js"
       }
     }
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.4.0/color-thief.umd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.4.0/color-thief.umd.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1" defer></script>
   <script src="/scripts/aem.js" type="module"></script>
   <script src="/scripts/scripts.js" type="module"></script>
   <link rel="stylesheet" href="/styles/styles.css" />
-  <script src="/tools/image-audit/scripts.js" type="module"></script>
+  <script src="/tools/image-audit/scripts.js" type="module" defer></script>
   <link rel="stylesheet" href="/tools/image-audit/styles.css" />
 </head>
 

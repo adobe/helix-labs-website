@@ -2,8 +2,6 @@
 import AbstractIdentity from './abstractidentity.js';
 
 class SimilarClusterIdentity extends AbstractIdentity {
-  #id;
-
   #owningClusterId;
 
   #similarClusterId;
@@ -14,19 +12,8 @@ class SimilarClusterIdentity extends AbstractIdentity {
     return 'similar-identity';
   }
 
-  get id() {
-    return this.#id;
-  }
-
   // Strong identities must have unique ids across all clusters
   // Soft identites must have unique ids within a cluster
-  get strong() {
-    return false;
-  }
-
-  get signleton() {
-    return false;
-  }
 
   get owningClusterId() {
     return this.#owningClusterId;
@@ -37,28 +24,28 @@ class SimilarClusterIdentity extends AbstractIdentity {
   }
 
   constructor(clusterManager, clusterId, otherClusterId) {
-    super();
+    super(SimilarClusterIdentity.#obtainId(clusterId, otherClusterId));
     this.clusterManager = clusterManager;
-    this.#id = this.#obtainId(clusterId, otherClusterId);
     this.#owningClusterId = clusterId;
     this.#similarClusterId = otherClusterId;
   }
 
-  #obtainId(hereId, thereId) {
+  static #obtainId(hereId, thereId) {
     return `psim:${hereId}->${thereId}`;
   }
 
   get matchingIdentity() {
     const otherCluster = this.clusterManager.get(this.#similarClusterId);
     return otherCluster
-      .get(this.#obtainId(this.#similarClusterId, this.#owningClusterId));
+      .get(SimilarClusterIdentity.#obtainId(this.#similarClusterId, this.#owningClusterId));
   }
 
   releaseSimilarity() {
     const owningCluster = this.clusterManager.get(this.#owningClusterId);
     const similarCluster = this.clusterManager.get(this.#similarClusterId);
-    owningCluster.removeSimilarIdentity(this.#id);
-    const otherIdentityId = this.#obtainId(this.#similarClusterId, this.#owningClusterId);
+    owningCluster.removeSimilarIdentity(this.id);
+    const otherIdentityId = SimilarClusterIdentity
+      .#obtainId(this.#similarClusterId, this.#owningClusterId);
     similarCluster.removeSimilarIdentity(otherIdentityId);
   }
 }

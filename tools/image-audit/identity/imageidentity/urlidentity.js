@@ -6,13 +6,10 @@ import Hash from '../util/hash.js';
 const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 
 class UrlIdentity extends AbstractIdentity {
-  #id;
-
   #src;
 
   constructor(identityId, src) {
-    super();
-    this.#id = identityId;
+    super(identityId);
     this.#src = src;
   }
 
@@ -29,16 +26,8 @@ class UrlIdentity extends AbstractIdentity {
     };
   }
 
-  get id() {
-    return this.#id;
-  }
-
   get strong() {
     return true;
-  }
-
-  get signleton() {
-    return false;
   }
 
   get src() {

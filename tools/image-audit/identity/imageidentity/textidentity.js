@@ -6,6 +6,7 @@ import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
 import PromisePool from '../../promisepool.js';
+import TextUtility from '../util/textutility.js';
 
 const concurrentOCR = 5;
 
@@ -18,7 +19,7 @@ class TextIdentity extends AbstractIdentity {
   #identityText;
 
   constructor(text, identityText) {
-    super();
+    super('txt');
     this.#text = text;
     this.#identityText = identityText;
   }
@@ -99,17 +100,9 @@ class TextIdentity extends AbstractIdentity {
     return {
       identity: TextIdentity.type,
       display: 'OCR Text',
-      checked: false,
+      checked: true,
       hidden: false,
     };
-  }
-
-  get id() {
-    return 'txt';
-  }
-
-  get strong() {
-    return false;
   }
 
   get signleton() {
@@ -142,7 +135,7 @@ class TextIdentity extends AbstractIdentity {
       exactMatch,
       wordDifferencePercentage,
       bothSidesHadWords,
-    } = this.compareWords(() => this.text, () => otherIdenty.text);
+    } = TextUtility.compareWords(() => this.text, () => otherIdenty.text);
 
     if (!bothSidesHadWords) return 0;
     if (exactMatch) return 30;

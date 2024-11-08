@@ -291,7 +291,9 @@ class IdentityCluster {
     }
 
     this.figureForCluster?.parentElement?.removeChild(this.figureForCluster);
-    this.figureForCluster.removeChild(this.elementForCluster);
+    if (this.figureForCluster?.contains(this.elementForCluster)) {
+      this.figureForCluster.removeChild(this.elementForCluster);
+    }
     this.#figureForCluster = null;
     this.#elementForCluster = null;
 

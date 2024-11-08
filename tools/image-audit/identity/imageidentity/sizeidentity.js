@@ -4,15 +4,12 @@ import IdentityRegistry from '../identityregistry.js';
 import Hash from '../util/hash.js';
 
 class SizeIdentity extends AbstractIdentity {
-  #id;
-
   #src;
 
   #size;
 
   constructor(id, href, size) {
-    super();
-    this.#id = id;
+    super(id);
     this.#src = href;
     this.#size = size;
   }
@@ -40,18 +37,6 @@ class SizeIdentity extends AbstractIdentity {
       checked: true,
       hidden: true,
     };
-  }
-
-  get id() {
-    return this.#id;
-  }
-
-  get strong() {
-    return false;
-  }
-
-  get signleton() {
-    return false;
   }
 
   get src() {

@@ -38,7 +38,7 @@ class PerceptualIdentity extends AbstractIdentity {
   #elementForCluster;
 
   constructor(phash, identityValues, elementForCluster, identityState) {
-    super();
+    super('pi');
     this.#phash = phash;
     this.#identityState = identityState;
     this.#identityValues = identityValues;
@@ -108,7 +108,7 @@ class PerceptualIdentity extends AbstractIdentity {
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
-  static get similarityInstigator() {
+  get similarityInstigator() {
     return true;
   }
 
@@ -244,10 +244,6 @@ class PerceptualIdentity extends AbstractIdentity {
     };
   }
 
-  get id() {
-    return 'ph';
-  }
-
   get strong() {
     return false;
   }
@@ -256,7 +252,7 @@ class PerceptualIdentity extends AbstractIdentity {
     return true;
   }
 
-  static get similarityCollaborator() {
+  get similarityCollaborator() {
     return true;
   }
 

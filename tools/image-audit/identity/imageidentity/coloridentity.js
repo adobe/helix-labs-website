@@ -22,7 +22,7 @@ class ColorIdentity extends AbstractIdentity {
   #topColors;
 
   constructor(identityState) {
-    super();
+    super('ci');
     if (!identityState.usedColors) {
       identityState.usedColors = new Set();
       Object.defineProperty(identityState, 'usedColorsSorted', {
@@ -51,18 +51,6 @@ class ColorIdentity extends AbstractIdentity {
       checked: true,
       hidden: false,
     };
-  }
-
-  get id() {
-    return 'ci';
-  }
-
-  get strong() {
-    return false;
-  }
-
-  get signleton() {
-    return true;
   }
 
   get topColors() {

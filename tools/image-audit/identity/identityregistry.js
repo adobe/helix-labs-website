@@ -107,19 +107,19 @@ class IdentityRegistry {
   }
 
   async identifyPreflight(identityValues, identityState) {
-    await this.#runIdentifications(this.#identifyPreflightSet, 'identifyPreflight', identityValues, identityState);
+    return this.#runIdentifications(this.#identifyPreflightSet, 'identifyPreflight', identityValues, identityState);
   }
 
   async identifyPostflight(identityValues, identityState) {
-    await this.#runIdentifications(this.#identifyPostflightSet, 'identifyPostflight', identityValues, identityState);
+    return this.#runIdentifications(this.#identifyPostflightSet, 'identifyPostflight', identityValues, identityState);
   }
 
   async identifyPostflightWithCanvas(identityValues, identityState) {
-    await this.#runIdentifications(this.#identifyPostflightWithCanvasSet, 'identifyPostflightWithCanvas', identityValues, identityState);
+    return this.#runIdentifications(this.#identifyPostflightWithCanvasSet, 'identifyPostflightWithCanvas', identityValues, identityState);
   }
 
   async identifyPostError(identityValues, identityState) {
-    await this.#runIdentifications(this.#identifyPostErrorSet, 'identifyPostError', identityValues, identityState);
+    return this.#runIdentifications(this.#identifyPostErrorSet, 'identifyPostError', identityValues, identityState);
   }
 
   get types() {

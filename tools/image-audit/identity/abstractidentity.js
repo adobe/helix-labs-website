@@ -23,30 +23,46 @@ class AbstractIdentity {
 
   */
 
-  static #hashInitialized = false;
+  #id;
 
-  static get type() {
-    throw new Error('AbstractIdentity.getType is an abstract method');
+  constructor(id) {
+    if (!id) throw new Error('Identity id must be defined');
+    this.#id = id;
+    Object.defineProperty(AbstractIdentity.prototype, 'type', {
+      configurable: false,
+      enumerable: true,
+    });
+    Object.defineProperty(AbstractIdentity.prototype, 'id', {
+      configurable: false,
+      enumerable: true,
+    });
   }
 
+  static get type() {
+    throw new Error('AbstractIdentity.type is an abstract property');
+  }
+
+  // final as per constructor. Convienence method for static call.
   get type() {
     return this.constructor.type;
   }
 
-  static get similarityInstigator() {
+  // Strong identities must have unique ids across all clusters
+  // Soft identites must have unique ids within a cluster
+  get strong() {
+    return false;
+  }
+
+  get signleton() {
     return false;
   }
 
   get similarityInstigator() {
-    return this.constructor.similarityInstigator;
-  }
-
-  static get similarityCollaborator() {
     return false;
   }
 
   get similarityCollaborator() {
-    return this.constructor.similarityInstigator;
+    return false;
   }
 
   static get uiSelectorProperties() {
@@ -62,22 +78,9 @@ class AbstractIdentity {
     throw new Error('AbstractIdentity.uiProperties is an abstract method');
   }
 
+  // final as per constructor
   get id() {
-    throw new Error('AbstractIdentity.getId is an abstract method');
-  }
-
-  // Strong identities must have unique ids across all clusters
-  // Soft identites must have unique ids within a cluster
-  get strong() {
-    throw new Error('AbstractIdentity.getStrong is an abstract method');
-  }
-
-  get signleton() {
-    throw new Error('AbstractIdentity.getSignleton is an abstract method');
-  }
-
-  get dataObject() {
-    throw new Error('AbstractIdentity.getDataObject is an abstract method');
+    return this.#id;
   }
 
   // called for singletons, or soft identities with matching ids during cluster merge.
@@ -96,96 +99,6 @@ class AbstractIdentity {
   // If singleton, only one item in the array.
   getMergeWeight(otherIdentities) {
     throw new Error('AbstractIdentity.mergeWeight is an abstract method');
-  }
-
-  /*
-  this would allow one identity to wait for another,
-  but it's currently not used. Will add if needed.
-  static async waitForIdentitySingleton(
-    clusterId,
-    clusterManager,
-    identityType,
-    maxAttempts = 60,
-    intervalMs = 500,
-  ) {
-    let isFulfilled = false;
-
-    const promise = new Promise((resolve) => {
-      let attempts = 0;
-      const interval = setInterval(() => {
-        const value = () => clusterManager
-          .get(clusterId)
-          .getSingletonIdentity(identityType);
-
-        if (value) {
-          clearInterval(interval);
-          isFulfilled = true;
-          resolve(value);
-        } else if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          isFulfilled = true;
-          resolve(null);
-        }
-        attempts += 1;
-      }, intervalMs);
-    });
-    await promise;
-    return isFulfilled;
-  }
-  */
-
-  compareWords(fText, fOtherText) {
-    const returnValue = {
-      exactMatch: false,
-      wordDifferencePercentage: 1,
-      bothSidesHadWords: false,
-    };
-
-    const otherText = fOtherText();
-    const text = fText();
-    if (!text || !otherText) {
-      returnValue.bothSidesHadWords = false;
-      return returnValue;
-    }
-
-    const identificationText = new Set(text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(' '));
-    if (identificationText.has('')) {
-      identificationText.delete('');
-    }
-
-    if (!identificationText) {
-      returnValue.bothSidesHadWords = false;
-      return returnValue;
-    }
-
-    const otherIdentificationText = new Set(otherText.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(' '));
-    if (otherIdentificationText.has('')) {
-      otherIdentificationText.delete('');
-    }
-
-    if (!otherIdentificationText) {
-      returnValue.bothSidesHadWords = false;
-      return returnValue;
-    }
-
-    returnValue.bothSidesHadWords = true;
-
-    if (text === otherText) {
-      returnValue.exactMatch = true;
-      returnValue.wordDifferencePercentage = 0;
-      return returnValue;
-    }
-
-    returnValue.exactMatch = false;
-    // Symmetric difference between two sets of colors
-    const diffText = new Set([
-      ...[...identificationText].filter((word) => !otherIdentificationText.has(word)),
-      ...[...otherIdentificationText].filter((word) => !identificationText.has(word)),
-    ]);
-
-    const moreWords = Math.max(identificationText.length, otherIdentificationText.length);
-    returnValue.wordDifferencePercentage = diffText.length / moreWords;
-    return returnValue;
   }
 }
 

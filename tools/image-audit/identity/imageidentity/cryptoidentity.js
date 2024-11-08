@@ -5,11 +5,8 @@ import SizeIdentity from './sizeidentity.js';
 import Hash from '../util/hash.js';
 
 class CryptoIdentity extends AbstractIdentity {
-  #id;
-
   constructor(identityId) {
-    super();
-    this.#id = identityId;
+    super(identityId);
   }
 
   static get type() {
@@ -25,16 +22,8 @@ class CryptoIdentity extends AbstractIdentity {
     };
   }
 
-  get id() {
-    return this.#id;
-  }
-
   get strong() {
     return true;
-  }
-
-  get signleton() {
-    return false;
   }
 
   // eslint-disable-next-line no-unused-vars

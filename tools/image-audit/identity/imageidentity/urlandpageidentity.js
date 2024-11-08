@@ -1,11 +1,13 @@
 /* eslint-disable class-methods-use-this */
-// eslint-disable-next-line import/no-unresolved
+// eslint-disable-next-line import/no-unresolved, import/no-extraneous-dependencies
 import { DataChunks } from '@adobe/rum-distiller';
 // eslint-disable-next-line import/no-unresolved
 import DataLoader from '@adobe/rum-loader';
 import AbstractIdentity from '../abstractidentity.js';
 import UrlIdentity from './urlidentity.js';
 import IdentityRegistry from '../identityregistry.js';
+import TextUtility from '../util/textutility.js';
+import Hash from '../util/hash.js';
 
 const BUNDLER_ENDPOINT = 'https://rum.fastly-aem.page';
 // const BUNDLER_ENDPOINT = 'http://localhost:3000';
@@ -18,8 +20,6 @@ const API_ENDPOINT = BUNDLER_ENDPOINT;
 const exactTextMatchThresholdPercent = 0.1;
 
 class UrlAndPageIdentity extends AbstractIdentity {
-  #id;
-
   #src;
 
   #site;
@@ -37,8 +37,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
   #rumData;
 
   constructor(identityId, src, site, alt, width, height, aspectRatio, instance) {
-    super();
-    this.#id = identityId;
+    super(identityId);
     this.#src = src;
     this.#site = site;
     this.#alt = alt;
@@ -77,18 +76,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
     };
   }
 
-  get id() {
-    return this.#id;
-  }
-
-  get strong() {
-    return false;
-  }
-
-  get signleton() {
-    return false;
-  }
-
   get src() {
     return this.#src;
   }
@@ -117,7 +104,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
     return this.#instance;
   }
 
-  static get similarityCollaborator() {
+  get similarityCollaborator() {
     return true;
   }
 
@@ -142,8 +129,12 @@ class UrlAndPageIdentity extends AbstractIdentity {
     const additionalTokensToSum = [site];
     additionalTokensToSum.push(instance);
 
+    // cache for the identity is based on the image itself,
+    // but in this case we need to also include the site and instance.
+    const hashKey = `identityId:${await Hash.createHash(additionalTokensToSum.join((':')))}`;
+
     const identityId = await identityValues
-      .get(UrlAndPageIdentity, 'identityId', () => UrlAndPageIdentity
+      .get(UrlAndPageIdentity, hashKey, () => UrlAndPageIdentity
         .#getIdentityID(
           url,
           additionalTokensToSum,
@@ -336,7 +327,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
       exactMatch,
       wordDifferencePercentage,
       bothSidesHadWords,
-    } = this.compareWords(() => this.alt, () => otherIdenty.alt);
+    } = TextUtility.compareWords(() => this.alt, () => otherIdenty.alt);
 
     const rv = otherIdenty.width === this.width && otherIdenty.height === this.height ? 5 : 0;
 
