@@ -1340,7 +1340,7 @@ function registerListeners(doc) {
       doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
     }
 
-    if (urlType.includes('sitemap')) {
+    if (urlType?.includes('sitemap')) {
       // fetch sitemap
       localStorage.setItem('sitemapForm', JSON.stringify(data));
       const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
