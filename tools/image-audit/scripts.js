@@ -1290,16 +1290,17 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
 
   window.addEventListener('DOMContentLoaded', () => {
-    const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
-
-    if (savedData) {
-      Object.keys(savedData).forEach((key) => {
-        const input = document.querySelector(`[name="${key}"]`);
-        if (input) {
-          input.value = savedData[key];
-        }
-      });
-    }
+    requestAnimationFrame(() => {
+      const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
+      if (savedData) {
+        Object.keys(savedData).forEach((key) => {
+          const input = document.querySelector(`[name="${key}"]`);
+          if (input) {
+            input.value = savedData[key];
+          }
+        });
+      }
+    });
   });
 
   // handle form submission
