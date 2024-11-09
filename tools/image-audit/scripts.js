@@ -10,6 +10,9 @@ import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
 import PromisePool from './promisepool.js';
 import './identity/defaultidentityloader.js';
+import './reports/defaultreportsloader.js';
+import ReportRegistry from './reports/reportregistry.js';
+import PerformanceUtil from './reports/util/performanceutil.js';
 
 import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -58,83 +61,18 @@ function getShapeForRatio(ratio) {
   return 'Landscape';
 }
 
-function getPerformanceScore(conversions, pageViews, visits, round) {
-  if (pageViews > 0 && conversions > 0) {
-    const rv = Math.round((100 * (conversions / pageViews)));
-    if (!round) return rv;
-    return Math.min(Math.round((rv + 5) / 10) * 10, 100);
-  }
-  if (visits === 0 && pageViews === 0) return 0;
-  if (visits * 2 >= pageViews) return 5;
-  return 1;
-}
+function generateCSV(report) {
+  // Write the CSV column headers using the items from the Set
+  const headers = `${report.header.join(',')}\n`;
 
-/* reporting utilities */
-/**
- * Generates sorted array of audit report rows.
- * @returns {Object[]} Sorted array of report rows.
- */
-function writeReportRows(identifiers) {
-  const entries = [];
-  window.clusterManager.getAllClusters().values().forEach((cluster) => {
-    const upii = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
-
-    const value = {
-      Site: upii.site,
-      'Image Source': new URL(upii.src, upii.origin).href,
-      'Alt Text': upii.alt,
-    };
-
-    if (identifiers.has(ColorIdentity.type)) {
-      const ci = cluster.getSingletonOf(ColorIdentity.type);
-      if (ci) {
-        value['Top Colors'] = ci.topColorsSorted
-          .map((color) => color.replace(/([a-z])([A-Z])/g, '$1 $2')).join(', ');
-      }
-    }
-
-    if (identifiers.has('text-identity')) {
-      const ti = cluster.getSingletonOf('text-identity');
-      if (ti) {
-        value['OCR Text'] = ti.identityText;
-      }
-    }
-
-    if (window.collectingRum) {
-      const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
-      const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
-      const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
-      const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
-
-      value['Performance Score'] = getPerformanceScore(conversions, pageViews, visits, true);
-      value['Page Views'] = pageViews > 0 ? pageViews : ' < 100';
-      value.Conversions = conversions > 0 ? conversions : ' < 100';
-      value.Visits = visits > 0 ? visits : ' < 100';
-      value.Bounces = bounces > 0 ? bounces : ' < 100';
-    }
-
-    entries.push(value);
-  });
-  // sort the entries array alphabetically by the 'Site' property
-  const sorted = entries.sort((a, b) => a.Site.localeCompare(b.Site));
-  return sorted;
-}
-
-/**
- * Converts report rows into a CSV Blob.
- * @param {Object[]} rows - Array of report rows to be converted.
- * @returns {Blob|null} Blob representing the CSV data.
- */
-function generateCSV(rows) {
-  if (rows.length === 0) return null;
-  // write the CSV column headers using the keys from the first row object
-  const headers = `${Object.keys(rows[0]).join(',')}\n`;
-  // convert the rows into a single string separated by newlines
-  const csv = headers + rows.map((row) => Object.values(row).map((value) => {
-    const escape = (`${value}`).replace(/"/g, '""'); // escape quotes
-    return `"${escape}"`;
+  // Convert the rows into a single string separated by newlines
+  const csv = headers + report.rows.map((row) => row.map((value) => {
+    // Escape quotes in each value
+    const escape = (`${value}`).replace(/"/g, '""'); // Escape quotes
+    return `"${escape}"`; // Wrap value in quotes
   }).join(',')).join('\n');
-  // create a Blob from the CSV string
+
+  // Create a Blob from the CSV string
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   return blob;
 }
@@ -269,7 +207,7 @@ function displayModal(figure) {
       rows.conversions = 'Conversions';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
-      data.performanceScore = `${getPerformanceScore(conversions, pageViews, visits, true)}`;
+      data.performanceScore = `${PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true)}`;
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
@@ -563,7 +501,8 @@ function updateFigureData(clusterId) {
     const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
     const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
 
-    const performanceScore = getPerformanceScore(conversions, pageViews, visits, false);
+    const performanceScore = PerformanceUtil
+      .getPerformanceScore(conversions, pageViews, visits, false);
     figure.dataset.performance = performanceScore * 1000000000 + pageViews;
     figure.dataset.views = pageViews;
     figure.dataset.visits = visits;
@@ -1021,7 +960,7 @@ async function fetchAndDisplayBatches(
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
-  const download = results.querySelector('button');
+  const download = results.querySelector('select');
   download.disabled = true;
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
@@ -1119,6 +1058,7 @@ function writeSitemapUrl(url) {
     const [owner, repo] = pathname.split('/').filter((p) => p);
     return `https://main--${repo}--${owner}.hlx.live/sitemap.xml`;
   }
+  // TODO: AEM Classic urls too.
   return null;
 }
 
@@ -1288,6 +1228,7 @@ function registerListeners(doc) {
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+  // Function to populate the dropdown with reports
 
   window.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(() => {
@@ -1357,27 +1298,30 @@ function registerListeners(doc) {
   });
 
   // handle csv report download
-  DOWNLOAD.addEventListener('click', () => {
-    const sitemapForm = doc.getElementById('identity-selectors');
-    const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
-    const identifiers = new Set([...identificationActions]
-      .filter((a) => a.checked)
-      .map((a) => a.value));
+  DOWNLOAD.addEventListener('change', async () => {
+    const selectedReport = DOWNLOAD.value;
+    if (!selectedReport) return;
+    // eslint-disable-next-line new-cap
+    const report = ReportRegistry.getReport(selectedReport);
+    if (!report) return;
 
-    const rows = writeReportRows(identifiers);
-    if (rows[0]) {
-      const site = new URL(rows[0].Site).hostname.split('.')[0];
-      const csv = generateCSV(rows);
+    const reportData = await report.generateReport(window.clusterManager);
+    if (reportData.size > 0) {
+      // get site from the sitemap.
+      const csv = reportData.blob;
       const link = document.createElement('a');
+      const data = getFormData(URL_FORM);
+      const site = data['site-url']?.hostname;
       const url = URL.createObjectURL(csv);
       // insert link to enable download
       link.setAttribute('href', url);
-      link.setAttribute('download', `${site}_image_audit_report.csv`);
+      link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
       link.style.display = 'none';
       DOWNLOAD.insertAdjacentElement('afterend', link);
       link.click();
       link.remove();
     }
+    DOWNLOAD.value = '';
   });
 
   SORT_ACTIONS.forEach((action) => {
@@ -1388,6 +1332,32 @@ function registerListeners(doc) {
   });
 
   FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
+}
+
+function addReportsToDropdown(doc) {
+  const dropdown = doc.getElementById('download-report');
+
+  // Clear any existing options
+  dropdown.innerHTML = '';
+
+  // Add the default placeholder option
+  const defaultOption = doc.createElement('option');
+  defaultOption.value = '';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  defaultOption.textContent = 'Select a report to download';
+  dropdown.appendChild(defaultOption);
+
+  // Get the reports (assuming ReportRegistry.getReports() returns an array of report classes)
+  const reports = ReportRegistry.getReports();
+
+  // Add the report options
+  reports.forEach((report) => {
+    const option = doc.createElement('option');
+    option.value = report.id;
+    option.textContent = report.uiName;
+    dropdown.appendChild(option);
+  });
 }
 
 function addIdentitySelectorsToForm(doc) {
@@ -1430,6 +1400,7 @@ setupWindowVariables();
 registerListeners(document);
 overrideCreateCanvas(document);
 addIdentitySelectorsToForm(document);
+addReportsToDropdown(document);
 
 window.addEventListener('unhandledrejection', (event) => {
   // eslint-disable-next-line no-console

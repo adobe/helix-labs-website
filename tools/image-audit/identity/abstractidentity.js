@@ -36,6 +36,10 @@ class AbstractIdentity {
       configurable: false,
       enumerable: true,
     });
+    Object.defineProperty(AbstractIdentity.prototype, 'uiSelectorProperties', {
+      configurable: false,
+      enumerable: true,
+    });
   }
 
   static get type() {
@@ -63,6 +67,10 @@ class AbstractIdentity {
 
   get similarityCollaborator() {
     return false;
+  }
+
+  get uiSelectorProperties() {
+    return this.constructor.uiSelectorProperties;
   }
 
   static get uiSelectorProperties() {

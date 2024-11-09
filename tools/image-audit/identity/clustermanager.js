@@ -241,9 +241,10 @@ class ClusterManager {
     return Array.from(this.#types);
   }
 
-  getAllClusters(type) {
+  getAllClusters(type = null) {
     const distinctClusters = new Set(this.#clusterMap.values());
-    return Array.from(distinctClusters).filter((cluster) => cluster.type === type);
+    if (type) return Array.from(distinctClusters).filter((cluster) => cluster.type === type);
+    return Array.from(distinctClusters);
   }
 
   getAllWithIdentity(identityType) {
