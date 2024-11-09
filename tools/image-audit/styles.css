@@ -232,3 +232,37 @@
   margin-top: 2rem;
   margin-right: 2rem;
 }
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    background-color: rgba(0, 123, 255, 1); /* Original background color */
+    color: white;
+  }
+  50% {
+    background-color: rgba(0, 123, 255, 0.7); /* Lighter color */
+    color: white;
+  }
+  100% {
+    background-color: rgba(0, 123, 255, 1); /* Original color again */
+    color: white;
+  }
+}
+
+.image-audit .download-pulse {
+  animation: pulse 1s ease-in-out 2; /* Pulses 2 times */
+}

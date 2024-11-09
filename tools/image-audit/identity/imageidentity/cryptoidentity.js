@@ -5,10 +5,6 @@ import SizeIdentity from './sizeidentity.js';
 import Hash from '../util/hash.js';
 
 class CryptoIdentity extends AbstractIdentity {
-  constructor(identityId) {
-    super(identityId);
-  }
-
   static get type() {
     return 'crypto-img-identity';
   }

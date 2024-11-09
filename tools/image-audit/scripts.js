@@ -61,22 +61,6 @@ function getShapeForRatio(ratio) {
   return 'Landscape';
 }
 
-function generateCSV(report) {
-  // Write the CSV column headers using the items from the Set
-  const headers = `${report.header.join(',')}\n`;
-
-  // Convert the rows into a single string separated by newlines
-  const csv = headers + report.rows.map((row) => row.map((value) => {
-    // Escape quotes in each value
-    const escape = (`${value}`).replace(/"/g, '""'); // Escape quotes
-    return `"${escape}"`; // Wrap value in quotes
-  }).join(',')).join('\n');
-
-  // Create a Blob from the CSV string
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  return blob;
-}
-
 class RewrittenData {
   constructor(data) {
     this.data = data;
@@ -1301,27 +1285,39 @@ function registerListeners(doc) {
   DOWNLOAD.addEventListener('change', async () => {
     const selectedReport = DOWNLOAD.value;
     if (!selectedReport) return;
+
     // eslint-disable-next-line new-cap
     const report = ReportRegistry.getReport(selectedReport);
     if (!report) return;
 
+    // Start the pulse animation before running the report
+    DOWNLOAD.classList.add('download-pulse');
+
+    // Generate the report asynchronously
     const reportData = await report.generateReport(window.clusterManager);
+
     if (reportData.size > 0) {
-      // get site from the sitemap.
+      // Get site from the sitemap.
       const csv = reportData.blob;
       const link = document.createElement('a');
       const data = getFormData(URL_FORM);
       const site = data['site-url']?.hostname;
       const url = URL.createObjectURL(csv);
-      // insert link to enable download
+
+      // Insert the link to enable the download
       link.setAttribute('href', url);
       link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
       link.style.display = 'none';
       DOWNLOAD.insertAdjacentElement('afterend', link);
-      link.click();
-      link.remove();
+
+      // Trigger the download and remove pulse class once download starts
+      setTimeout(() => {
+        link.click(); // Start the download
+        link.remove(); // Clean up the link after download starts
+        DOWNLOAD.classList.remove('download-pulse'); // Stop the pulsing effect
+        DOWNLOAD.value = ''; // Reset the dropdown value
+      }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
     }
-    DOWNLOAD.value = '';
   });
 
   SORT_ACTIONS.forEach((action) => {
