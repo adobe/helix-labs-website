@@ -526,7 +526,7 @@ async function imageOnError(identityValues, identityState, error) {
 
   updateFigureData(identityValues.originatingClusterId);
   // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${identityValues.href}`, error);
+  console.error(`Error loading img file at ${identityValues.entryValues.href}`, error);
   // TODO: Show broken file image?
 }
 
