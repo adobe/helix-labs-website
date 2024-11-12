@@ -3,6 +3,7 @@ import { loadScript } from '../../scripts/aem.js';
 const adminForm = document.getElementById('admin-form');
 const adminURL = document.getElementById('admin-url');
 const bodyForm = document.getElementById('body-form');
+const bodyWrapper = document.querySelector('.body-wrapper');
 const body = document.getElementById('body');
 const previewWrapper = document.getElementById('preview-wrapper');
 const preview = document.getElementById('preview');
@@ -22,8 +23,8 @@ async function loadPrism() {
    * Tracks the mouse position to check if hovering over a `.line-highlight` element.
    * @param {MouseEvent} e - Mousemove event
    */
-  body.closest('.body-wrapper').addEventListener('mousemove', (e) => {
-    const highlight = body.querySelector('.line-highlight');
+  bodyWrapper.addEventListener('mousemove', (e) => {
+    const highlight = bodyWrapper.querySelector('.line-highlight');
     if (highlight) {
       // get mouse position relative to .body-wrapper
       const rect = e.target.getBoundingClientRect();
@@ -44,9 +45,9 @@ async function loadPrism() {
         && y >= highlightY
         && y <= highlightY + highlightHeight
       ) {
-        highlight.classList.add('error-hover');
-      } else {
         highlight.classList.remove('error-hover');
+      } else {
+        highlight.classList.add('error-hover');
       }
     }
   });
