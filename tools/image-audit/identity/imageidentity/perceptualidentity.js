@@ -19,7 +19,7 @@ const exactMatchDifferentPixelPercent = 0.004;
 const phashConcurrency = 20;
 
 class PerceptualIdentity extends AbstractIdentity {
-  #phash;
+  #phash; // ImageHash object, not hex string.
 
   #identityState;
 
@@ -50,10 +50,13 @@ class PerceptualIdentity extends AbstractIdentity {
     this.#elementForCluster = elementForCluster;
   }
 
-  static async #getPhash(elementForCluster) {
+  static async #getPhash(elementForCluster)
+  {
     // eslint-disable-next-line no-undef
     const imageHash = await window.phash(elementForCluster, 8);
-    if (imageHash) return imageHash?.binArray;
+    // note: the caching in localstorage can't handle the imageHash object.
+    // converting it to and from a hexString saves this.
+    if (imageHash) return imageHash?.toHexString();
     return null;
   }
 
@@ -85,6 +88,7 @@ class PerceptualIdentity extends AbstractIdentity {
       // shared between instances.
       identityState.promisePool = new PromisePool(phashConcurrency, 'Perceptual Hash');
     }
+
     const hash = await identityState.promisePool
       .run(async () => identityValues
         .get(PerceptualIdentity, 'phash', () => PerceptualIdentity.#getPhash(elementForCluster)));
@@ -95,7 +99,7 @@ class PerceptualIdentity extends AbstractIdentity {
 
     const identity = new PerceptualIdentity(
       // eslint-disable-next-line no-undef
-      new window.ImageHash(hash),
+      window.ImageHash.fromHexString(hash),
       identityValues,
       elementForCluster,
       identityState,
@@ -128,11 +132,27 @@ class PerceptualIdentity extends AbstractIdentity {
   }
 
   getMergeWeight(otherIdentity) {
-    return this.#identityValues.getSync(
-      this,
-      ['merge-weight', this.#phash.toHexString(), otherIdentity.#phash.toHexString()].join(':'),
-      () => this.#getMergeWeight(otherIdentity),
-    );
+    const otherCacheKey = otherIdentity.#identityValues.identityHash;
+
+    // this section is all about caching the weight hit. Two identityHashes
+    // will alwasy have the same weight.
+    if (this.#identityValues.identityHash && otherCacheKey) {
+      const rv = this.#identityValues.getSync(
+        this,
+        ['merge-weight', otherCacheKey].join(':'),
+        () => this.#getMergeWeight(otherIdentity),
+      );
+
+      // populate other cache
+      otherIdentity.#identityValues.getSync(
+        otherIdentity,
+        ['merge-weight', this.#identityValues.identityHash].join(':'),
+        () => rv,
+      );
+
+      return rv;
+    }
+    return this.#getMergeWeight(otherIdentity);
   }
 
   #getMergeWeight(otherIdentity) {

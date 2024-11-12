@@ -95,6 +95,10 @@ class IdentityValues {
     return this.#submissionValues;
   }
 
+  get identityHash() {
+    return this.#identityHash;
+  }
+
   async get(identity, key, callthroughFunction, version = 1) {
     if (!this.#identityCache || !this.#identityHash) {
       // can't retrieve from hash, passthrough.
