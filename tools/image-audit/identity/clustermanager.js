@@ -191,19 +191,9 @@ class ClusterManager {
         }
 
         identityScore += sourceScore; // Accumulate identity score
-        if (identityScore > 300) {
-          console.info(`IdentityScore score: ${totalScore}`);
-        }
       }
 
       totalScore += identityScore; // Accumulate total score
-      if (totalScore > 300) {
-        console.info(`Total score: ${totalScore}`);
-      }
-    }
-
-    if (totalScore > 300) {
-      console.info(`Total score: ${totalScore}`);
     }
 
     return totalScore; // Return the total score
