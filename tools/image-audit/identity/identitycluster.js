@@ -89,11 +89,11 @@ class IdentityCluster {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
 
-    if (identity.similarityCollaborator && identity.signleton) {
+    if (identity.similarityCollaborator && identity.singleton) {
       this.#similarityCollaboratorIdentityTypes.add(identity.type);
     }
 
-    if (identity.signleton) {
+    if (identity.singleton) {
       if (this.#getSetForType(identity.type).size > 0) {
         throw new Error(`Cluster ${this.id} already has a singleton identity of type ${identity.type}`);
       } else {
@@ -145,7 +145,7 @@ class IdentityCluster {
     owningCluster.#identities.delete(identity.id);
     owningCluster.#getSetForType(identity.type).delete(identity);
 
-    if (identity.signleton) {
+    if (identity.singleton) {
       const localIdentity = this.getSingletonOf(identity.type);
       if (!localIdentity) {
         this.#insertIdentity(identity);

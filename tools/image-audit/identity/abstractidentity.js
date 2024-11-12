@@ -57,7 +57,7 @@ class AbstractIdentity {
     return false;
   }
 
-  get signleton() {
+  get singleton() {
     return false;
   }
 

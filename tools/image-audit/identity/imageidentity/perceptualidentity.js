@@ -50,6 +50,10 @@ class PerceptualIdentity extends AbstractIdentity {
     this.#elementForCluster = elementForCluster;
   }
 
+  get singleton() {
+    return true;
+  }
+
   static async #getPhash(elementForCluster) {
     // eslint-disable-next-line no-undef
     const imageHash = await window.phash(elementForCluster, 8);
@@ -265,10 +269,6 @@ class PerceptualIdentity extends AbstractIdentity {
 
   get strong() {
     return false;
-  }
-
-  get signleton() {
-    return true;
   }
 
   get similarityCollaborator() {

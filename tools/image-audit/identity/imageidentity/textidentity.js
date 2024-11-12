@@ -24,6 +24,10 @@ class TextIdentity extends AbstractIdentity {
     this.#identityText = identityText;
   }
 
+  get singleton() {
+    return true;
+  }
+
   static async identifyPostflight(identityValues, identityState) {
     const { originatingClusterId, clusterManager } = identityValues;
 
@@ -103,10 +107,6 @@ class TextIdentity extends AbstractIdentity {
       checked: true,
       hidden: false,
     };
-  }
-
-  get signleton() {
-    return true;
   }
 
   get identityText() {

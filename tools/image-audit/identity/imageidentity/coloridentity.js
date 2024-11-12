@@ -57,6 +57,10 @@ class ColorIdentity extends AbstractIdentity {
     return this.#topColors;
   }
 
+  get singleton() {
+    return true;
+  }
+
   get topColorsSorted() {
     return ColorUtility.sortColorNamesIntoArray(this.#topColors);
   }
