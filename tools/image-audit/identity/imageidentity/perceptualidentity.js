@@ -50,8 +50,7 @@ class PerceptualIdentity extends AbstractIdentity {
     this.#elementForCluster = elementForCluster;
   }
 
-  static async #getPhash(elementForCluster)
-  {
+  static async #getPhash(elementForCluster) {
     // eslint-disable-next-line no-undef
     const imageHash = await window.phash(elementForCluster, 8);
     // note: the caching in localstorage can't handle the imageHash object.
