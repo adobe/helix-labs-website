@@ -28,6 +28,14 @@ class TextIdentity extends AbstractIdentity {
     return true;
   }
 
+  get hasWords() {
+    let wordCount = 0;
+    this.#identityText.split(' ').forEach((word) => {
+      if (word.length >= 3) wordCount += 1;
+    });
+    return wordCount >= 2;
+  }
+
   static async identifyPostflight(identityValues, identityState) {
     const { originatingClusterId, clusterManager } = identityValues;
 
@@ -145,5 +153,7 @@ class TextIdentity extends AbstractIdentity {
     return 0;
   }
 }
+
+export default TextIdentity;
 
 IdentityRegistry.register(TextIdentity);

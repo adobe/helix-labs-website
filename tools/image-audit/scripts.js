@@ -13,6 +13,7 @@ import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import ReportRegistry from './reports/reportregistry.js';
 import PerformanceUtil from './reports/util/performanceutil.js';
+import Lighthouse from './identity/imageidentity/lighthouse.js';
 
 import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -105,6 +106,50 @@ class RewrittenData {
     return value.map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
+  formatScoreName(name) {
+    if (!name) return '-';
+    return name
+      .replace(/([A-Z])/g, ' $1') // Insert a space before each uppercase letter
+      .replace(/^./, (str) => str.toUpperCase()) // Capitalize the first letter
+      .trim(); // Trim any leading spaces
+  }
+
+  lighthouse(scores) {
+    let html = '';
+
+    // Assuming 'scores.total' contains the overall Lighthouse score
+    const roundedOverallTotal = Math.round(scores.total);
+
+    // Add the Lighthouse score at the top
+    html += `<div><strong>Lighthouse Score: ${roundedOverallTotal}</strong></div><br/>`;
+
+    // Iterate over each category in scores (excluding the 'total' property)
+    Object.keys(scores).forEach((category) => {
+      if (category !== 'total' && Object.prototype.hasOwnProperty.call(scores, category)) {
+        const categoryData = scores[category];
+
+        // Convert the category name to a pretty name and round the total score
+        const categoryName = this.formatScoreName(category);
+        const roundedTotal = Math.round(categoryData.total);
+
+        // Add the category name and total score
+        html += `<div><strong>${categoryName} - Total: ${roundedTotal}</strong></div>`;
+
+        // If there are sub-scores, break them down
+        Object.keys(categoryData).forEach((subscore) => {
+          if (subscore !== 'total' && Object.prototype.hasOwnProperty.call(categoryData, subscore)) {
+            const subscoreName = this.formatScoreName(subscore);
+            const roundedScore = Math.round(categoryData[subscore]);
+            html += `<div style="margin-left: 20px;">${subscoreName}: ${roundedScore}</div>`;
+          }
+        });
+      }
+    });
+
+    // Return the generated HTML
+    return html;
+  }
+
   // rewrite data based on key
   rewrite(keys) {
     keys.forEach((key) => {
@@ -180,6 +225,8 @@ function displayModal(figure) {
       data.topColors = colorIdentity.topColorsSorted;
     }
 
+    const lighthouse = cluster.getSingletonOf(Lighthouse.type);
+
     if (window.collectingRum) {
       const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
       const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
@@ -191,11 +238,13 @@ function displayModal(figure) {
       rows.conversions = 'Conversions';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
+      rows.lighthouse = 'Asset Lighthouse Score';
       data.performanceScore = `${PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true)}`;
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
       data.bounces = bounces > 0 ? bounces : ' < 100';
+      data.lighthouse = lighthouse.scores;
     }
 
     const textIdentity = cluster.getSingletonOf('text-identity');
