@@ -66,6 +66,7 @@ class AbstractIdentity {
   }
 
   get similarityCollaborator() {
+    // note: these must be singletons or they wont be used.
     return false;
   }
 

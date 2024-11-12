@@ -89,7 +89,7 @@ class IdentityCluster {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
 
-    if (identity.similarityCollaborator) {
+    if (identity.similarityCollaborator && identity.signleton) {
       this.#similarityCollaboratorIdentityTypes.add(identity.type);
     }
 

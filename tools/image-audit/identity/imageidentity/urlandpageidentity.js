@@ -6,18 +6,11 @@ import DataLoader from '@adobe/rum-loader';
 import AbstractIdentity from '../abstractidentity.js';
 import UrlIdentity from './urlidentity.js';
 import IdentityRegistry from '../identityregistry.js';
-import TextUtility from '../util/textutility.js';
 import Hash from '../util/hash.js';
 
 const BUNDLER_ENDPOINT = 'https://rum.fastly-aem.page';
 // const BUNDLER_ENDPOINT = 'http://localhost:3000';
 const API_ENDPOINT = BUNDLER_ENDPOINT;
-
-// eslint-disable-next-line import/no-unresolved
-
-// eslint-disable-next-line import/no-unresolved
-
-const exactTextMatchThresholdPercent = 0.1;
 
 class UrlAndPageIdentity extends AbstractIdentity {
   #src;
@@ -102,10 +95,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   get instance() {
     return this.#instance;
-  }
-
-  get similarityCollaborator() {
-    return true;
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -320,23 +309,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
       };
       identityState.rumLoadedError = true;
     }
-  }
-
-  getMergeWeight(otherIdenty) {
-    const {
-      exactMatch,
-      wordDifferencePercentage,
-      bothSidesHadWords,
-    } = TextUtility.compareWords(() => this.alt, () => otherIdenty.alt);
-
-    const rv = otherIdenty.width === this.width && otherIdenty.height === this.height ? 5 : 0;
-
-    if (!bothSidesHadWords) return rv;
-    if (exactMatch) return 10 + rv;
-    if (wordDifferencePercentage <= exactTextMatchThresholdPercent / 2) return 5 + rv;
-    if (wordDifferencePercentage <= exactTextMatchThresholdPercent) return 3 + rv;
-    if (wordDifferencePercentage <= exactTextMatchThresholdPercent * 2) return 1 + rv;
-    return 0;
   }
 }
 
