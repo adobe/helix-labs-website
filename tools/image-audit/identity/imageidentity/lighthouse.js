@@ -252,8 +252,10 @@ class Lighthouse extends AbstractIdentity {
 
   get bestWebPracticesScore() {
     const rv = {
-      imageShouldNotHaveEmbeddedText: 50,
-      fileSizedForWeb: 50,
+      imageShouldNotHaveEmbeddedText: 25,
+      fileSizedForWeb: 25,
+      multipleCopiesOfIdenticalContent: 25,
+      referencesHaveSameAltText: 25,
       get total() { return this.imageShouldNotHaveEmbeddedText + this.fileSizedForWeb; },
       // ... more to come
     };
@@ -270,7 +272,37 @@ class Lighthouse extends AbstractIdentity {
       rv.imageShouldNotHaveEmbeddedText = 0;
     }
 
+    const altTextSet = new Set();
+    let firstUrl = null;
+    cluster
+      .getAllIdentitiesOf(UrlAndPageIdentity.type).forEach((identity) => {
+        if (!firstUrl) {
+          firstUrl = identity.src;
+        } else if (firstUrl !== identity.src) {
+          rv.multipleCopiesOfIdenticalContent = 0;
+        }
+        altTextSet.add(identity.alt ? identity.alt : '');
+      });
+
+    if (altTextSet.size > 1) {
+      rv.referencesHaveSameAltText = 0;
+    }
+
     return rv;
+  }
+
+  get allPages() {
+    const rv = new Set(this.#identityValues.clusterManager
+      .get(this.#identityValues.originatingClusterId)
+      .getAll(UrlAndPageIdentity.type, 'site'));
+    return Array.from(rv);
+  }
+
+  get allSources() {
+    const rv = new Set(this.#identityValues.clusterManager
+      .get(this.#identityValues.originatingClusterId)
+      .getAll(UrlAndPageIdentity.type, 'src'));
+    return Array.from(rv);
   }
 
   // eslint-disable-next-line no-unused-vars

@@ -14,6 +14,7 @@ import './reports/defaultreportsloader.js';
 import ReportRegistry from './reports/reportregistry.js';
 import PerformanceUtil from './reports/util/performanceutil.js';
 import Lighthouse from './identity/imageidentity/lighthouse.js';
+import NamingUtil from './reports/util/namingutil.js';
 
 import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -106,14 +107,6 @@ class RewrittenData {
     return value.map((color) => getColorSpan(color, false).outerHTML).join(' ');
   }
 
-  formatScoreName(name) {
-    if (!name) return '-';
-    return name
-      .replace(/([A-Z])/g, ' $1') // Insert a space before each uppercase letter
-      .replace(/^./, (str) => str.toUpperCase()) // Capitalize the first letter
-      .trim(); // Trim any leading spaces
-  }
-
   lighthouse(scores) {
     let html = '';
 
@@ -121,7 +114,7 @@ class RewrittenData {
     const roundedOverallTotal = Math.round(scores.total);
 
     // Add the Lighthouse score at the top
-    html += `<div><strong>Lighthouse Score: ${roundedOverallTotal}</strong></div><br/>`;
+    html += `<div><strong>Success Score: ${roundedOverallTotal}</strong></div><br/>`;
 
     // Iterate over each category in scores (excluding the 'total' property)
     Object.keys(scores).forEach((category) => {
@@ -129,7 +122,7 @@ class RewrittenData {
         const categoryData = scores[category];
 
         // Convert the category name to a pretty name and round the total score
-        const categoryName = this.formatScoreName(category);
+        const categoryName = NamingUtil.formatPropertyNameForUI(category);
         const roundedTotal = Math.round(categoryData.total);
 
         // Add the category name and total score
@@ -138,7 +131,7 @@ class RewrittenData {
         // If there are sub-scores, break them down
         Object.keys(categoryData).forEach((subscore) => {
           if (subscore !== 'total' && Object.prototype.hasOwnProperty.call(categoryData, subscore)) {
-            const subscoreName = this.formatScoreName(subscore);
+            const subscoreName = NamingUtil.formatPropertyNameForUI(subscore);
             const roundedScore = Math.round(categoryData[subscore]);
             html += `<div style="margin-left: 20px;">${subscoreName}: ${roundedScore}</div>`;
           }
@@ -238,7 +231,7 @@ function displayModal(figure) {
       rows.conversions = 'Conversions';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
-      rows.lighthouse = 'Asset Lighthouse Score';
+      rows.lighthouse = 'Asset Success Score';
       data.performanceScore = `${PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true)}`;
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
