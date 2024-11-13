@@ -1,12 +1,19 @@
-import { sampleRUM } from '../../scripts/aem.js';
+import { loadScript, sampleRUM } from '../../scripts/aem.js';
 
-const API = 'https://helix-cache-debug.adobeaem.workers.dev/';
+const API = 'https://helix-cache-debug.adobeaem.workers.dev';
 /** @type {HTMLInputElement} */
 const input = document.querySelector('input#url-input');
 /** @type {HTMLButtonElement} */
 const button = document.querySelector('button#search-button');
 /** @type {HTMLDivElement} */
 const resultsContainer = document.querySelector('div#results');
+
+let prismLoaded = false;
+async function loadPrism() {
+  if (prismLoaded) return;
+  prismLoaded = true;
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js');
+}
 
 const ENV_HEADERS = {
   CDN: {
@@ -41,6 +48,43 @@ const purge = (liveHost, keys, tags) => fetch(`${API}/purge`, {
 });
 
 const fetchDetails = (url) => fetch(`${API}?url=${encodeURIComponent(url)}`);
+
+const showModal = (title, content) => {
+  const modal = document.createElement('div');
+  modal.classList.add('modal-container');
+  modal.innerHTML = /* html */`
+    <div class="modal-overlay"></div>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>${title}</h3>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="modal-content">
+          ${content}
+      </div>
+    </div>
+  `;
+  const closeBtn = modal.querySelector('.modal-close');
+  closeBtn.addEventListener('click', () => modal.remove());
+  document.body.appendChild(modal);
+  return modal;
+};
+
+/**
+ * @param {string} language
+ * @param {string} title
+ * @param {string} text
+ * @returns {Promise<HTMLDivElement>}
+ */
+const showCodeModal = async (language, title, text) => {
+  await loadPrism();
+  return showModal(
+    title,
+    /* html */`
+      <pre><code class="language-${language}">${text}</code></pre>
+    `,
+  );
+};
 
 /**
  * @param {import('./types.js').POP[]} pops
@@ -137,7 +181,7 @@ const renderPurgeSection = (container, data) => {
       <div class="form purge-form">
         <div class="field">
           <label for="purge-host-input">.live Host</label>
-          <input id="purge-url-input" type="text" placeholder="https://ref--repo--owner.aem.live" pattern="[^.]+.[^.]+" value="${inferredDotLiveHost}"/>
+          <input id="purge-host-input" type="text" placeholder="https://ref--repo--owner.aem.live" pattern="[^.]+.[^.]+" value="${inferredDotLiveHost}"/>
         </div>
         <div class="field">
           <label for="purge-keys-input">Cache Keys</label>
@@ -180,15 +224,17 @@ const renderPurgeSection = (container, data) => {
 
     // purge
     const response = await purge(dotLiveHost, keys, paths);
-    if (!response.ok) {
-      // TODO: show error in modal
-      return;
+
+    try {
+      if (!response.ok) {
+        throw new Error(`Failed to purge: ${response.status}`);
+      }
+      const text = await response.text();
+      console.debug('purge result: ', text);
+      await showCodeModal('log', 'Purge Result', text);
+    } catch (e) {
+      showModal('Purge Error', /* html */`<p>${e.message}</p>`);
     }
-
-    const json = await response.json();
-    console.log(json);
-
-    // TODO: show response data in modal
   });
 };
 
@@ -212,6 +258,17 @@ const renderDetails = (data) => {
 
   // reset
   resultsContainer.innerHTML = '';
+
+  // show all button
+  resultsContainer.innerHTML = /* html */`
+    <div class="see-all">
+      <a href="#">View full response</a>
+    </div>
+  `;
+  const seeAllBtn = resultsContainer.querySelector('.see-all a');
+  seeAllBtn.addEventListener('click', () => {
+    showCodeModal('json', 'Response JSON', JSON.stringify(data, undefined, 2));
+  });
 
   // add settings section
   resultsContainer.insertAdjacentHTML('beforeend', /* html */`
