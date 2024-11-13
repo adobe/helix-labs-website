@@ -38,6 +38,10 @@ div.field {
   max-width: 750px;
 }
 
+div.purge-form {
+  flex-direction: column;
+}
+
 div.field label {
   font-size: 0.8em;
   line-height: 1.2em;

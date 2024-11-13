@@ -32,6 +32,14 @@ const ENV_HEADERS = {
   },
 };
 
+const purge = (liveHost, keys, tags) => fetch(`${API}/purge`, {
+  method: 'POST',
+  body: JSON.stringify({ liveHost, keys, tags }),
+  headers: {
+    'content-type': 'application/json',
+  },
+});
+
 const fetchDetails = (url) => fetch(`${API}?url=${encodeURIComponent(url)}`);
 
 /**
@@ -53,7 +61,10 @@ const popsTemplate = (pops, type) => {
 const tileTemplate = (
   env,
   {
-    headers, status, url, pops,
+    headers,
+    status,
+    url,
+    pops,
   },
   {
     contentLengthMatches,
@@ -110,6 +121,77 @@ const tileTemplate = (
     </div>
   `;
 
+/**
+ * @param {HTMLDivElement} container
+ * @param {any} data
+ */
+const renderPurgeSection = (container, data) => {
+  let inferredDotLiveHost = '';
+  try {
+    inferredDotLiveHost = new URL(data.live.url).hostname;
+  } catch { /* noop */ }
+
+  container.insertAdjacentHTML('beforeend', /* html */`
+    <div class="purge">
+      <h2>Purge</h2>
+      <div class="form purge-form">
+        <div class="field">
+          <label for="purge-host-input">.live Host</label>
+          <input id="purge-url-input" type="text" placeholder="https://ref--repo--owner.aem.live" pattern="[^.]+.[^.]+" value="${inferredDotLiveHost}"/>
+        </div>
+        <div class="field">
+          <label for="purge-keys-input">Cache Keys</label>
+          <textarea id="purge-keys-input" placeholder="comma and/or space delimited list"></textarea>
+        </div>
+        <div class="field">
+          <label for="purge-paths-input">Paths</label>
+          <textarea id="purge-paths-input" placeholder="comma and/or space delimited list"></textarea>
+        </div>
+        <button class="button" id="purge-button">Purge</button>
+      </div>
+    </div>
+  `);
+
+  const purgeBtn = container.querySelector('#purge-button');
+  const purgeHostInput = container.querySelector('#purge-host-input');
+  const purgeKeysInput = container.querySelector('#purge-keys-input');
+  const purgePathsInput = container.querySelector('#purge-paths-input');
+
+  purgeBtn.addEventListener('click', async () => {
+    // split keys and paths
+    let dotLiveHost;
+    try {
+      dotLiveHost = new URL(purgeHostInput.value);
+    } catch {
+      [dotLiveHost] = purgeHostInput.value.split('/');
+    }
+    if (!dotLiveHost) {
+      purgeHostInput.setCustomValidity('Invalid .live Host');
+      purgeHostInput.reportValidity();
+      return;
+    }
+
+    const keys = [...new Set(purgeKeysInput.value
+      .split(/[,\s]+/)
+      .filter((k) => k.length))];
+    const paths = [...new Set(purgePathsInput.value
+      .split(/[,\s]+/)
+      .filter((p) => p.length))];
+
+    // purge
+    const response = await purge(dotLiveHost, keys, paths);
+    if (!response.ok) {
+      // TODO: show error in modal
+      return;
+    }
+
+    const json = await response.json();
+    console.log(json);
+
+    // TODO: show response data in modal
+  });
+};
+
 const renderDetails = (data) => {
   // console.log(data);
 
@@ -128,8 +210,11 @@ const renderDetails = (data) => {
 
   // TODO: render status information if available (similar to POP?)
 
+  // reset
+  resultsContainer.innerHTML = '';
+
   // add settings section
-  resultsContainer.innerHTML = /* html */`
+  resultsContainer.insertAdjacentHTML('beforeend', /* html */`
     <div class="settings">
       <h2>Settings</h2>
       <div class="row">
@@ -161,7 +246,7 @@ const renderDetails = (data) => {
         <span class="val">${data.probe.randomId}</span>
       </div>
     </div>
-  `;
+  `);
 
   const opts = {
     contentLengthMatches: true,
@@ -179,6 +264,9 @@ const renderDetails = (data) => {
     const tile = tileTemplate(env, data[env.toLowerCase()], opts);
     resultsContainer.insertAdjacentHTML('beforeend', tile);
   });
+
+  // add purge section
+  renderPurgeSection(resultsContainer, data);
 };
 
 (async () => {
@@ -209,8 +297,7 @@ const renderDetails = (data) => {
 
       let count = 0;
       const interval = setInterval(() => {
-        // eslint-disable-next-line no-plusplus
-        if (++count > 3) count = 0;
+        count = count > 2 ? 0 : count + 1;
         resultsContainer.innerHTML = `<div class="spinner">Searching logs${'.'.repeat(count)}</div>`;
       }, 250);
       const response = await fetchDetails(url);
