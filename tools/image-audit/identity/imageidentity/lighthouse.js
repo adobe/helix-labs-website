@@ -163,11 +163,11 @@ class Lighthouse extends AbstractIdentity {
         if (identity.pageViews > this.#minRumValue) {
           rv.hasViews = 25;
         }
-        if (identity.conversions > (this.#maxConversions / 2)) {
-          rv.highConversionRate = 25;
-        }
         if (identity.conversions > this.#minRumValue) {
           rv.hasConversions = 25;
+          if (identity.conversions / identity.pageViews > 0.5) {
+            rv.highConversionRate = 25;
+          }
         }
       });
     return rv;

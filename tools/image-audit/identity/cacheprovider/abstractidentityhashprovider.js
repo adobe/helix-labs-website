@@ -1,13 +1,12 @@
+/* eslint-disable no-unused-vars */
 class AbstractIdentityHashProvider {
-  /*
-  async get(identityHash, identity, key, callthroughFunction, version = 1) {
-    throw new Error('AbstractIdentity.identify is an abstract method');
+  static async hashIdentityValues(identityValues) {
+    throw new Error('Abstract method');
   }
 
   static get providerPriority() {
-    throw new Error('AbstractIdentity.identify is an abstract method');
+    return 0;
   }
-  */
 }
 
 export default AbstractIdentityHashProvider;

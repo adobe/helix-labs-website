@@ -2,13 +2,6 @@ import IdentityRegistry from '../identityregistry.js';
 import AbstractCacheProvider from './abstractcacheprovider.js';
 
 class LocalStorageCacheProvider extends AbstractCacheProvider {
-  #cache;
-
-  constructor() {
-    super();
-    this.#cache = new Map(); // Use Map for in-memory cache
-  }
-
   // Private method to generate the cache key
   // eslint-disable-next-line class-methods-use-this
   #getCacheKey(identityHash, identity, key, version) {
@@ -27,16 +20,9 @@ class LocalStorageCacheProvider extends AbstractCacheProvider {
   }
 
   async #get(cacheKey, callthroughFunction) {
-    // Check in-memory cache (Map) first
-    if (this.#cache.has(cacheKey)) {
-      return this.#cache.get(cacheKey);
-    }
-
-    // If not in memory, check localStorage
     const cachedData = localStorage.getItem(cacheKey);
     if (cachedData) {
       const parsedData = JSON.parse(cachedData);
-      this.#cache.set(cacheKey, parsedData); // Store in memory cache
       return parsedData;
     }
 
@@ -49,11 +35,8 @@ class LocalStorageCacheProvider extends AbstractCacheProvider {
   }
 
   // Store identity in cache
-  // eslint-disable-next-line consistent-return
+  // eslint-disable-next-line consistent-return, class-methods-use-this
   #set(cacheKey, value) {
-    // Update in-memory cache (Map)
-    this.#cache.set(cacheKey, value);
-
     // Store in localStorage
     localStorage.setItem(cacheKey, JSON.stringify(value));
   }

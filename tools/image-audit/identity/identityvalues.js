@@ -102,8 +102,7 @@ class IdentityValues {
   async get(identity, key, callthroughFunction, version = 1) {
     if (!this.#identityCache || !this.#identityHash) {
       // can't retrieve from hash, passthrough.
-      const rv = Promise.resolve(await callthroughFunction());
-      return rv;
+      return callthroughFunction();
     }
     return this.#identityCache.get(this.#identityHash, identity, key, callthroughFunction, version);
   }
@@ -111,8 +110,7 @@ class IdentityValues {
   getSync(identity, key, callthroughFunction, version = 1) {
     if (!this.#identityCache || !this.#identityHash) {
       // can't retrieve from hash, passthrough.
-      const rv = callthroughFunction();
-      return rv;
+      return callthroughFunction();
     }
     return this.#identityCache.get(this.#identityHash, identity, key, callthroughFunction, version);
   }

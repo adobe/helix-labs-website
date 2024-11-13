@@ -31,13 +31,7 @@ class ColorIdentity extends AbstractIdentity {
     }
 
     this.#usedColors = identityState.usedColors;
-    this.#topColors = [];
-  }
-
-  get dataObject() {
-    return {
-      topColors: this.#topColors,
-    };
+    this.#topColors = new Set();
   }
 
   static get type() {
@@ -54,7 +48,7 @@ class ColorIdentity extends AbstractIdentity {
   }
 
   get topColors() {
-    return this.#topColors;
+    return Array.from(this.#topColors);
   }
 
   get singleton() {
@@ -80,9 +74,9 @@ class ColorIdentity extends AbstractIdentity {
   mergeOther(otherIdentity) {
     // in theory they should be the same.
     otherIdentity.#topColors.forEach((color) => {
-      if (!this.#topColors.includes(color)) {
+      if (!this.#topColors.has(color)) {
         this.#addUsedColor(color);
-        this.#topColors.push(color);
+        this.#topColors.add(color);
       }
     });
   }
@@ -126,8 +120,8 @@ class ColorIdentity extends AbstractIdentity {
   // another quick check to remove images with different top color palettes
   // Function to filter clusters based on color palette matching
   async #getDifferentColors(otherColorIdentity) {
-    const colors = new Set(this.topColors);
-    const otherColors = new Set(otherColorIdentity.topColors);
+    const colors = this.#topColors;
+    const otherColors = otherColorIdentity.#topColors;
 
     // Symmetric difference between two sets of colors
     const diffColors = new Set([
@@ -143,13 +137,15 @@ class ColorIdentity extends AbstractIdentity {
     const internalNumberOfTopColors = numberOfTopColors + 2;
     const colorIndices = new Array(internalNumberOfTopColors + 2).fill(0);
 
-    if (!this.#topColors) {
+    const colorsArray = Array.from(this.#topColors);
+
+    if (!colorsArray) {
       return 0;
     }
 
     for (let i = 0; i < internalNumberOfTopColors; i += 1) {
-      if (this.#topColors[i]) {
-        colorIndices[i] = ColorUtility.sortedColorNames.indexOf(this.#topColors[i]) + 1;
+      if (colorsArray[i]) {
+        colorIndices[i] = ColorUtility.sortedColorNames.indexOf(colorsArray[i]) + 1;
       }
     }
 
@@ -169,7 +165,7 @@ class ColorIdentity extends AbstractIdentity {
       .get(await SizeIdentity.getSizeId(href));
     if (sizeIdentifier?.tooBigForWeb) {
       // don't bother with large images.
-      colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+      colorIdentity.#topColors.add(ColorUtility.UNKNOWN_NAME);
       colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
       return;
     }
@@ -184,8 +180,8 @@ class ColorIdentity extends AbstractIdentity {
       // eslint-disable-next-line no-console
       .forEach((error) => console.error('Error handling colors', error));
 
-    if (!colorIdentity.#topColors.length === 0) {
-      colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+    if (!colorIdentity.#topColors.size === 0) {
+      colorIdentity.#topColors.add(ColorUtility.UNKNOWN_NAME);
       colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
     }
 
@@ -200,7 +196,7 @@ class ColorIdentity extends AbstractIdentity {
     if (!colorIdentity) {
       colorIdentity = new ColorIdentity(identityState);
     }
-    colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+    colorIdentity.#topColors.add(ColorUtility.UNKNOWN_NAME);
     colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
     clusterManager.get(originatingClusterId).addIdentity(colorIdentity);
   }
@@ -239,13 +235,13 @@ class ColorIdentity extends AbstractIdentity {
       }
 
       roundedColors.forEach((color) => {
-        colorIdentity.#topColors.push(color);
+        colorIdentity.#topColors.add(color);
         colorIdentity.#addUsedColor(color);
       });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('error identifying colors:', error);
-      colorIdentity.#topColors.push(ColorUtility.UNKNOWN_NAME);
+      colorIdentity.#topColors.add(ColorUtility.UNKNOWN_NAME);
       colorIdentity.#addUsedColor(ColorUtility.UNKNOWN_NAME);
     }
   }
@@ -286,7 +282,7 @@ class ColorIdentity extends AbstractIdentity {
       .get(ColorIdentity, 'alpha', () => ColorIdentity.#isAlpha(identityValues));
 
     if (isAlpha) {
-      colorIdentity.#topColors.push(ColorUtility.TRANSPARENCY_NAME);
+      colorIdentity.#topColors.add(ColorUtility.TRANSPARENCY_NAME);
       colorIdentity.#addUsedColor(ColorUtility.TRANSPARENCY_NAME);
     }
   }
