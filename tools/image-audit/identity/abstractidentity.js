@@ -3,24 +3,12 @@
 
 class AbstractIdentity {
   /*
-  For an autowired identity, one or more of these methods must be implemented.
+  For an autowired identity, one (or more) of these methods must be implemented.
 
-  static async identifyPreflight(identityValues, identityState) {
-    throw new Error('AbstractIdentity.identify is an abstract method');
-  }
-
-  static async identifyPostflight(identityValues, identityState) {
-    throw new Error('AbstractIdentity.identify is an abstract method');
-  }
-
-  static async identifyPostflightWithCanvas(identityValues, identityState) {
-    throw new Error('AbstractIdentity.identify is an abstract method');
-  }
-
-  static async identifyPostError(identityValues, identityState) {
-    throw new Error('AbstractIdentity.identify is an abstract method');
-  }
-
+  static async identifyPreflight(identityValues, identityState)
+  static async identifyPostflight(identityValues, identityState)
+  static async identifyPostflightWithCanvas(identityValues, identityState)
+  static async identifyPostError(identityValues, identityState)
   */
 
   #id;
