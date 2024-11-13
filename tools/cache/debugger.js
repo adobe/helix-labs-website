@@ -222,10 +222,14 @@ const renderPurgeSection = (container, data) => {
       .split(/[,\s]+/)
       .filter((p) => p.length))];
 
-    // purge
-    const response = await purge(dotLiveHost, keys, paths);
+    if (!keys.length && !paths.length) {
+      showModal('Purge Error', '<p>At least one of Cache Keys or Paths is required</p>');
+      return;
+    }
 
+    // purge
     try {
+      const response = await purge(dotLiveHost, keys, paths);
       if (!response.ok) {
         throw new Error(`Failed to purge: ${response.status}`);
       }
