@@ -986,8 +986,6 @@ async function fetchAndDisplayBatches(
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
-  const download = results.querySelector('select');
-  download.disabled = true;
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
 
@@ -1040,7 +1038,7 @@ async function fetchAndDisplayBatches(
   data.length = 0;
   // eslint-disable-next-line no-console
   console.debug('Batches complete.');
-  download.disabled = false;
+
   if (window.collectingRum) {
     sortImages(document, document.getElementById('sort-performance'));
   } else {
@@ -1151,6 +1149,7 @@ async function fetchSitemap(sitemap) {
 /* setup */
 
 function setupWindowVariables() {
+  window.enableModals = false;
   window.imageCount = 0;
   window.clusterManager = new ClusterManager();
   window.identityState = {};
@@ -1159,24 +1158,39 @@ function setupWindowVariables() {
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
 }
 
-function showOverlay() {
-  const overlay = document.getElementById('overlay');
-  overlay.style.display = 'block'; // Show the overlay
-  overlay.classList.add('active');
+function prepareLoading() {
+  setupWindowVariables();
+  const results = document.getElementById('audit-results');
+  const progressBar = document.getElementById('progress-bar');
+  const actionForm = document.getElementById('action-form');
+  const download = results.querySelector('select');
+
+  progressBar.setAttribute('aria-hidden', false);
+  actionForm.setAttribute('aria-hidden', true);
+
+  download.disabled = true;
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
+  window.enableModals = false;
 }
 
-function hideOverlay() {
-  const overlay = document.getElementById('overlay');
-  overlay.style.display = 'none'; // Hide the overlay
-  overlay.classList.remove('active');
+function finishedLoading() {
+  const results = document.getElementById('audit-results');
+  const progressBar = document.getElementById('progress-bar');
+  const actionForm = document.getElementById('action-form');
+  const download = results.querySelector('select');
+
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
   document.getElementById('progress').style.width = '0%'; // Reset progress
+
+  download.disabled = false;
+
+  progressBar.setAttribute('aria-hidden', true);
+  actionForm.setAttribute('aria-hidden', false);
+  window.enableModals = true;
 }
 
 async function processForm(sitemap, identifiers, domainKey, replacementDomain, submissionValues) {
-  setupWindowVariables();
-  showOverlay();
+  prepareLoading();
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
 
@@ -1185,7 +1199,7 @@ async function processForm(sitemap, identifiers, domainKey, replacementDomain, s
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain, submissionValues);
-  hideOverlay();
+  finishedLoading();
 }
 
 function getFormData(form) {
@@ -1320,7 +1334,7 @@ function registerListeners(doc) {
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
 
-    if (figure) displayModal(figure);
+    if (figure && window.enableModals) displayModal(figure);
   });
 
   // handle csv report download

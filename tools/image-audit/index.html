@@ -40,9 +40,6 @@
         found on <span id="pages-counter">0</span> pages<br/>
         (out of <span id="total-counter">0</span>)<br/>
         in <span id="elapsed">0</span> s.
-        <div class="progress-bar" id="progress-bar">
-          <div class="progress" id="progress"></div>
-        </div>  
       </p>
       <p class="button-wrapper">
         <select id="download-report">
@@ -90,8 +87,10 @@
     </div>
     <div class="canvas" id="canvas">
       <div class="action-bar">
-        <div class="overlay" id="overlay"></div>
-        <form>
+        <div class="progress-bar" id="progress-bar">
+          <div class="progress" id="progress"></div>
+        </div>
+        <form id="action-form" aria-hidden="true">
           <div class="form-field radio-field">
             <p>Sort by:</p>
             <ul>
