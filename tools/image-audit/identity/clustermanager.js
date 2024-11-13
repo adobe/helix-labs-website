@@ -3,11 +3,15 @@ import IdentityCluster from './identitycluster.js';
 import SimilarClusterIdentity from './similarclusteridentity.js';
 // eslint-disable-next-line no-unused-vars
 import IdentityRegistry from './identityregistry.js'; // Add this line to import IdentityRegistry
+import PromisePool from '../promisepool.js';
 
 /* eslint-disable no-console */
 /* eslint-disable class-methods-use-this */
 const matchingPointsThreshold = 80;
 const similarPointsThreshold = 40;
+
+// used for multiple pools, and is multiplicative.
+const numberOfSimultaneousSimilarityChecks = 5;
 
 class ClusterManager {
   // note: Only ever growing.
@@ -19,11 +23,17 @@ class ClusterManager {
 
   #clusterCount;
 
+  #similarityComparePool;
+
+  #individualClusterComparePool;
+
   constructor() {
     this.#clusterCount = 0;
     this.#strongIdentityToClusterMap = new Map();
     this.#clusterMap = new Map();
     this.#types = new Set();
+    this.#similarityComparePool = new PromisePool(numberOfSimultaneousSimilarityChecks, 'Similarity Compare Operations');
+    this.#individualClusterComparePool = new PromisePool(numberOfSimultaneousSimilarityChecks, 'Individual Cluster Compare Operations');
   }
 
   get clusterCount() {
@@ -108,13 +118,15 @@ class ClusterManager {
     });
 
     // Initialize identity state if it doesn't exist
-    const similarityIdentityState = identityState[SimilarClusterIdentity.type];
-    if (!similarityIdentityState) {
+    if (!identityState[SimilarClusterIdentity.type]) {
       identityState[SimilarClusterIdentity.type] = {};
     }
 
-    // Process each cluster info sequentially
-    for (const clusterInfo of clusterInfoWithInstigator) {
+    // Collect all similarity comparison promises
+    const promises = [];
+
+    // Iterate over each cluster info with instigator
+    clusterInfoWithInstigator.forEach((clusterInfo) => {
       const { clusterId, instigatorIdentityType, instigatingIdentity } = clusterInfo;
       const instigatingCluster = this.get(clusterId);
 
@@ -122,18 +134,21 @@ class ClusterManager {
       const clustersToCompare = instigatingIdentity.filterSimilarClusters(allClustersWithIdentity);
       const { similarityCollaboratorIdentityTypes } = instigatingCluster;
 
-      // Compare clusters sequentially
-      for (const similarCluster of clustersToCompare) {
-        // eslint-disable-next-line no-await-in-loop
-        await this.#compareClustersForSimilarity(
-          instigatingCluster,
-          similarCluster,
-          similarityCollaboratorIdentityTypes,
-          callCount,
-          concurrency,
-        );
-      }
-    }
+      // Collect promises for each similarity check
+      clustersToCompare.forEach((similarCluster) => {
+        promises.push(this.#similarityComparePool.run(async () => {
+          this.#compareClustersForSimilarity(
+            instigatingCluster,
+            similarCluster,
+            similarityCollaboratorIdentityTypes,
+            callCount,
+            concurrency,
+          );
+        }));
+      });
+    });
+
+    return Promise.allSettled(promises); // pool already handles errors.
   }
 
   async #compareClustersForSimilarity(
@@ -164,37 +179,51 @@ class ClusterManager {
     }
   }
 
-  // eslint-disable-next-line class-methods-use-this
   async #calculateMergeScore(sourceCluster, compareCluster, identityTypes) {
     let totalScore = 0; // Initialize total score
+    const promises = []; // Array to store all merge weight promises
+    const identityScores = []; // Array to store intermediate scores for each identity type
 
-    for (const identityType of identityTypes) {
+    // Iterate over each identity type
+    identityTypes.forEach((identityType, identityTypeIndex) => {
       const sourceClusterIdentities = sourceCluster.getAllIdentitiesOf(identityType)
         .filter((identity) => identity.similarityCollaborator);
       const compareClusterIdentities = compareCluster.getAllIdentitiesOf(identityType)
         .filter((identity) => identity.similarityCollaborator);
 
-      let identityScore = 0; // Initialize identity score for this type
-
-      for (const sourceIdentity of sourceClusterIdentities) {
+      // Collect promises for each comparison of source and compare identities
+      sourceClusterIdentities.forEach((sourceIdentity, sourceIndex) => {
         let sourceScore = 0; // Initialize source score for this identity
 
-        for (const compareIdentity of compareClusterIdentities) {
-          // eslint-disable-next-line no-await-in-loop
-          const weight = await sourceIdentity
-            .getMergeWeight(compareIdentity); // Await the async function
-          if (Number.isNaN(weight)) {
-            console.error(`Invalid weight for ${sourceIdentity.id} and ${compareIdentity.id}`);
-          }
+        compareClusterIdentities.forEach((compareIdentity, compareIndex) => {
+          // Push the getMergeWeight promise into the array with index tracking
+          promises.push(this.#individualClusterComparePool.run(async () => sourceIdentity
+            .getMergeWeight(compareIdentity)
+            .then((weight) => {
+              if (Number.isNaN(weight)) {
+                console.error(`Invalid weight for ${sourceIdentity.id} and ${compareIdentity.id}`);
+              } else {
+                sourceScore += weight;
+              }
+            })
+            .catch((error) => console.error('Error in getMergeWeight:', error))
+            .finally(() => {
+              // Store the accumulated score for this source identity
+              if (sourceIndex === sourceClusterIdentities.length - 1
+                    && compareIndex === compareClusterIdentities.length - 1) {
+                identityScores[identityTypeIndex] = (identityScores[identityTypeIndex]
+                    || 0) + sourceScore;
+              }
+            })));
+        });
+      });
+    });
 
-          if (weight) sourceScore += weight; // Accumulate the score
-        }
+    // Await all collected promises
+    await Promise.allSettled(promises);
 
-        identityScore += sourceScore; // Accumulate identity score
-      }
-
-      totalScore += identityScore; // Accumulate total score
-    }
+    // Accumulate total score from all identity types
+    totalScore = identityScores.reduce((acc, score) => acc + score, 0);
 
     return totalScore; // Return the total score
   }
