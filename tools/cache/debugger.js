@@ -1,12 +1,27 @@
 import { loadScript, sampleRUM } from '../../scripts/aem.js';
 
 const API = 'https://helix-cache-debug.adobeaem.workers.dev';
+// const API = 'http://127.0.0.1:8787';
 /** @type {HTMLInputElement} */
 const input = document.querySelector('input#url-input');
 /** @type {HTMLButtonElement} */
 const button = document.querySelector('button#search-button');
 /** @type {HTMLDivElement} */
 const resultsContainer = document.querySelector('div#results');
+
+/** @type {string} */
+let authKey;
+
+// get key from storage or ask for it
+if (localStorage.getItem('cache-debug-key')) {
+  authKey = localStorage.getItem('cache-debug-key');
+} else {
+  // eslint-disable-next-line no-alert
+  authKey = prompt('Enter your cache superuser key');
+  if (authKey) {
+    localStorage.setItem('cache-debug-key', authKey);
+  }
+}
 
 let prismLoaded = false;
 async function loadPrism() {
@@ -44,10 +59,23 @@ const purge = (liveHost, keys, tags) => fetch(`${API}/purge`, {
   body: JSON.stringify({ liveHost, keys, tags }),
   headers: {
     'content-type': 'application/json',
+    authorization: `Bearer ${authKey}`,
   },
 });
 
-const fetchDetails = (url) => fetch(`${API}?url=${encodeURIComponent(url)}`);
+const fetchDetails = async (url) => {
+  const resp = await fetch(`${API}?url=${encodeURIComponent(url)}`, {
+    headers: {
+      authorization: `Bearer ${authKey}`,
+    },
+  });
+  console.log('resp: ', resp.status, resp.headers.get('x-error'));
+  if (resp.status === 403 && resp.headers.get('x-error') === 'invalid authorization') {
+    authKey = undefined;
+    localStorage.removeItem('cache-debug-key');
+  }
+  return resp;
+};
 
 const showModal = (title, content) => {
   const modal = document.createElement('div');
@@ -365,7 +393,7 @@ const renderDetails = (data) => {
       clearInterval(interval);
 
       if (!response.ok) {
-        resultsContainer.innerHTML = `<p class="error">Failed to fetch details: ${await response.text()}</p>`;
+        resultsContainer.innerHTML = `<p class="error">Failed to fetch details: ${response.status} - ${await response.text()}</p>`;
         return;
       }
       const data = await response.json();
