@@ -237,8 +237,8 @@ function displayModal(figure) {
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
       data.bounces = bounces > 0 ? bounces : ' < 100';
-      data.lighthouse = lighthouse.scores;
     }
+    data.lighthouse = lighthouse.scores;
 
     const textIdentity = cluster.getSingletonOf('text-identity');
     if (textIdentity) {
@@ -495,9 +495,7 @@ function addColorsToFilterList(sortedColorNames) {
  *
  * @param {HTMLElement} figure - The figure element to update.
  */
-function updateFigureData(clusterId) {
-  const { clusterManager } = window;
-  const cluster = clusterManager.get(clusterId);
+function updateFigureData(cluster) {
   const figure = cluster.figureForCluster;
   if (!figure || !figure.dataset) return;
 
@@ -534,6 +532,8 @@ function updateFigureData(clusterId) {
     figure.dataset.visits = visits;
     figure.dataset.clicks = conversions;
   }
+
+  figure.dataset.lighthouse = Math.round(cluster.getSingletonOf(Lighthouse.type).scores.total);
 }
 
 async function executePreflightFunctions(identityValues, identityState) {
@@ -566,7 +566,6 @@ async function imageOnError(identityValues, identityState, error) {
   await IdentityRegistry.identityRegistry
     .identifyPostError(identityValues, identityState);
 
-  updateFigureData(identityValues.originatingClusterId);
   // eslint-disable-next-line no-console
   console.error(`Error loading img file at ${identityValues.entryValues.href}`, error);
   // TODO: Show broken file image?
@@ -634,7 +633,6 @@ async function loadImage(
         await imageOnLoad(identityValues, identityState)
           .then(() => {
             displayImage(originatingClusterId);
-            updateFigureData(originatingClusterId);
             resolve(true);
             return true;
           });
@@ -650,7 +648,6 @@ async function loadImage(
     loadedImg.src = href;
     return imageLoaded;
   } // else
-  updateFigureData(clusterManager.get(originatingClusterId).id);
   updateCounter(document.getElementById('duplicate-images-counter'), 1);
   return Promise.resolve(true);
 }
@@ -1039,12 +1036,6 @@ async function fetchAndDisplayBatches(
   // eslint-disable-next-line no-console
   console.debug('Batches complete.');
 
-  if (window.collectingRum) {
-    sortImages(document, document.getElementById('sort-performance'));
-  } else {
-    sortImages(document, document.getElementById('sort-count'));
-  }
-
   clearInterval(timer);
 
   return data;
@@ -1186,6 +1177,13 @@ function finishedLoading() {
 
   progressBar.setAttribute('aria-hidden', true);
   actionForm.setAttribute('aria-hidden', false);
+
+  if (window.collectingRum) {
+    sortImages(document, document.getElementById('sort-performance'));
+  } else {
+    sortImages(document, document.getElementById('sort-count'));
+  }
+
   window.enableModals = true;
 }
 
@@ -1199,6 +1197,10 @@ async function processForm(sitemap, identifiers, domainKey, replacementDomain, s
   const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain, submissionValues);
+  window.clusterManager.getAllClusters().forEach((cluster) => {
+    updateFigureData(cluster);
+  });
+
   finishedLoading();
 }
 

@@ -127,23 +127,46 @@ class Lighthouse extends AbstractIdentity {
   }
 
   get scores() {
-    return {
-      usageScores: this.usageScore,
-      accessiblityScore: this.accessibilityScore,
-      onBrandScore: this.onBrandScore,
-      bestWebPractices: this.bestWebPracticesScore,
-      get total() {
-        return (
-          this.usageScores.total
-        + this.accessiblityScore.total
-        + this.onBrandScore.total
-        + this.bestWebPractices.total
-        ) / 4;
-      },
+    const {
+      usageScore, accessibilityScore, onBrandScore, bestWebPracticesScore,
+    } = this;
+    const rv = {
     };
+    let count = 0;
+    let total = 0;
+    if (usageScore) {
+      rv.usageScore = usageScore;
+      count += 1;
+      total += usageScore.total;
+    }
+    if (accessibilityScore) {
+      rv.accessibilityScore = accessibilityScore;
+      count += 1;
+      total += accessibilityScore.total;
+    }
+    if (onBrandScore) {
+      rv.onBrandScore = onBrandScore;
+      count += 1;
+      total += onBrandScore.total;
+    }
+    if (bestWebPracticesScore) {
+      rv.bestWebPracticesScore = bestWebPracticesScore;
+      count += 1;
+      total += bestWebPracticesScore.total;
+    }
+
+    rv.total = total / count;
+
+    return rv;
   }
 
   get usageScore() {
+    // TODO: Collecting rum information should come from identityValues, not from window.
+    if (!window.collectingRum
+      || !this.#identityValues.selectedIdentifiers.has(UrlAndPageIdentity.type)) {
+      return null;
+    }
+
     const rv = {
       highViewRate: 0,
       hasViews: 0,
@@ -174,6 +197,14 @@ class Lighthouse extends AbstractIdentity {
   }
 
   get accessibilityScore() {
+    if (!this.#identityValues.selectedIdentifiers.has(ColorIdentity.type)) {
+      return null;
+    }
+
+    if (!this.#identityValues.selectedIdentifiers.has(UrlAndPageIdentity.type)) {
+      return null;
+    }
+
     const rv = {
       includesAltText: 45,
       doesNotIncludeRedAndGreen: 45,
@@ -228,6 +259,10 @@ class Lighthouse extends AbstractIdentity {
   }
 
   get onBrandScore() {
+    if (!this.#identityValues.selectedIdentifiers.has(ColorIdentity.type)) {
+      return null;
+    }
+
     const rv = {
       total: 0,
     };
@@ -251,6 +286,16 @@ class Lighthouse extends AbstractIdentity {
   }
 
   get bestWebPracticesScore() {
+    if (!this.#identityValues.selectedIdentifiers.has(UrlAndPageIdentity.type)) {
+      return null;
+    }
+    if (!this.#identityValues.selectedIdentifiers.has(SizeIdentity.type)) {
+      return null;
+    }
+    if (!this.#identityValues.selectedIdentifiers.has(TextIdentity.type)) {
+      return null;
+    }
+
     const rv = {
       imageShouldNotHaveEmbeddedText: 25,
       fileSizedForWeb: 25,
