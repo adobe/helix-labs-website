@@ -10,4 +10,5 @@ import './imageidentity/sizeidentity.js';
 import './imageidentity/urlandpageidentity.js';
 import './imageidentity/urlidentity.js';
 import './cacheprovider/urlhashprovider.js';
-import './cacheprovider/localstoragecacheprovider.js';
+// import './cacheprovider/localstoragecacheprovider.js';
+import './cacheprovider/indexeddbcacheprovider.js';

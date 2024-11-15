@@ -95,7 +95,7 @@ class PerceptualIdentity extends AbstractIdentity {
 
     const hash = await identityState.promisePool
       .run(async () => identityValues
-        .get(PerceptualIdentity, 'phash', () => PerceptualIdentity.#getPhash(elementForCluster)));
+        .get(PerceptualIdentity, 'phash', async () => PerceptualIdentity.#getPhash(elementForCluster)));
 
     if (!hash || hash.length === 0) {
       return;
@@ -135,23 +135,23 @@ class PerceptualIdentity extends AbstractIdentity {
     return similarClusters;
   }
 
-  getMergeWeight(otherIdentity) {
+  async getMergeWeight(otherIdentity) {
     const otherCacheKey = otherIdentity.#identityValues.identityHash;
 
     // this section is all about caching the weight hit. Two identityHashes
     // will alwasy have the same weight.
     if (this.#identityValues.identityHash && otherCacheKey) {
-      const rv = this.#identityValues.getSync(
+      const rv = await this.#identityValues.get(
         this,
         ['merge-weight', otherCacheKey].join(':'),
-        () => this.#getMergeWeight(otherIdentity),
+        async () => this.#getMergeWeight(otherIdentity),
       );
 
       // populate other cache
-      otherIdentity.#identityValues.getSync(
+      await otherIdentity.#identityValues.get(
         otherIdentity,
         ['merge-weight', this.#identityValues.identityHash].join(':'),
-        () => rv,
+        async () => rv,
       );
 
       return rv;

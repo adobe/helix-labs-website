@@ -136,7 +136,7 @@ class ClusterManager {
 
       // Collect promises for each similarity check
       clustersToCompare.forEach((similarCluster) => {
-        promises.push(this.#similarityComparePool.run(async () => {
+        promises.push(this.#similarityComparePool.run(() => {
           this.#compareClustersForSimilarity(
             instigatingCluster,
             similarCluster,
@@ -197,7 +197,7 @@ class ClusterManager {
 
         compareClusterIdentities.forEach((compareIdentity, compareIndex) => {
           // Push the getMergeWeight promise into the array with index tracking
-          promises.push(this.#individualClusterComparePool.run(async () => sourceIdentity
+          promises.push(this.#individualClusterComparePool.run(() => sourceIdentity
             .getMergeWeight(compareIdentity)
             .then((weight) => {
               if (Number.isNaN(weight)) {

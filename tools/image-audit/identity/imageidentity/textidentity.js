@@ -57,7 +57,7 @@ class TextIdentity extends AbstractIdentity {
     const { promisePool } = identityState;
 
     const { identityText, text } = await promisePool.run(async () => identityValues
-      .get(TextIdentity, 'text', () => TextIdentity
+      .get(TextIdentity, 'text', async () => TextIdentity
         .#identifyText(
           originatingClusterId,
           identityValues,
@@ -138,7 +138,7 @@ class TextIdentity extends AbstractIdentity {
     }
   }
 
-  getMergeWeight(otherIdenty) {
+  async getMergeWeight(otherIdenty) {
     const {
       exactMatch,
       wordDifferencePercentage,

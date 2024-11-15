@@ -94,7 +94,7 @@ class AbstractIdentity {
   // any weight of 100 or more means it should be merged
   // called with an array of matching identity classes from other class.
   // If singleton, only one item in the array.
-  getMergeWeight(otherIdentities) {
+  async getMergeWeight(otherIdentities) {
     throw new Error('AbstractIdentity.mergeWeight is an abstract method');
   }
 }

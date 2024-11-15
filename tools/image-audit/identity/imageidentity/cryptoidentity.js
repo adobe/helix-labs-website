@@ -40,7 +40,7 @@ class CryptoIdentity extends AbstractIdentity {
       return;
     }
 
-    const hash = await identityValues.get(CryptoIdentity, 'hash', () => CryptoIdentity.#getHash(canvas, ctx));
+    const hash = await identityValues.get(CryptoIdentity, 'hash', async () => CryptoIdentity.#getHash(canvas, ctx));
     const identity = new CryptoIdentity(hash);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }

@@ -104,15 +104,7 @@ class IdentityValues {
       // can't retrieve from hash, passthrough.
       return callthroughFunction();
     }
-    return this.#identityCache.get(this.#identityHash, identity, key, callthroughFunction, version);
-  }
-
-  getSync(identity, key, callthroughFunction, version = 1) {
-    if (!this.#identityCache || !this.#identityHash) {
-      // can't retrieve from hash, passthrough.
-      return callthroughFunction();
-    }
-    return this.#identityCache.get(this.#identityHash, identity, key, callthroughFunction, version);
+    return this.#identityCache.get(this, identity, key, callthroughFunction, version);
   }
 }
 

@@ -123,7 +123,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
     const hashKey = `identityId:${await Hash.createHash(additionalTokensToSum.join((':')))}`;
 
     const identityId = await identityValues
-      .get(UrlAndPageIdentity, hashKey, () => UrlAndPageIdentity
+      .get(UrlAndPageIdentity, hashKey, async () => UrlAndPageIdentity
         .#getIdentityID(
           url,
           additionalTokensToSum,

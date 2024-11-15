@@ -227,7 +227,7 @@ class ColorIdentity extends AbstractIdentity {
       }
 
       const roundedColors = await identityValues
-        .get(ColorIdentity, 'colors', () => ColorIdentity.#getColors(elementForCluster));
+        .get(ColorIdentity, 'colors', async () => ColorIdentity.#getColors(elementForCluster));
 
       if (!(roundedColors) || roundedColors.length === 0) {
         // can be all alpha
@@ -279,7 +279,7 @@ class ColorIdentity extends AbstractIdentity {
 
   static async #identifyAlpha(colorIdentity, identityValues) {
     const isAlpha = await identityValues
-      .get(ColorIdentity, 'alpha', () => ColorIdentity.#isAlpha(identityValues));
+      .get(ColorIdentity, 'alpha', async () => ColorIdentity.#isAlpha(identityValues));
 
     if (isAlpha) {
       colorIdentity.#topColors.add(ColorUtility.TRANSPARENCY_NAME);

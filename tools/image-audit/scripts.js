@@ -668,7 +668,7 @@ async function loadImages(
 
   const filteredBatch = individualBatch.filter((img) => img && isUrlValid(img.origin));
 
-  for (let i = 0; i < filteredBatch.length; i += 1) {
+  for (let i = 0; !window.stopProcessing && i < filteredBatch.length; i += 1) {
     const img = filteredBatch[i];
 
     const {
@@ -855,7 +855,7 @@ async function fetchBatch(batch, concurrency, counter) {
   const results = [];
   const tasks = [];
 
-  for (let i = 0; i < concurrency; i += 1) {
+  for (let i = 0; !window.stopProcessing && i < concurrency; i += 1) {
     tasks.push((async () => {
       while (batch.length > 0) {
         // get the next URL from the batch
@@ -1009,7 +1009,7 @@ async function fetchAndDisplayBatches(
 
   // Collect promises for all batches
   const promisePool = new PromisePool(concurrency, 'Handle Batches', false);
-  for (let i = 0; i < urls.length; i += batchSize) {
+  for (let i = 0; !window.stopProcessing && i < urls.length; i += batchSize) {
     const batch = urls.slice(i, i + batchSize);
 
     // Process each batch and handle the delay between batches asynchronously
@@ -1109,6 +1109,9 @@ async function fetchSitemap(sitemap) {
       const allUrls = [];
       // eslint-disable-next-line no-restricted-syntax
       for (const loc of sitemaps) {
+        if (window.stopProcessing) {
+          return cleanseUrls(allUrls);
+        }
         const { href, origin } = new URL(loc.textContent.trim());
         const originSwapped = href.replace(origin, sitemap.origin);
         // eslint-disable-next-line no-await-in-loop
@@ -1147,6 +1150,7 @@ function setupWindowVariables() {
   window.duplicateFilter = new Set();
   window.lastExecutionTime = Date.now();
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
+  window.stopProcessing = false;
 }
 
 function prepareLoading() {
@@ -1185,6 +1189,10 @@ function finishedLoading() {
   }
 
   window.enableModals = true;
+
+  const stopButton = document.getElementById('stop-button');
+  stopButton.classList.remove('stop-pulsing');
+  window.stopProcessing = false;
 }
 
 async function processForm(sitemap, identifiers, domainKey, replacementDomain, submissionValues) {
@@ -1284,6 +1292,12 @@ function registerListeners(doc) {
         });
       }
     });
+  });
+
+  const stopButton = doc.getElementById('stop-button');
+  stopButton.addEventListener('click', () => {
+    stopButton.classList.add('stop-pulsing');
+    window.stopProcessing = true;
   });
 
   // handle form submission
