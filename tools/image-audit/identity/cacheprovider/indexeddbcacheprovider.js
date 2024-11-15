@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable class-methods-use-this */
 import IdentityRegistry from '../identityregistry.js';
 import AbstractCacheProvider from './abstractcacheprovider.js';
@@ -5,26 +6,12 @@ import AbstractCacheProvider from './abstractcacheprovider.js';
 const IDENTITY_CACHE = 'identity-cache';
 
 class IndexedDBCachProvider extends AbstractCacheProvider {
-  #openDbs = new Map();
-
   // Initialize the IndexedDB for a specific domain
-  async #initializeDB(identityValues) {
+  async #openDB(identityValues) {
     const domain = identityValues.entryValues.replacementDomain?.toLowerCase()
       || new URL(identityValues.entryValues.href).hostname.toLowerCase();
 
-    if (this.#openDbs.has(domain)) {
-      const dbEntry = this.#openDbs.get(domain);
-      if (dbEntry.openStatus) {
-        return dbEntry.db;
-      }
-    }
-
-    const db = await this.#openDB(`image-audit-${domain}`);
-    this.#openDbs.set(domain, db);
-    return db;
-  }
-
-  async #openDB(dbName) {
+    const dbName = `image-audit-${domain}`;
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(dbName, 1);
 
@@ -43,20 +30,19 @@ class IndexedDBCachProvider extends AbstractCacheProvider {
   // Retrieve from cache asynchronously
   async get(identityValues, identity, key, callthroughFunction, version = 1) {
     if (callthroughFunction && !this.isAsync(callthroughFunction)) {
-      // eslint-disable-next-line no-console
       console.warn('Callthrough function is not async');
     }
 
     const { identityHash } = identityValues;
     if (!identityHash || !identity || !key || !identity.type) {
-      return callthroughFunction ? Promise.resolve(callthroughFunction()) : null;
+      return Promise.resolve(callthroughFunction());
     }
 
     // Initialize DB for the current domain
-    const db = await this.#initializeDB(identityValues);
+    const db = await this.#openDB(identityValues);
     const cacheKey = this.#getCacheKey(identityHash, identity, key, version);
     const cachedData = await this.#getFromDB(db, cacheKey);
-    if (cachedData) return cachedData;
+    if (cachedData !== undefined) return cachedData;
 
     const result = await Promise.resolve(callthroughFunction());
     if (result !== undefined) await this.#setInDB(db, cacheKey, result);
@@ -84,13 +70,13 @@ class IndexedDBCachProvider extends AbstractCacheProvider {
       const request = store.put(value, cacheKey);
 
       request.onsuccess = () => resolve();
-      request.onerror = (e) => { console.error(e); reject(e.target.error); };
+      request.onerror = (e) => reject(e.target.error);
     });
   }
 
   #getCacheKey(identityHash, identity, key, version) {
     const { type } = identity;
-    return [type, version, identityHash, key].join(':');
+    return [type, key, version, identityHash].join(':');
   }
 
   // Define provider priority

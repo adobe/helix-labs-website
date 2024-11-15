@@ -26,7 +26,7 @@ class PromisePool {
 
   #queueEmptyResolver;
 
-  constructor(maxConcurrency, poolName = 'PromisePool', debugpool = false, errorHandler = (error) => console.error('Unresolved error during promise', error)) {
+  constructor(maxConcurrency, poolName = 'PromisePool', debugpool = false, errorHandler = (error) => this.#defaultErrorHandler(error)) {
     this.#errorHandler = errorHandler;
     this.#maxConcurrency = maxConcurrency;
     this.#debugpool = debugpool;
@@ -35,6 +35,11 @@ class PromisePool {
     this.#queueEmptyResolver = null;
 
     this.activateTimer();
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  #defaultErrorHandler(error) {
+    console.error('Unresolved error during promise', error);
   }
 
   activateTimer() {
@@ -61,11 +66,15 @@ class PromisePool {
 
   async run(task) {
     if (this.#awaitingFinish) {
-      throw new Error('Cannot run new tasks while waiting for all tasks to settle');
+      const error = Error('Cannot run new tasks while waiting for all tasks to settle');
+      this.#errorHandler(error);
+      return Promise.reject(error);
     }
 
     if (task.constructor.name !== 'AsyncFunction') {
-      throw new Error(`Task ${task} must be an async function`);
+      const error = Error(`Task ${task} must be an async function`);
+      this.#errorHandler(error);
+      return Promise.reject(error);
     }
 
     this.activateTimer();
@@ -93,7 +102,7 @@ class PromisePool {
       taskPromise = Promise.resolve(task());
       this.#activeTasks.push(taskPromise); // Track active task
       const rv = await taskPromise;
-      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing - status: ${taskPromise.status}`);
+      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing`);
       return rv;
     } catch (error) {
       this.#errorHandler(error);

@@ -7,7 +7,7 @@ class LocalStorageCacheProvider extends AbstractCacheProvider {
   #getCacheKey(identityHash, identity, key, version) {
     const { type } = identity;
 
-    return [type, version, identityHash, key].join(':');
+    return [type, key, version, identityHash].join(':');
   }
 
   // Retrieve from cache
@@ -23,7 +23,7 @@ class LocalStorageCacheProvider extends AbstractCacheProvider {
     }
     const cacheKey = this.#getCacheKey(identityHash, identity, key, version);
     const cachedData = localStorage.getItem(cacheKey);
-    if (cachedData) {
+    if (cachedData !== undefined && cachedData !== null) {
       const parsedData = JSON.parse(cachedData);
       return parsedData;
     }

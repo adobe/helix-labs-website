@@ -38,6 +38,8 @@ class PerceptualIdentity extends AbstractIdentity {
 
   #elementForCluster;
 
+  #promisePool;
+
   constructor(phash, identityValues, elementForCluster, identityState) {
     super('pi');
     this.#phash = phash;
@@ -144,7 +146,8 @@ class PerceptualIdentity extends AbstractIdentity {
       const rv = await this.#identityValues.get(
         this,
         ['merge-weight', otherCacheKey].join(':'),
-        async () => this.#getMergeWeight(otherIdentity),
+        async () => this.#identityState.promisePool
+          .run(async () => this.#getMergeWeight(otherIdentity)),
       );
 
       // populate other cache

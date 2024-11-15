@@ -3,15 +3,11 @@ import IdentityCluster from './identitycluster.js';
 import SimilarClusterIdentity from './similarclusteridentity.js';
 // eslint-disable-next-line no-unused-vars
 import IdentityRegistry from './identityregistry.js'; // Add this line to import IdentityRegistry
-import PromisePool from '../promisepool.js';
 
 /* eslint-disable no-console */
 /* eslint-disable class-methods-use-this */
 const matchingPointsThreshold = 80;
 const similarPointsThreshold = 40;
-
-// used for multiple pools, and is multiplicative.
-const numberOfSimultaneousSimilarityChecks = 5;
 
 class ClusterManager {
   // note: Only ever growing.
@@ -23,17 +19,11 @@ class ClusterManager {
 
   #clusterCount;
 
-  #similarityComparePool;
-
-  #individualClusterComparePool;
-
   constructor() {
     this.#clusterCount = 0;
     this.#strongIdentityToClusterMap = new Map();
     this.#clusterMap = new Map();
     this.#types = new Set();
-    this.#similarityComparePool = new PromisePool(numberOfSimultaneousSimilarityChecks, 'Similarity Compare Operations');
-    this.#individualClusterComparePool = new PromisePool(numberOfSimultaneousSimilarityChecks, 'Individual Cluster Compare Operations');
   }
 
   get clusterCount() {
@@ -136,19 +126,22 @@ class ClusterManager {
 
       // Collect promises for each similarity check
       clustersToCompare.forEach((similarCluster) => {
-        promises.push(this.#similarityComparePool.run(() => {
-          this.#compareClustersForSimilarity(
-            instigatingCluster,
-            similarCluster,
-            similarityCollaboratorIdentityTypes,
-            callCount,
-            concurrency,
-          );
-        }));
+        promises.push(this.#compareClustersForSimilarity(
+          instigatingCluster,
+          similarCluster,
+          similarityCollaboratorIdentityTypes,
+          callCount,
+          concurrency,
+        ));
       });
     });
 
-    return Promise.allSettled(promises); // pool already handles errors.
+    const promiseResults = await Promise.allSettled(promises);
+
+    promiseResults
+      .filter((result) => result.status === 'rejected')
+      // eslint-disable-next-line no-console
+      .forEach((error) => console.error('Error detecting similarity', error));
   }
 
   async #compareClustersForSimilarity(
@@ -197,7 +190,7 @@ class ClusterManager {
 
         compareClusterIdentities.forEach((compareIdentity, compareIndex) => {
           // Push the getMergeWeight promise into the array with index tracking
-          promises.push(this.#individualClusterComparePool.run(() => sourceIdentity
+          promises.push(sourceIdentity
             .getMergeWeight(compareIdentity)
             .then((weight) => {
               if (Number.isNaN(weight)) {
@@ -214,13 +207,18 @@ class ClusterManager {
                 identityScores[identityTypeIndex] = (identityScores[identityTypeIndex]
                     || 0) + sourceScore;
               }
-            })));
+            }));
         });
       });
     });
 
     // Await all collected promises
-    await Promise.allSettled(promises);
+    const promiseResults = await Promise.allSettled(promises);
+
+    promiseResults
+      .filter((result) => result.status === 'rejected')
+      // eslint-disable-next-line no-console
+      .forEach((error) => console.error('Error calculating similarity', error));
 
     // Accumulate total score from all identity types
     totalScore = identityScores.reduce((acc, score) => acc + score, 0);
