@@ -28,6 +28,8 @@ async function loadPrism() {
   if (prismLoaded) return;
   prismLoaded = true;
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js');
+  // await import('./prism-js-fold.js');
 }
 
 const ENV_HEADERS = {
@@ -69,7 +71,6 @@ const fetchDetails = async (url) => {
       authorization: `Bearer ${authKey}`,
     },
   });
-  console.log('resp: ', resp.status, resp.headers.get('x-error'));
   if (resp.status === 403 && resp.headers.get('x-error') === 'invalid authorization') {
     authKey = undefined;
     localStorage.removeItem('cache-debug-key');
@@ -106,12 +107,15 @@ const showModal = (title, content) => {
  */
 const showCodeModal = async (language, title, text) => {
   await loadPrism();
-  return showModal(
+  const modal = showModal(
     title,
     /* html */`
       <pre><code class="language-${language}">${text}</code></pre>
     `,
   );
+  // eslint-disable-next-line no-undef
+  Prism.highlightElement(modal.querySelector('code'));
+  return modal;
 };
 
 /**
@@ -262,7 +266,6 @@ const renderPurgeSection = (container, data) => {
         throw new Error(`Failed to purge: ${response.status}`);
       }
       const text = await response.text();
-      console.debug('purge result: ', text);
       await showCodeModal('log', 'Purge Result', text);
     } catch (e) {
       showModal('Purge Error', /* html */`<p>${e.message}</p>`);
