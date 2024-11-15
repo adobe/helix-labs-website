@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Audit</title>
+  <!-- ref https://github.com/mapbox/pixelmatch, https://github.com/naptha/tesseract.js/ -->
   <script type="importmap">
     {
       "imports": {
@@ -15,7 +16,9 @@
       }
     }
   </script>
+  <!-- ref https://github.com/lokesh/color-thief -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.4.0/color-thief.umd.js" defer></script>
+  <!-- ref https://github.com/simon987/imagehash-web -->
   <script src="https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1" defer></script>
   <script src="/scripts/aem.js" type="module"></script>
   <script src="/scripts/scripts.js" type="module"></script>
@@ -87,8 +90,18 @@
     </div>
     <div class="canvas" id="canvas">
       <div class="action-bar">
-        <div class="progress-bar" id="progress-bar">
-          <div class="progress" id="progress"></div>
+        <div class="progress-bar-container" id="progress-bar">
+          <ul>
+            <li>
+              <label>Loading:</label>
+            </li>
+            <li class="progress-bar">
+              <div class="progress" id="progress"></div>
+            </li>
+            <li class="stop-button-container">
+              <button id="stop-button" aria-label="Stop">&#x1F6D1;</button>
+            </li>
+          </ul>
         </div>
         <form id="action-form" aria-hidden="true">
           <div class="form-field radio-field">
