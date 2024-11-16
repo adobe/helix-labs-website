@@ -19,6 +19,8 @@ class IdentityCluster {
 
   #similarityCollaboratorIdentityTypes;
 
+  #clusterIdsThisClusterReplaces;
+
   constructor(
     clusterCount,
     clusterManager,
@@ -38,6 +40,7 @@ class IdentityCluster {
     this.#similarityCollaboratorIdentityTypes = new Set();
     this.#typeToIdentitiesMap = new Map();
     this.addIdentity(originatingIdentity);
+    this.#clusterIdsThisClusterReplaces = [];
   }
 
   get id() {
@@ -58,6 +61,10 @@ class IdentityCluster {
     }
 
     return this.#figureForCluster;
+  }
+
+  get clusterIdsThisClusterReplaces() {
+    return Array.from(this.#clusterIdsThisClusterReplaces);
   }
 
   get similarityCollaboratorIdentityTypes() {
@@ -227,6 +234,11 @@ class IdentityCluster {
       this.moveIdentity(otherIdentity, otherCluster);
     });
 
+    // assume all it's ids.
+    this.#clusterIdsThisClusterReplaces.push(otherCluster.#id);
+    otherCluster.#clusterIdsThisClusterReplaces.forEach((id) => {
+      this.#clusterIdsThisClusterReplaces.push(id);
+    });
     otherCluster.#reclusterComplete(this);
   }
 
@@ -283,7 +295,6 @@ class IdentityCluster {
     if (this.#replacedBy) {
       return;
     }
-    this.replacedBy = replacedBy;
 
     if (this.#identities.size !== 0) {
       // eslint-disable-next-line no-console
@@ -294,17 +305,19 @@ class IdentityCluster {
     if (this.figureForCluster?.contains(this.elementForCluster)) {
       this.figureForCluster.removeChild(this.elementForCluster);
     }
+
+    this.#replacedBy = replacedBy;
+
     this.#figureForCluster = null;
     this.#elementForCluster = null;
 
     // reference what we can from the other cluster.
     // It shouldn't be used, but just in case.
-    this.#identities = replacedBy.#identities;
-    this.#figureForCluster = replacedBy.#figureForCluster;
-    this.#elementForCluster = replacedBy.#elementForCluster;
+    // this.#identities = replacedBy.#identities;
+    // this.#figureForCluster = replacedBy.#figureForCluster;
+    // this.#elementForCluster = replacedBy.#elementForCluster;
 
     // only the ID should persist.
-
     // this keeps async operations with a current correct cluster
     this.#clusterManager.reclusterComplete(replacedBy, this);
   }

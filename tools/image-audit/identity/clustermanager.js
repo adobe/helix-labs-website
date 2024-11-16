@@ -61,6 +61,9 @@ class ClusterManager {
     // This maintains a reference from the old cluster to the new one
     // so that any async operations automatically pick up this change.
     this.#clusterMap.set(consumedCluster.id, persistedCluster);
+    consumedCluster.clusterIdsThisClusterReplaces.forEach((clusterId) => {
+      this.#clusterMap.set(clusterId, persistedCluster);
+    });
   }
 
   identityAdded(identity, cluster) {
