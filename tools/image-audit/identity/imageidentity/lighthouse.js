@@ -301,7 +301,12 @@ class Lighthouse extends AbstractIdentity {
       fileSizedForWeb: 25,
       multipleCopiesOfIdenticalContent: 25,
       referencesHaveSameAltText: 25,
-      get total() { return this.imageShouldNotHaveEmbeddedText + this.fileSizedForWeb; },
+      get total() {
+        return this.imageShouldNotHaveEmbeddedText
+        + this.fileSizedForWeb
+        + this.multipleCopiesOfIdenticalContent
+        + this.referencesHaveSameAltText;
+      },
       // ... more to come
     };
 

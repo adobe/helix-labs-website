@@ -157,10 +157,9 @@ class ColorIdentity extends AbstractIdentity {
   }
 
   static async identifyPostflightWithCanvas(identityValues, identityState) {
-    const { originatingClusterId, clusterManager } = identityValues;
+    const { originatingClusterId, clusterManager, href } = identityValues;
     const colorIdentity = new ColorIdentity(identityState);
 
-    const { href } = identityValues.entryValues;
     const sizeIdentifier = clusterManager.get(originatingClusterId)
       .get(await SizeIdentity.getSizeId(href));
     if (sizeIdentifier?.tooBigForWeb) {
@@ -249,7 +248,7 @@ class ColorIdentity extends AbstractIdentity {
   static async #isAlpha(identityValues) {
     const { canvas, ctx } = identityValues;
 
-    const ext = identityValues.entryValues.fileType;
+    const ext = identityValues.fileType;
     if (!ALPHA_ALLOWED_FORMATS.includes(ext)) {
       return false;
     }

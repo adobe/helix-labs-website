@@ -39,9 +39,8 @@ class UrlIdentity extends AbstractIdentity {
     const {
       originatingClusterId,
       clusterManager,
+      href,
     } = identityValues;
-
-    const { href } = identityValues.entryValues;
 
     const { identityId, durability } = await identityValues
       .get(UrlIdentity, 'identityId', async () => UrlIdentity.getUrlIdentityID(

@@ -8,8 +8,8 @@ const IDENTITY_CACHE = 'identity-cache';
 class IndexedDBCachProvider extends AbstractCacheProvider {
   // Initialize the IndexedDB for a specific domain
   async #openDB(identityValues) {
-    const domain = identityValues.entryValues.replacementDomain?.toLowerCase()
-      || new URL(identityValues.entryValues.href).hostname.toLowerCase();
+    const domain = identityValues.replacementDomain?.toLowerCase()
+      || new URL(identityValues.href).hostname.toLowerCase();
 
     const dbName = `image-audit-${domain}`;
     return new Promise((resolve, reject) => {

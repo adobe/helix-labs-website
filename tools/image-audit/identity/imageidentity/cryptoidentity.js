@@ -29,9 +29,8 @@ class CryptoIdentity extends AbstractIdentity {
       clusterManager,
       canvas,
       ctx,
+      href,
     } = identityValues;
-
-    const { href } = identityValues.entryValues;
 
     const sizeIdentifier = clusterManager.get(originatingClusterId)
       .get(await SizeIdentity.getSizeId(href));

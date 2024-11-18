@@ -102,9 +102,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
     const {
       originatingClusterId,
       clusterManager,
-    } = identityValues;
-
-    const {
       href,
       site,
       alt,
@@ -112,7 +109,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
       height,
       aspectRatio,
       instance,
-    } = identityValues.entryValues;
+    } = identityValues;
 
     const url = new URL(site);
     const additionalTokensToSum = [site];
@@ -144,8 +141,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
       instance,
     );
 
-    if (identityValues.entryValues.domainKey) {
-      await identity.#obtainRum(identityValues.entryValues, identityState);
+    if (identityValues.domainKey) {
+      await identity.#obtainRum(identityValues, identityState);
     }
 
     clusterManager.get(originatingClusterId).addIdentity(identity);
@@ -203,7 +200,7 @@ class UrlAndPageIdentity extends AbstractIdentity {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  async #obtainRum(values, identityState) {
+  async #obtainRum(identityValues, identityState) {
     try {
       // TODO: Rum data should really be on a page cluster, not an image cluster.
       // const siteURL = new URL(values.site);
@@ -216,8 +213,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
         // TODO: Selectable range
         const loader = new DataLoader();
         loader.apiEndpoint = API_ENDPOINT;
-        loader.domain = values.replacementDomain;
-        loader.domainKey = values.domainKey;
+        loader.domain = identityValues.replacementDomain;
+        loader.domainKey = identityValues.domainKey;
         if (identityState.rumLoadingPromise) {
           try {
             await identityState.rumLoadingPromise;
@@ -269,8 +266,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
         return acc;
       }, new Set())), 'every');
 
-      const siteURL = new URL(values.site);
-      siteURL.hostname = values.replacementDomain;
+      const siteURL = new URL(identityValues.site);
+      siteURL.hostname = identityValues.replacementDomain;
 
       dataChunks.addFacet('url', (bundle) => {
         const url = new URL(bundle.url);

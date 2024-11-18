@@ -7,12 +7,12 @@ class UrlHashProvider extends AbstractIdentityHashProvider {
     const {
       clusterManager,
       originatingClusterId,
-      entryValues,
+      href,
     } = identityValues;
 
     const { identityId, durability } = await UrlIdentity.getUrlIdentityID(
       clusterManager,
-      entryValues.href,
+      href,
       originatingClusterId,
       'url-hash',
       [],

@@ -57,19 +57,18 @@ class SizeIdentity extends AbstractIdentity {
       originatingClusterId,
       clusterManager,
       elementForCluster,
+      href,
     } = identityValues;
 
-    const { href } = identityValues.entryValues;
-
     const size = await identityValues
-      .get(SizeIdentity, 'size', async () => SizeIdentity.#getSize(elementForCluster, identityValues.entryValues));
+      .get(SizeIdentity, 'size', async () => SizeIdentity.#getSize(elementForCluster, identityValues));
     const id = await SizeIdentity.getSizeId(href);
     const identity = new SizeIdentity(id, href, size);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
-  static async #getSize(elementForCluster, entryValues) {
-    const { href, height, width } = entryValues;
+  static async #getSize(elementForCluster, identityValues) {
+    const { href, height, width } = identityValues;
     const url = new URL(href);
     try {
       // Fetch the image to get the ETag from headers (if available)

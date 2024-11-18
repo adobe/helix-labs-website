@@ -550,8 +550,8 @@ async function imageOnLoad(identityValues, identityState) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const { elementForCluster } = clusterManager.get(identityValues.originatingClusterId);
 
-  canvas.width = identityValues.entryValues.width;
-  canvas.height = identityValues.entryValues.height;
+  canvas.width = identityValues.width;
+  canvas.height = identityValues.height;
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
@@ -567,7 +567,7 @@ async function imageOnError(identityValues, identityState, error) {
     .identifyPostError(identityValues, identityState);
 
   // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${identityValues.entryValues.href}`, error);
+  console.error(`Error loading img file at ${identityValues.href}`, error);
   // TODO: Show broken file image?
 }
 
@@ -679,6 +679,7 @@ async function loadImages(
     const { imageCount } = window;
     const { href } = new URL(src, origin);
     const loadedImg = new Image(width, height);
+    const { identityCache } = window;
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
     const figure = document.createElement('figure');
     figure.append(loadedImg);
@@ -697,7 +698,12 @@ async function loadImages(
       'image',
     );
 
-    const entryValues = {
+    const identityValues = new IdentityValues({
+      originatingClusterId,
+      clusterManager,
+      selectedIdentifiers,
+      submissionValues,
+      identityCache,
       href,
       site,
       alt,
@@ -708,16 +714,7 @@ async function loadImages(
       fileType,
       domainKey,
       replacementDomain,
-    };
-
-    const identityValues = new IdentityValues(
-      originatingClusterId,
-      clusterManager,
-      window.identityCache,
-      selectedIdentifiers,
-      submissionValues,
-      entryValues,
-    );
+    });
 
     batchEntries.push(originatingClusterId);
 
