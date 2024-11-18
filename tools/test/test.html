@@ -1,0 +1,20 @@
+<html>
+<head>
+    <title>Test</title>
+    <script type="module">
+        const sidekickId = 'dghefbmfciefemdgmbhfkghomknobfaj';
+        const msg = {
+          action: 'getAuthInfo',
+        };
+
+        console.log('sending message to sidekick:', sidekickId, msg);
+        chrome.runtime.sendMessage(sidekickId, msg, (resp) => {
+          if (resp) {
+            console.log('got response from sidekick:', resp);
+          } else {
+            console.error('error invoking extension:', chrome.runtime.lastError);
+          }
+        });
+    </script>
+    
+</html>
