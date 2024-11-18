@@ -188,6 +188,7 @@ function displayModal(figure) {
       dimensions: 'Dimensions',
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
+      alt: 'Alt Text',
     };
 
     const { clusterManager } = window;
