@@ -5,10 +5,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Audit</title>
+  <!-- ref https://github.com/mapbox/pixelmatch, https://github.com/naptha/tesseract.js/ -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://esm.sh">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <script type="importmap">
+    {
+      "imports": {
+        "@adobe/rum-distiller": "https://esm.sh/@adobe/rum-distiller@1.6.0",
+        "@adobe/rum-loader": "/scripts/loader.js",
+        "pixelmatch": "https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js",
+        "tesseract": "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js"
+      }
+    }
+  </script>
+  <!-- ref https://github.com/lokesh/color-thief -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.4.0/color-thief.umd.js" defer></script>
+  <!-- ref https://github.com/simon987/imagehash-web -->
+  <script src="https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1" defer></script>
   <script src="/scripts/aem.js" type="module"></script>
   <script src="/scripts/scripts.js" type="module"></script>
   <link rel="stylesheet" href="/styles/styles.css" />
-  <script src="/tools/image-audit/scripts.js" type="module"></script>
+  <script src="/tools/image-audit/scripts.js" type="module" defer></script>
   <link rel="stylesheet" href="/tools/image-audit/styles.css" />
 </head>
 
@@ -21,28 +39,74 @@
         The <strong>Image Audit</strong> tool provides a way to analyze images on AEM websites. The tool offers insights into image use across a site, including identifying gaps in alt text usage.
       </p>
     </div>
+    <div id="audit-results" aria-hidden="true">
+      <p id="info" >
+        <span id="images-counter">0</span> unique images<br/>
+        <span id="duplicate-images-counter">0</span> repeated images<br/>
+        found on <span id="pages-counter">0</span> pages<br/>
+        (out of <span id="total-counter">0</span>)<br/>
+        in <span id="elapsed">0</span> s.
+      </p>
+      <p class="button-wrapper">
+        <select id="download-report">
+          <option value="" disabled selected>Select a report to download</option>
+        </select>
+      </p>
+    </div>
     <div>
       <form id="site-form">
-        <div class="form-field url-field">
-          <label for="site-url">Site URL</label>
-          <input name="site-url" id="site-url" type="url" required />
-          <div class="field-help-text">
-            <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
-          </div>
+        <div class="sitemap-form">
+          <ul>
+            <li>
+              <div class="form-field url-field">
+                <label for="site-url">Site URL</label>
+                <input name="site-url" id="site-url" type="url" required />
+                <div class="field-help-text">
+                  <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+                </div>
+              </div>
+            </li>
+            <li>
+              <label for="replacement-domain">RUM Production Domain</label>
+              <input name="replacement-domain" id="replacement-domain" />
+            </li>
+            <li>
+              <label for="domain-key">RUM Domain Key</label>
+              <input name="domain-key" id="domain-key" />
+            </li>
+            <li>
+              <div class="field-help-text">
+                <p>Image identification methods:</p>
+              </div>
+            </li>
+            <div id="identity-selectors">
+            </div>
+            <li>
+              <hr/>
+              <p class="button-wrapper">
+                <button type="submit" class="button">Run</button>
+              </p>
+            </li>
+          </ul>
         </div>
       </form>
     </div>
-    <div id="audit-results" aria-hidden="true">
-      <p id="info" >
-        <span id="images-counter">0</span> images found on <span id="pages-counter">0</span> (out of <span id="total-counter">0</span>) pages in <span id="elapsed">0</span> s.
-      </p>
-      <p class="button-wrapper">
-        <button type="button" class="button" id="download-report" disabled>Download Audit Report</button>
-      </p>
-    </div>
     <div class="canvas" id="canvas">
       <div class="action-bar">
-        <form>
+        <div class="progress-bar-container" id="progress-bar">
+          <ul>
+            <li>
+              <label>Loading:</label>
+            </li>
+            <li class="progress-bar">
+              <div class="progress" id="progress"></div>
+            </li>
+            <li class="stop-button-container">
+              <button id="stop-button" aria-label="Stop">&#x1F6D1;</button>
+            </li>
+          </ul>
+        </div>
+        <form id="action-form" aria-hidden="true">
           <div class="form-field radio-field">
             <p>Sort by:</p>
             <ul>
@@ -58,6 +122,44 @@
                   <span>Aspect Ratio</span>
                 </label>
               </li>
+              <li>
+                <label>
+                  <input type="radio" name="sort" value="lighthouse" id="sort-lighthouse" data-order="-1">
+                  <span>Asset Success Score</span>
+                </label>
+              </li>              
+              <li id="color-sort">
+                <label>
+                  <input type="radio" name="sort" value="colorIndex" id="sort-colorIndex" data-order="-1">
+                  <span>Top Colors</span>
+                </label>
+              </li>
+              <div class="form-field radio-field" id="collecting-rum" aria-hidden="true">
+                <li>
+                  <label>
+                    <input type="radio" name="sort" value="performance" id="sort-performance" data-order="-1">
+                    <span>Top Performing</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input type="radio" name="sort" value="views" id="sort-views" data-order="-1">
+                    <span>Top Views</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input type="radio" name="sort" value="visits" id="sort-visits" data-order="-1">
+                    <span>Top Visits</span>
+                  </label>
+                </li>
+                <li>
+                  <label>
+                    <input type="radio" name="sort" value="clicks" id="sort-clicks" data-order="-1">
+                    <span>Top Conversions</span>
+                  </label>
+                </li>
+              </div>
             </ul>
           </div>
       
@@ -72,28 +174,33 @@
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="square" aria-label="Square aspect ratio" id="filter-square">
+                  <input type="checkbox" name="filter" value="shape-Square" aria-label="Square aspect ratio" id="filter-square">
                   <span><i class="symbol symbol-square"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="portrait" aria-label="Portrait aspect ratio" id="filter-portrait">
+                  <input type="checkbox" name="filter" value="shape-Portrait" aria-label="Portrait aspect ratio" id="filter-portrait">
                   <span><i class="symbol symbol-portrait"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="landscape" aria-label="Landscape aspect ratio" id="filter-landscape">
+                  <input type="checkbox" name="filter" value="shape-Landscape" aria-label="Landscape aspect ratio" id="filter-landscape">
                   <span><i class="symbol symbol-landscape"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="widescreen" aria-label="Widescreen aspect ratio" id="filter-widescreen">
+                  <input type="checkbox" name="filter" value="shape-Widescreen" aria-label="Widescreen aspect ratio" id="filter-widescreen">
                   <span><i class="symbol symbol-widescreen"></i></span>
                 </label>
               </li>
+            </ul>
+          </div>
+          <div class="form-field checkbox-field" id="color-pallette-container">
+            <p>Color Filter:</p>
+            <ul id="color-pallette">
             </ul>
           </div>
         </form>
