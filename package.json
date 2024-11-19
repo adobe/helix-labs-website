@@ -27,7 +27,7 @@
     "stylelint-config-standard": "36.0.1"
   },
   "dependencies": {
-    "@adobe/rum-distiller": "^1.6.0",
+    "@adobe/rum-distiller": "https://registry.npmjs.org/@adobe/rum-distiller/-/rum-distiller-1.6.0.tgz",
     "colorthief": "^2.4.0",
     "imagehash-web": "^3.0.1",
     "pixelmatch": "^6.0.0",
