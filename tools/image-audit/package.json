@@ -11,7 +11,7 @@
   "author": "Adobe",
   "license": "Apache License 2.0",
   "devDependencies": {
-    "@babel/eslint-parser": "7.24.8",
+    "@babel/eslint-parser": "7.25.9",
     "eslint": "8.57.0",
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-plugin-import": "2.29.1",
