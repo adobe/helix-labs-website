@@ -1,6 +1,5 @@
 /* eslint-disable class-methods-use-this */
-// eslint-disable-next-line import/no-unresolved
-import Tesseract from 'tesseract';
+import Tesseract from 'tesseract.js';
 
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';

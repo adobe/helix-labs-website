@@ -6,8 +6,7 @@
   "scripts": {
     "lint:js": "eslint .",
     "lint:css": "stylelint blocks/**/*.css styles/*.css",
-    "lint": "npm run lint:js && npm run lint:css",
-    "postinstall": "(cd tools/image-audit && npm install)"
+    "lint": "npm run lint:js && npm run lint:css"
   },
   "repository": {
     "type": "git",
@@ -28,6 +27,7 @@
     "stylelint-config-standard": "36.0.1"
   },
   "dependencies": {
-    "@adobe/rum-distiller": "1.9.0"
+    "pixelmatch": "6.0.0",
+    "tesseract.js": "5.1.1"
   }
 }
