@@ -1,5 +1,4 @@
-/* eslint-disable max-classes-per-file */
-/* eslint-disable class-methods-use-this */
+/* eslint-disable import/no-relative-packages, max-classes-per-file, class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
 import ClusterManager from './identity/clustermanager.js';
