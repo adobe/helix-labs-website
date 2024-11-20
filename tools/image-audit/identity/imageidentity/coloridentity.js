@@ -1,5 +1,4 @@
 /* eslint-disable class-methods-use-this */
-// import * as ColorThiefModule from 'colorthief';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import ColorUtility from '../util/colorutility.js';

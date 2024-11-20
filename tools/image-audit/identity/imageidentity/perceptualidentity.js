@@ -1,6 +1,4 @@
 /* eslint-disable class-methods-use-this */
-// import * as ImageHashModule from 'imagehash-web';
-// eslint-disable-next-line import/no-extraneous-dependencies
 import pixelmatch from 'pixelmatch';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
