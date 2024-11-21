@@ -163,6 +163,69 @@ button.modal-close {
   margin: auto auto 60px;
 }
 
+.modal-content .code-panel {
+  position: relative;
+}
+
+.modal-content .code-panel .code-actions {
+  position: absolute;
+  right: 0;
+  margin: 10px;
+}
+
+.code-actions a.code-button {
+  display: inline-block;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.code-actions a.code-button span.icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.code-actions a.code-button.copy::before {
+  content: 'Copied to clipboard';
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  background-color: #2c2c2c;
+  color: #fff;
+  padding: 5px;
+  border-radius: 5px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  text-wrap-mode: nowrap;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.1s;
+} 
+
+.code-actions a.code-button.copy.show-message::before {
+  opacity: 1;
+}
+
+.code-actions a.code-button.copy span.icon {
+  background-image: url('/icons/spectrum-copy.svg');
+}
+
+.code-actions a.code-button.download span.icon {
+  background-image: url('/icons/spectrum-download.svg');
+}
+
+.fold-stack {
+  margin-left: 20px;
+}
+
+.fold-stack > summary {
+  margin-left: -15px;
+}
+
+.token.fold-close {
+  margin-left: 20px;
+}
+
 
 /* PrismJS 1.29.0 (Default), slightly altered
 https://prismjs.com/download.html#themes=prism&languages=markup+css+clike+javascript+json */
