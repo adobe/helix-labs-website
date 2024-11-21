@@ -137,11 +137,6 @@ const showCodeModal = async (language, title, text) => {
     }, 1500);
   });
 
-  const downloadBtn = modal.querySelector('.code-actions .download');
-  downloadBtn.addEventListener('click', () => {
-    downloadBtn.href = downloadUrl;
-    downloadBtn.download = `${title.toLowerCase().replace(/\s+/g, '-')}.${language}`;
-  });
   return modal;
 };
 
