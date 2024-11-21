@@ -29,7 +29,7 @@ async function loadPrism() {
   prismLoaded = true;
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js');
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js');
-  // await import('./prism-js-fold.js');
+  // await import('./prism-json-folding.js');
 }
 
 const ENV_HEADERS = {
@@ -107,14 +107,41 @@ const showModal = (title, content) => {
  */
 const showCodeModal = async (language, title, text) => {
   await loadPrism();
+  const blob = new Blob([text], { type: 'text/plain' });
+  const downloadUrl = URL.createObjectURL(blob);
   const modal = showModal(
     title,
     /* html */`
-      <pre><code class="language-${language}">${text}</code></pre>
+      <div class="code-panel">
+        <div class="code-actions">
+          <a class="code-button copy">
+            <span class="icon"></span>
+          </a>
+          <a class="code-button download" href="${downloadUrl}" download="${title.toLowerCase().replace(/\s+/g, '-')}.${language}">
+            <span class="icon"></span>
+          </a>
+        </div>
+        <pre><code class="language-${language}">${text}</code></pre>
+      </div>
     `,
   );
   // eslint-disable-next-line no-undef
   Prism.highlightElement(modal.querySelector('code'));
+
+  const copyBtn = modal.querySelector('.code-actions .copy');
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(text);
+    copyBtn.classList.add('show-message');
+    setTimeout(() => {
+      copyBtn.classList.remove('show-message');
+    }, 1500);
+  });
+
+  const downloadBtn = modal.querySelector('.code-actions .download');
+  downloadBtn.addEventListener('click', () => {
+    downloadBtn.href = downloadUrl;
+    downloadBtn.download = `${title.toLowerCase().replace(/\s+/g, '-')}.${language}`;
+  });
   return modal;
 };
 
@@ -280,13 +307,13 @@ const renderDetails = (data) => {
     x_push_invalidation: pushInval = 'disabled',
     x_byo_cdn_type: byoCdnType = 'unknown',
     x_forwarded_host: forwardedHost = '',
-  } = data.probe.req.headers;
+  } = data?.probe?.req?.headers ?? {};
   const configuredCdnType = data.config?.type;
   const configuredCdnHost = data.config?.host;
   const pushInvalPill = pushInval === 'enabled'
     ? '<span class="pill badge good">enabled</span>'
     : '<span class="pill badge bad">disabled</span>';
-  const actualCdn = data.cdn.actualCDNType;
+  const actualCdn = data?.cdn?.actualCDNType;
   const cdnMatchClass = actualCdn === byoCdnType ? 'good' : 'bad';
 
   // TODO: render status information if available (similar to POP?)
@@ -302,7 +329,7 @@ const renderDetails = (data) => {
   `;
   const seeAllBtn = resultsContainer.querySelector('.see-all a');
   seeAllBtn.addEventListener('click', () => {
-    showCodeModal('json', 'Response JSON', JSON.stringify(data, undefined, 2));
+    showCodeModal('json', 'Probe Details', JSON.stringify(data, undefined, 2));
   });
 
   // add settings section
