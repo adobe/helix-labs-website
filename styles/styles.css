@@ -363,6 +363,18 @@ i.symbol.symbol-loading::after {
   background-color: currentcolor;
 }
 
+.status-light.positive::before {
+  background-color: var(--green-800);
+}
+
+.status-light.notice::before {
+  background-color: var(--orange-800);
+}
+
+.status-light.negative::before {
+  background-color: var(--red-800);
+}
+
 /* typography */
 h1,
 h2,

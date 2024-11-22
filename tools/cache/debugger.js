@@ -28,6 +28,8 @@ async function loadPrism() {
   if (prismLoaded) return;
   prismLoaded = true;
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js');
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js');
+  // await import('./prism-json-folding.js');
 }
 
 const ENV_HEADERS = {
@@ -69,7 +71,6 @@ const fetchDetails = async (url) => {
       authorization: `Bearer ${authKey}`,
     },
   });
-  console.log('resp: ', resp.status, resp.headers.get('x-error'));
   if (resp.status === 403 && resp.headers.get('x-error') === 'invalid authorization') {
     authKey = undefined;
     localStorage.removeItem('cache-debug-key');
@@ -106,12 +107,37 @@ const showModal = (title, content) => {
  */
 const showCodeModal = async (language, title, text) => {
   await loadPrism();
-  return showModal(
+  const blob = new Blob([text], { type: 'text/plain' });
+  const downloadUrl = URL.createObjectURL(blob);
+  const modal = showModal(
     title,
     /* html */`
-      <pre><code class="language-${language}">${text}</code></pre>
+      <div class="code-panel">
+        <div class="code-actions">
+          <a class="code-button copy">
+            <span class="icon"></span>
+          </a>
+          <a class="code-button download" href="${downloadUrl}" download="${title.toLowerCase().replace(/\s+/g, '-')}.${language}">
+            <span class="icon"></span>
+          </a>
+        </div>
+        <pre><code class="language-${language}">${text}</code></pre>
+      </div>
     `,
   );
+  // eslint-disable-next-line no-undef
+  Prism.highlightElement(modal.querySelector('code'));
+
+  const copyBtn = modal.querySelector('.code-actions .copy');
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(text);
+    copyBtn.classList.add('show-message');
+    setTimeout(() => {
+      copyBtn.classList.remove('show-message');
+    }, 1500);
+  });
+
+  return modal;
 };
 
 /**
@@ -262,7 +288,6 @@ const renderPurgeSection = (container, data) => {
         throw new Error(`Failed to purge: ${response.status}`);
       }
       const text = await response.text();
-      console.debug('purge result: ', text);
       await showCodeModal('log', 'Purge Result', text);
     } catch (e) {
       showModal('Purge Error', /* html */`<p>${e.message}</p>`);
@@ -277,13 +302,13 @@ const renderDetails = (data) => {
     x_push_invalidation: pushInval = 'disabled',
     x_byo_cdn_type: byoCdnType = 'unknown',
     x_forwarded_host: forwardedHost = '',
-  } = data.probe.req.headers;
+  } = data?.probe?.req?.headers ?? {};
   const configuredCdnType = data.config?.type;
   const configuredCdnHost = data.config?.host;
   const pushInvalPill = pushInval === 'enabled'
     ? '<span class="pill badge good">enabled</span>'
     : '<span class="pill badge bad">disabled</span>';
-  const actualCdn = data.cdn.actualCDNType;
+  const actualCdn = data?.cdn?.actualCDNType;
   const cdnMatchClass = actualCdn === byoCdnType ? 'good' : 'bad';
 
   // TODO: render status information if available (similar to POP?)
@@ -299,7 +324,7 @@ const renderDetails = (data) => {
   `;
   const seeAllBtn = resultsContainer.querySelector('.see-all a');
   seeAllBtn.addEventListener('click', () => {
-    showCodeModal('json', 'Response JSON', JSON.stringify(data, undefined, 2));
+    showCodeModal('json', 'Probe Details', JSON.stringify(data, undefined, 2));
   });
 
   // add settings section
