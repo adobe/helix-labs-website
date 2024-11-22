@@ -5,7 +5,7 @@ class AbstractCrawler {
     throw new Error('abstract class');
   }
 
-  async fetchBatch(batch, maxBatchSize, counter, updateCounterFunction) {
+  async fetchBatch(batch, maxBatchSize, pageCounterIncrement) {
     throw new Error('abstract class');
   }
 

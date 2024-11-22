@@ -702,7 +702,9 @@ async function handleBatch(
   submissionValues,
 ) {
   try {
-    const batchData = await crawler.fetchBatch(batch, concurrency, pagesCounter, updateCounter);
+    const batchData = await crawler
+      .fetchBatch(batch, concurrency, () => updateCounter(pagesCounter, 1));
+
     data.push(...batchData);
 
     // Display images as they are fetched

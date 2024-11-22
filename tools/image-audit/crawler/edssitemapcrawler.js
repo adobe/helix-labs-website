@@ -52,8 +52,8 @@ class EDSSitemapCrawler extends AbstractCrawler {
   static #extractUrlType(url) {
     const { hostname, pathname } = new URL(url);
     const aemSite = AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
-    if (pathname.endsWith('.xml')) return 'sitemap';
-    if (pathname.includes('robots.txt')) return 'robots';
+    if (aemSite && pathname.endsWith('.xml')) return 'sitemap';
+    // if (aemSite && pathname.includes('robots.txt')) return 'robots';
     if (aemSite || hostname.includes('github')) return 'write sitemap';
     return null;
   }
@@ -99,7 +99,7 @@ class EDSSitemapCrawler extends AbstractCrawler {
   static accept(sitemapFormData) {
     const url = sitemapFormData['site-url'];
     const urlType = this.#extractUrlType(url);
-    return urlType?.includes('sitemap');
+    return urlType?.includes('sitemap'); // TODO: Robots?
   }
 
   /**
@@ -219,7 +219,7 @@ class EDSSitemapCrawler extends AbstractCrawler {
     }
   }
 
-  async fetchBatch(batch, maxBatchSize, counter, updateCounter) {
+  async fetchBatch(batch, maxBatchSize, pageCounterIncrement) {
     const results = [];
     const tasks = [];
 
@@ -235,7 +235,7 @@ class EDSSitemapCrawler extends AbstractCrawler {
             const imgData = await this.#fetchImageDataFromPage(url);
             if (imgData) {
               results.push(...imgData);
-              updateCounter(counter, 1);
+              pageCounterIncrement();
             }
           } else {
           // eslint-disable-next-line no-console
