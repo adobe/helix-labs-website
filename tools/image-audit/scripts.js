@@ -996,6 +996,43 @@ function overrideCreateCanvas(doc) {
   };
 }
 
+function domContentLoaded() {
+  const serialized = JSON.parse(localStorage.getItem('sitemapForm'));
+
+  if (serialized) {
+    Object.keys(serialized).forEach((key) => {
+      const input = document.querySelector(`[name="${key}"]`);
+      if (input) {
+        // Skip file input as it cannot be populated directly
+        if (input.type === 'file') return;
+
+        if (input.type === 'radio') {
+          // Handle radio buttons: loop through all radio buttons with the same name
+          const radios = document.querySelectorAll(`input[name="${key}"]`);
+          radios.forEach((radio) => {
+            if (radio.value === serialized[key] || (serialized[key] === '' && !radio.value)) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event('change')); // Trigger change event
+            }
+          });
+        } else if (input.type === 'checkbox') {
+          // Handle checkboxes (multiple selections)
+          if (Array.isArray(serialized[key])) {
+            input.checked = serialized[key].includes(input.value);
+          } else {
+            input.checked = serialized[key] === input.value;
+          }
+          input.dispatchEvent(new Event('change')); // Trigger change event
+        } else {
+          // For other input types, just set the value
+          input.value = serialized[key];
+          input.dispatchEvent(new Event('change')); // Trigger change event
+        }
+      }
+    });
+  }
+}
+
 function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
@@ -1006,19 +1043,47 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
   // Function to populate the dropdown with reports
 
-  window.addEventListener('DOMContentLoaded', () => {
-    requestAnimationFrame(() => {
-      const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
-      if (savedData) {
-        Object.keys(savedData).forEach((key) => {
-          const input = document.querySelector(`[name="${key}"]`);
-          if (input) {
-            input.value = savedData[key];
-          }
-        });
+  document.querySelectorAll('input[name="sitemap-option"]').forEach((option) => {
+    option.addEventListener('change', (event) => {
+      const fileInputContainer = document.getElementById('file-input-container');
+      const urlInputContainer = document.getElementById('url-input-container');
+      const fileInput = document.getElementById('embedded-sitemap-file');
+      const urlInput = document.getElementById('embedded-sitemap-url');
+
+      if (event.target.value === 'file') {
+        fileInputContainer.setAttribute('aria-hidden', 'false');
+        urlInputContainer.setAttribute('aria-hidden', 'true');
+        fileInput.setAttribute('required', 'required');
+        urlInput.removeAttribute('required');
+      } else if (event.target.value === 'url') {
+        fileInputContainer.setAttribute('aria-hidden', 'true');
+        urlInputContainer.setAttribute('aria-hidden', 'false');
+        urlInput.setAttribute('required', 'required');
+        fileInput.removeAttribute('required');
+      } else {
+        // "None" selected: hide both fields and remove requirements
+        fileInputContainer.setAttribute('aria-hidden', 'true');
+        urlInputContainer.setAttribute('aria-hidden', 'true');
+        fileInput.removeAttribute('required');
+        urlInput.removeAttribute('required');
       }
     });
   });
+
+  doc.getElementById('embedded-sitemap-file').addEventListener('change', (event) => {
+    const fileInput = event.target;
+    const label = document.getElementById('embedded-sitemap-file-label');
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+
+      label.textContent = `File: ${file.name}`;
+    } else {
+      label.textContent = 'Click to select sitemap';
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', () => domContentLoaded());
 
   const stopButton = doc.getElementById('stop-button');
   stopButton.addEventListener('click', () => {
@@ -1065,7 +1130,8 @@ function registerListeners(doc) {
 
     if (data['site-url']) {
       // fetch sitemap
-      localStorage.setItem('sitemapForm', JSON.stringify(data));
+      const serialized = JSON.stringify(data);
+      localStorage.setItem('sitemapForm', serialized);
       processForm(data, identifiers, domainKey, replacementDomain, data);
     }
   });

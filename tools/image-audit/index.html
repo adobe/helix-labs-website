@@ -60,10 +60,40 @@
             <li>
               <div class="form-field url-field">
                 <label for="site-url">Site URL</label>
-                <input name="site-url" id="site-url" type="url" required />
+                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required />
                 <div class="field-help-text">
                   <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
                 </div>
+              </div>
+            </li>
+            <li>
+              <div class="form-field url-field">
+                <label>Sitemap replacement</label>
+                <div>
+                  <input type="radio" id="sitemap-none-option" name="sitemap-option" value="none" checked />
+                  <label for="sitemap-none-option">None</label>
+                  <input type="radio" id="sitemap-file-option" name="sitemap-option" value="file" />
+                  <label for="sitemap-file-option">File</label>
+                  <input type="radio" id="sitemap-url-option" name="sitemap-option" value="url" />
+                  <label for="sitemap-url-option">URL</label>
+                </div>
+                <div class="field-help-text">
+                  <p>
+                    A sitemap used in place of a sitemap on the site. Hostnames in the sitemap will be replaced with the site above.
+                  </p>
+                </div>
+              </div>
+            </li>
+            <li id="file-input-container" aria-hidden="true">
+              <div class="form-field file-field">
+                <label for="embedded-sitemap-file" id="embedded-sitemap-file-label">Upload Sitemap File</label>
+                <input name="embedded-sitemap-file" id="embedded-sitemap-file" type="file" accept=".xml" />
+              </div>
+            </li>
+            <li id="url-input-container" aria-hidden="true">
+              <div class="form-field url-field">
+                <label for="embedded-sitemap-url">Enter Sitemap URL</label>
+                <input name="embedded-sitemap-url" id="embedded-sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" />
               </div>
             </li>
             <li>

@@ -259,6 +259,11 @@
   margin-bottom: 1rem;
 }
 
+
+.image-audit .sitemap-form .file-field {
+  min-height: auto;
+}
+
 .image-audit .sitemap-form #identity-selectors {
   display: flex;
   flex-wrap: wrap;

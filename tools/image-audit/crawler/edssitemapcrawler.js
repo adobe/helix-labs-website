@@ -97,9 +97,12 @@ class EDSSitemapCrawler extends AbstractCrawler {
   }
 
   static accept(sitemapFormData) {
-    const url = sitemapFormData['site-url'];
-    const urlType = this.#extractUrlType(url);
-    return urlType?.includes('sitemap'); // TODO: Robots?
+    if (sitemapFormData['sitemap-option'] === 'none') {
+      const url = sitemapFormData['site-url'];
+      const urlType = this.#extractUrlType(url);
+      return urlType?.includes('sitemap'); // TODO: Robots?
+    }
+    return false;
   }
 
   /**
