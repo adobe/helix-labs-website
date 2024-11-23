@@ -1,8 +1,8 @@
 // eslint-disable-next-line import/no-relative-packages
-import CrawlerRegistry from './crawlerregistry.js';
+import CrawlerRegistry from '../crawlerregistry.js';
 import AbstractEDSSitemapCrawler from './abstractedssitemapcrawler.js';
 
-class FileEDSSitemapCrawler extends AbstractEDSSitemapCrawler {
+class FileSitemapCrawler extends AbstractEDSSitemapCrawler {
   static accept(sitemapFormData) {
     if (sitemapFormData['sitemap-option'] === 'file' && sitemapFormData['embedded-sitemap-file']) {
       return this.getSitemapUrl(sitemapFormData) != null;
@@ -11,7 +11,7 @@ class FileEDSSitemapCrawler extends AbstractEDSSitemapCrawler {
   }
 
   async fetchSitemap(sitemapFormData) {
-    const { hostname } = new URL(FileEDSSitemapCrawler.getSitemapUrl(sitemapFormData));
+    const { hostname } = new URL(FileSitemapCrawler.getSitemapUrl(sitemapFormData));
     const file = sitemapFormData['embedded-sitemap-file'][0];
 
     if (!file) {
@@ -36,6 +36,6 @@ class FileEDSSitemapCrawler extends AbstractEDSSitemapCrawler {
   }
 }
 
-export default FileEDSSitemapCrawler;
+export default FileSitemapCrawler;
 
-CrawlerRegistry.registerCrawler(FileEDSSitemapCrawler);
+CrawlerRegistry.registerCrawler(FileSitemapCrawler);

@@ -1,10 +1,10 @@
 // eslint-disable-next-line import/no-relative-packages
-import { createOptimizedPicture } from '../../../scripts/aem.js';
-import { AEM_EDS_HOSTS } from '../identity/imageidentity/urlidentity.js';
-import CrawlerUtil from './util/crawlerutil.js';
-import ImageAudutUtil from '../util/imageauditutil.js';
-import AbstractCrawler from './abstractcrawler.js';
-import CrawlerImageValues from './crawlerimagevalues.js';
+import { createOptimizedPicture } from '../../../../scripts/aem.js';
+import { AEM_EDS_HOSTS } from '../../identity/imageidentity/urlidentity.js';
+import CrawlerUtil from '../util/crawlerutil.js';
+import ImageAudutUtil from '../../util/imageauditutil.js';
+import AbstractCrawler from '../abstractcrawler.js';
+import CrawlerImageValues from '../crawlerimagevalues.js';
 
 class AbstractEDSSitemapCrawler extends AbstractCrawler {
   #duplicateFilter;
@@ -82,7 +82,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     return hostname.includes('github.com') || AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
   }
 
-  async fetchSitemapFromUrl(sitemap, hlxHostname) {
+  async walkSitemapFromUrl(sitemap, hlxHostname) {
     const req = await fetch(sitemap);
     if (req.ok) {
       const text = await req.text();
@@ -103,10 +103,9 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
           return CrawlerUtil.cleanseUrls(allUrls);
         }
         const url = new URL(loc.textContent.trim());
-        // TODO: Should we allow non-helix-hosted sitemaps?
-        url.hostname = hlxHostname;
+        // We dont replace the hostname on nested sitemaps.
         // eslint-disable-next-line no-await-in-loop
-        const nestedUrls = await this.fetchSitemapFromUrl(url, hlxHostname);
+        const nestedUrls = await this.walkSitemapFromUrl(url, hlxHostname);
         allUrls.push(...nestedUrls);
       }
       return CrawlerUtil.cleanseUrls(allUrls);

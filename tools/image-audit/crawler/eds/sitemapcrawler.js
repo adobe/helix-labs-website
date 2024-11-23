@@ -1,8 +1,8 @@
 // eslint-disable-next-line import/no-relative-packages
-import CrawlerRegistry from './crawlerregistry.js';
+import CrawlerRegistry from '../crawlerregistry.js';
 import AbstractEDSSitemapCrawler from './abstractedssitemapcrawler.js';
 
-class EDSSitemapCrawler extends AbstractEDSSitemapCrawler {
+class SitemapCrawler extends AbstractEDSSitemapCrawler {
   /*
   static #extractUrlType(url) {
     const { hostname, pathname } = new URL(url);
@@ -42,12 +42,12 @@ class EDSSitemapCrawler extends AbstractEDSSitemapCrawler {
    * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
    */
   async fetchSitemap(sitemapFormData) {
-    const sitemap = EDSSitemapCrawler.getSitemapUrl(sitemapFormData);
+    const sitemap = SitemapCrawler.getSitemapUrl(sitemapFormData);
     const urlObj = new URL(sitemap);
-    return this.fetchSitemapFromUrl(sitemap, urlObj.hostname);
+    return this.walkSitemapFromUrl(sitemap, urlObj.hostname);
   }
 }
 
-export default EDSSitemapCrawler;
+export default SitemapCrawler;
 
-CrawlerRegistry.registerCrawler(EDSSitemapCrawler);
+CrawlerRegistry.registerCrawler(SitemapCrawler);
