@@ -1,26 +1,28 @@
 /* eslint-disable import/no-relative-packages, max-classes-per-file, class-methods-use-this */
+// These imports register the classes with the IdentityRegistry
+import './identity/defaultidentityloader.js';
+import './reports/defaultreportsloader.js';
+import './crawler/defaultcrawlersloader.js';
+
 import { buildModal } from '../../scripts/scripts.js';
-import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
+import { decorateIcons } from '../../scripts/aem.js';
+
 import ClusterManager from './identity/clustermanager.js';
 import IdentityRegistry from './identity/identityregistry.js';
 import IdentityValues from './identity/identityvalues.js';
 import SitemapLoadOrderIdentity from './identity/sitemaploadorderidentity.js';
 import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
-import PromisePool from './promisepool.js';
-import './identity/defaultidentityloader.js';
-import './reports/defaultreportsloader.js';
+import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
 import PerformanceUtil from './reports/util/performanceutil.js';
 import Lighthouse from './identity/imageidentity/lighthouse.js';
 import NamingUtil from './reports/util/namingutil.js';
+import ImageAuditUtil from './util/imageauditutil.js';
+import CrawlerRegistry from './crawler/crawlerregistry.js';
 
-import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
+// import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
-// These imports register the classes with the IdentityRegistry
-// import './imageidentity/urlidentity.js'; not needed due to above import
-
-const permittedProtocols = ['http', 'https', 'data'];
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
 
@@ -152,14 +154,6 @@ class RewrittenData {
   }
 }
 
-function getFileType(src) {
-  const fileType = src.split('.')
-    .pop().split('?')
-    .shift()
-    .toLowerCase();
-  return fileType;
-}
-
 /**
  * Displays (and creates) a modal with image information.
  * @param {HTMLElement} figure - Figure element representing the image.
@@ -202,7 +196,7 @@ function displayModal(figure) {
     }
 
     const data = {
-      fileType: getFileType(clusterManager.get(clusterId).elementForCluster.src),
+      fileType: ImageAuditUtil.getFileType(clusterManager.get(clusterId).elementForCluster.src),
       count: site.length,
       site,
       alt,
@@ -304,56 +298,6 @@ function validateAlt(alt, count) {
   if (alt.length === 0 || alt.length !== count) return false;
   if (alt.some((item) => item === '')) return false;
   return true;
-}
-
-/**
- * Checks if a given URL is valid based on its protocol.
- *
- * @param {string|URL|Object} url - The URL to validate. It can be a string,
- * an instance of URL, or an object with `href`, `origin`, or `src` properties.
- * @returns {boolean} - Returns `true` if the URL is valid, otherwise `false`.
- */
-function isUrlValid(url) {
-  if (!url) return false;
-  let protocol = '';
-  if (url instanceof URL) {
-    if (url.hostname === 'localhost') {
-      return false;
-    }
-    protocol = url.protocol.replace(':', '').toLowerCase();
-  } else if (typeof url === 'string') {
-    try {
-      const newUrl = new URL(url);
-      return isUrlValid(newUrl);
-    } catch (error) {
-      return false;
-    }
-  } else if (typeof url?.href === 'string') {
-    return isUrlValid(url.href);
-  } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
-    try {
-      const newUrl = new URL(url.src, url.origin);
-      return isUrlValid(newUrl);
-    } catch (error) {
-      return false;
-    }
-  } else if (typeof url?.origin === 'string') {
-    return isUrlValid(url.origin);
-  } else {
-    return false;
-  }
-
-  return permittedProtocols.includes(protocol);
-}
-
-/**
- * Filters and returns an array of valid URLs.
- *
- * @param {string[]} urls - An array of URLs to be validated.
- * @returns {string[]} An array containing only the valid URLs.
- */
-function cleanseUrls(urls) {
-  return urls.filter((url) => isUrlValid(url));
 }
 
 function changeFilters() {
@@ -666,10 +610,8 @@ async function loadImages(
   const promisePool = new PromisePool(concurrency, 'Load Images', false);
   const batchEntries = [];
 
-  const filteredBatch = individualBatch.filter((img) => img && isUrlValid(img.origin));
-
-  for (let i = 0; !window.stopProcessing && i < filteredBatch.length; i += 1) {
-    const img = filteredBatch[i];
+  for (let i = 0; !window.stopProcessing && i < individualBatch.length; i += 1) {
+    const img = individualBatch[i];
 
     const {
       src, origin, site, alt, width, height, aspectRatio, instance, fileType,
@@ -737,152 +679,15 @@ async function loadImages(
   await clusterManager.detectSimilarity(batchEntries, identityState, concurrency);
 
   // colors updated per batch
-  if (identityState[ColorIdentity.type].usedColors) {
+  if (identityState[ColorIdentity.type]?.usedColors) {
     addColorsToFilterList(identityState[ColorIdentity.type].usedColorsSorted);
   }
 
   return batchEntries;
 }
 
-async function fetchPageHtml(url) {
-  const req = await fetch(url, { redirect: 'manual' });
-  if (req.ok) {
-    return req.text();
-  }
-  return null;
-}
-
-function getOptimizedImageUrl(src, origin, defaultWidth) {
-  const originalUrl = new URL(src, origin);
-  const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
-  if (!aemSite) {
-    return src;
-  }
-
-  // Use the width from the query parameter if available, otherwise use the provided defaultWidth
-  const width = originalUrl.searchParams.has('width')
-    ? originalUrl.searchParams.get('width')
-    : defaultWidth;
-
-  const pictureElement = createOptimizedPicture(
-    originalUrl,
-    'Optimized Image',
-    false,
-    [
-      { media: `(min-width: ${width}px)`, width: `${width}` },
-      { width: `${width}` },
-    ],
-  );
-
-  // Extract the URL of the best-matched <source> for this device from pictureElement
-  return `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
-}
-
-/**
- * Fetches image data from a page URL.
- * @param {Object} url - URL object.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
- */
-async function fetchImageDataFromPage(url) {
-  const html = document.createElement('div');
-
-  try {
-    // this counts on url.plain, which wont work for non eds sites.
-    const rawHtml = await fetchPageHtml(url.plain);
-    // everything from here to the end needs to be synchronous or the document will load.
-    // TODO: innerhtml here isn't great.
-    html.innerHTML = rawHtml;
-    if (html) {
-      const seenMap = new Map();
-      const images = html.querySelectorAll('img[src]');
-      const imgData = [...images].map((img) => {
-        const width = img.getAttribute('width') || img.naturalWidth;
-        const { origin } = new URL(url.href);
-        const imgSrc = img.getAttribute('src');
-        const originalUrl = new URL(imgSrc, origin);
-
-        if (!isUrlValid(originalUrl)) {
-          return null;
-        }
-
-        const src = getOptimizedImageUrl(imgSrc, origin, width);
-
-        let instance = 1;
-        if (seenMap.has(src)) {
-          instance = seenMap.get(src) + 1;
-        }
-        seenMap.set(src, instance);
-
-        const alt = img.getAttribute('alt') || '';
-        const height = img.getAttribute('height') || img.naturalHeight;
-        const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
-        const fileType = getFileType(imgSrc);
-
-        return {
-          site: url.href,
-          origin,
-          src,
-          alt,
-          width,
-          height,
-          aspectRatio,
-          instance,
-          fileType,
-        };
-      });
-      return imgData;
-    }
-    return [];
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`unable to fetch ${url.href}:`, error);
-    return [];
-  } finally {
-    html.innerHTML = '';
-  }
-}
-
-/**
- * Fetches data from a batch of URLs.
- * @param {Object[]} batch - Array of URL objects to process in the current batch.
- * @param {number} concurrency - Number of concurrent fetches within the batch.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
- */
-async function fetchBatch(batch, concurrency, counter) {
-  const results = [];
-  const tasks = [];
-
-  for (let i = 0; !window.stopProcessing && i < concurrency; i += 1) {
-    tasks.push((async () => {
-      while (batch.length > 0) {
-        // get the next URL from the batch
-        const url = batch.shift();
-        if (!window.duplicateFilter.has(url.plain)) {
-          // eslint-disable-next-line no-await-in-loop
-          const imgData = await fetchImageDataFromPage(url);
-          if (imgData) {
-            results.push(...imgData);
-            updateCounter(counter, 1);
-          }
-          window.duplicateFilter.add(url.plain);
-        } else {
-          // eslint-disable-next-line no-console
-          console.debug('Duplicate URL found:', url.plain);
-        }
-      }
-    })());
-  }
-
-  const promiseResults = await Promise.allSettled(tasks);
-  promiseResults
-    .filter((result) => result.status === 'rejected')
-    // eslint-disable-next-line no-console
-    .forEach((error) => console.error('Error processing batch', error));
-
-  return results;
-}
-
 async function handleBatch(
+  crawler,
   batch,
   concurrency,
   pagesCounter,
@@ -897,7 +702,9 @@ async function handleBatch(
   submissionValues,
 ) {
   try {
-    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+    const batchData = await crawler
+      .fetchBatch(batch, concurrency, () => updateCounter(pagesCounter, 1));
+
     data.push(...batchData);
 
     // Display images as they are fetched
@@ -969,6 +776,7 @@ function sortImages(doc, target) {
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
 async function fetchAndDisplayBatches(
+  crawler,
   urls,
   identifiers,
   domainKey,
@@ -1011,6 +819,7 @@ async function fetchAndDisplayBatches(
 
     // Process each batch and handle the delay between batches asynchronously
     promisePool.run(async () => handleBatch(
+      crawler,
       batch,
       concurrency, // this means each concurrent batch also gets concurrent tasks = 25.
       pagesCounter,
@@ -1036,105 +845,6 @@ async function fetchAndDisplayBatches(
   clearInterval(timer);
 
   return data;
-}
-
-/**
- * Determines the type of a URL based on its hostname and pathname.
- * @param {string} url - URL to evaluate.
- * @returns {string|boolean} Type of URL.
- */
-function extractUrlType(url) {
-  const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
-  if (pathname.endsWith('.xml')) return 'sitemap';
-  if (pathname.includes('robots.txt')) return 'robots';
-  if (aemSite || hostname.includes('github')) return 'write sitemap';
-  return null;
-}
-
-/**
- * Constructs a sitemap URL.
- * @param {string} url - URL to use for constructing the sitemap.
- * @returns {string|null} Sitemap URL.
- */
-function writeSitemapUrl(url) {
-  const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_EDS_HOSTS.find((h) => hostname.endsWith(h));
-  // construct sitemap URL for an AEM site
-  if (aemSite) {
-    const [ref, repo, owner] = hostname.replace(`.${aemSite}`, '').split('--');
-    return `https://${ref}--${repo}--${owner}.${aemSite.split('.')[0]}.live/sitemap.xml`;
-  }
-  // construct a sitemap URL for a GitHub repository
-  if (hostname.includes('github')) {
-    const [owner, repo] = pathname.split('/').filter((p) => p);
-    return `https://main--${repo}--${owner}.hlx.live/sitemap.xml`;
-  }
-  // TODO: AEM Classic urls too.
-  return null;
-}
-
-/**
- * Attempts to find a sitemap URL within a robots.txt file.
- * @param {string} url - URL of the robots.txt file.
- * @returns {Promise<string|null>} Sitemap URL.
- */
-// async function findSitemapUrl(url) {
-//   const req = await fetch(url);
-//   if (req.ok) {
-//     const text = await req.text();
-//     const lines = text.split('\n');
-//     const sitemapLine = lines.find((line) => line.startsWith('Sitemap'));
-//     return sitemapLine ? sitemapLine.split(' ')[1] : null;
-//   }
-//   return null;
-// }
-
-/**
- * Fetches URLs from a sitemap.
- * @param {string} sitemap - URL of the sitemap to fetch.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
- */
-async function fetchSitemap(sitemap) {
-  const req = await fetch(sitemap);
-  if (req.ok) {
-    const text = await req.text();
-    const xml = new DOMParser().parseFromString(text, 'text/xml');
-    // check for nested sitemaps and recursively fetch them
-    if (xml.querySelector('sitemap')) {
-      const sitemaps = [...xml.querySelectorAll('sitemap loc')];
-      const allUrls = [];
-      // eslint-disable-next-line no-restricted-syntax
-      for (const loc of sitemaps) {
-        if (window.stopProcessing) {
-          return cleanseUrls(allUrls);
-        }
-        const { href, origin } = new URL(loc.textContent.trim());
-        const originSwapped = href.replace(origin, sitemap.origin);
-        // eslint-disable-next-line no-await-in-loop
-        const nestedUrls = await fetchSitemap(originSwapped);
-        allUrls.push(...nestedUrls);
-      }
-      return cleanseUrls(allUrls);
-    }
-    if (xml.querySelector('url')) {
-      const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
-        const { href, origin } = new URL(loc.textContent.trim());
-        const siteMapUrl = new URL(sitemap);
-        const swap = siteMapUrl.origin;
-        let originSwapped = null;
-        if (!siteMapUrl.host.startsWith('localhost')) {
-          originSwapped = href.replace(origin, swap);
-        } else {
-          originSwapped = href;
-        }
-        const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
-        return { href: originSwapped, plain };
-      });
-      return cleanseUrls(urls);
-    }
-  }
-  return [];
 }
 
 /* setup */
@@ -1190,18 +900,37 @@ function finishedLoading() {
   const stopButton = document.getElementById('stop-button');
   stopButton.classList.remove('stop-pulsing');
   window.stopProcessing = false;
+  window.stopCallback = undefined;
 }
 
-async function processForm(sitemap, identifiers, domainKey, replacementDomain, submissionValues) {
+async function processForm(
+  sitemapFormData,
+  identifiers,
+  domainKey,
+  replacementDomain,
+  submissionValues,
+) {
   prepareLoading();
   const colorPaletteContainer = document.getElementById('color-pallette');
   colorPaletteContainer.innerHTML = ''; // Clear the container
 
   document.querySelectorAll('dialog').forEach((dialog) => { dialog.remove(); });
 
-  const urls = await fetchSitemap(sitemap);
+  const crawler = CrawlerRegistry.getCrawlerInstance(sitemapFormData);
+
+  window.stopCallback = crawler.stop;
+
+  const urls = await crawler.fetchSitemap(sitemapFormData);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls, identifiers, domainKey, replacementDomain, submissionValues);
+  await fetchAndDisplayBatches(
+    crawler,
+    urls,
+    identifiers,
+    domainKey,
+    replacementDomain,
+    submissionValues,
+  );
+
   window.clusterManager.getAllClusters().forEach((cluster) => {
     updateFigureData(cluster);
   });
@@ -1267,6 +996,43 @@ function overrideCreateCanvas(doc) {
   };
 }
 
+function domContentLoaded() {
+  const serialized = JSON.parse(localStorage.getItem('sitemapForm'));
+
+  if (serialized) {
+    Object.keys(serialized).forEach((key) => {
+      const input = document.querySelector(`[name="${key}"]`);
+      if (input) {
+        // Skip file input as it cannot be populated directly
+        if (input.type === 'file') return;
+
+        if (input.type === 'radio') {
+          // Handle radio buttons: loop through all radio buttons with the same name
+          const radios = document.querySelectorAll(`input[name="${key}"]`);
+          radios.forEach((radio) => {
+            if (radio.value === serialized[key] || (serialized[key] === '' && !radio.value)) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event('change')); // Trigger change event
+            }
+          });
+        } else if (input.type === 'checkbox') {
+          // Handle checkboxes (multiple selections)
+          if (Array.isArray(serialized[key])) {
+            input.checked = serialized[key].includes(input.value);
+          } else {
+            input.checked = serialized[key] === input.value;
+          }
+          input.dispatchEvent(new Event('change')); // Trigger change event
+        } else {
+          // For other input types, just set the value
+          input.value = serialized[key];
+          input.dispatchEvent(new Event('change')); // Trigger change event
+        }
+      }
+    });
+  }
+}
+
 function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
@@ -1277,24 +1043,53 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
   // Function to populate the dropdown with reports
 
-  window.addEventListener('DOMContentLoaded', () => {
-    requestAnimationFrame(() => {
-      const savedData = JSON.parse(localStorage.getItem('sitemapForm'));
-      if (savedData) {
-        Object.keys(savedData).forEach((key) => {
-          const input = document.querySelector(`[name="${key}"]`);
-          if (input) {
-            input.value = savedData[key];
-          }
-        });
+  document.querySelectorAll('input[name="sitemap-option"]').forEach((option) => {
+    option.addEventListener('change', (event) => {
+      const fileInputContainer = document.getElementById('file-input-container');
+      const urlInputContainer = document.getElementById('url-input-container');
+      const fileInput = document.getElementById('embedded-sitemap-file');
+      const urlInput = document.getElementById('embedded-sitemap-url');
+
+      if (event.target.value === 'file') {
+        fileInputContainer.setAttribute('aria-hidden', 'false');
+        urlInputContainer.setAttribute('aria-hidden', 'true');
+        fileInput.setAttribute('required', 'required');
+        urlInput.removeAttribute('required');
+      } else if (event.target.value === 'url') {
+        fileInputContainer.setAttribute('aria-hidden', 'true');
+        urlInputContainer.setAttribute('aria-hidden', 'false');
+        urlInput.setAttribute('required', 'required');
+        fileInput.removeAttribute('required');
+      } else {
+        // "None" selected: hide both fields and remove requirements
+        fileInputContainer.setAttribute('aria-hidden', 'true');
+        urlInputContainer.setAttribute('aria-hidden', 'true');
+        fileInput.removeAttribute('required');
+        urlInput.removeAttribute('required');
       }
     });
   });
+
+  doc.getElementById('embedded-sitemap-file').addEventListener('change', (event) => {
+    const fileInput = event.target;
+    const label = document.getElementById('embedded-sitemap-file-label');
+
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+
+      label.textContent = `File: ${file.name}`;
+    } else {
+      label.textContent = 'Click to select sitemap';
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', () => domContentLoaded());
 
   const stopButton = doc.getElementById('stop-button');
   stopButton.addEventListener('click', () => {
     stopButton.classList.add('stop-pulsing');
     window.stopProcessing = true;
+    window.stopCallback();
   });
 
   // handle form submission
@@ -1304,8 +1099,6 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
     const data = getFormData(e.srcElement);
-    const url = data['site-url'];
-    const urlType = extractUrlType(url);
 
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
@@ -1335,11 +1128,11 @@ function registerListeners(doc) {
       doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
     }
 
-    if (urlType?.includes('sitemap')) {
+    if (data['site-url']) {
       // fetch sitemap
-      localStorage.setItem('sitemapForm', JSON.stringify(data));
-      const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap, identifiers, domainKey, replacementDomain, data);
+      const serialized = JSON.stringify(data);
+      localStorage.setItem('sitemapForm', serialized);
+      processForm(data, identifiers, domainKey, replacementDomain, data);
     }
   });
 

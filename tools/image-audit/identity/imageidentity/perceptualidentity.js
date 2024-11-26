@@ -3,7 +3,7 @@ import pixelmatch from 'pixelmatch';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
-import PromisePool from '../../promisepool.js';
+import PromisePool from '../../util/promisepool.js';
 
 const hammingDistanceThreshold = 20;
 

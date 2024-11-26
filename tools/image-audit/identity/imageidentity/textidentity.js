@@ -4,7 +4,7 @@ import Tesseract from 'tesseract.js';
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
-import PromisePool from '../../promisepool.js';
+import PromisePool from '../../util/promisepool.js';
 import TextUtility from '../util/textutility.js';
 
 const concurrentOCR = 5;
