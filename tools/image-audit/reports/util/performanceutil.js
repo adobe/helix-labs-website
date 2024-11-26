@@ -1,5 +1,5 @@
 class PerformanceUtil {
-  static getPerformanceScore(conversions, pageViews, visits, round) {
+  static getPerformanceScore(conversions, pageViews, visits, bounces, round) {
     if (pageViews > 0 && conversions > 0) {
       const rv = Math.round((100 * (conversions / pageViews)));
       if (!round) return rv;
@@ -11,7 +11,7 @@ class PerformanceUtil {
   }
 
   static decorateReportData(row, conversions, pageViews, visits, bounces) {
-    row.set('Performance Score', PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true) || '');
+    row.set('Performance Score', PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, bounces, true) || '');
     row.set('Page Views', pageViews > 0 ? pageViews : ' < 100');
     row.set('Conversions', conversions > 0 ? conversions : ' < 100');
     row.set('Visits', visits > 0 ? visits : ' < 100');

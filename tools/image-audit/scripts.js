@@ -3,6 +3,7 @@
 import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import './crawler/defaultcrawlersloader.js';
+import './sort/defaultsortsloader.js';
 
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
@@ -15,11 +16,11 @@ import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
 import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
-import PerformanceUtil from './reports/util/performanceutil.js';
-import Lighthouse from './identity/imageidentity/lighthouse.js';
+import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './reports/util/namingutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
+import SortRegistry from './sort/sortregistry.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -212,7 +213,7 @@ function displayModal(figure) {
       data.topColors = colorIdentity.topColorsSorted;
     }
 
-    const lighthouse = cluster.getSingletonOf(Lighthouse.type);
+    const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
 
     if (window.collectingRum) {
       const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
@@ -226,7 +227,6 @@ function displayModal(figure) {
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
       rows.lighthouse = 'Asset Success Score';
-      data.performanceScore = `${PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true)}`;
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
@@ -453,30 +453,14 @@ function updateFigureData(cluster) {
   const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
 
   figure.dataset.alt = validateAlt(altText, sites.length);
-  figure.dataset.count = sites.length;
 
   // TODO: Different copies can have different aspect ratios.
+  // This presumes they're all the same.
   const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
   if (identity && identity.aspectRatio) {
     const aspect = identity.aspectRatio;
-    figure.dataset.aspect = aspect;
     figure.dataset.shape = getShapeForRatio(aspect);
   }
-
-  if (window.collectingRum) {
-    const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
-    const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
-    const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
-
-    const performanceScore = PerformanceUtil
-      .getPerformanceScore(conversions, pageViews, visits, false);
-    figure.dataset.performance = performanceScore * 1000000000 + pageViews;
-    figure.dataset.views = pageViews;
-    figure.dataset.visits = visits;
-    figure.dataset.clicks = conversions;
-  }
-
-  figure.dataset.lighthouse = Math.round(cluster.getSingletonOf(Lighthouse.type).scores.total);
 }
 
 async function executePreflightFunctions(identityValues, identityState) {
@@ -730,28 +714,25 @@ function sortImages(doc, target) {
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
 
-  const type = target.value;
+  const sortKey = target.value;
   const sortOrder = parseInt(target.dataset.order, 10);
-  const figures = [...GALLERY.querySelectorAll('figure')];
 
-  // Sort figures based on selected type and order
-  const sorted = figures.sort((a, b) => {
-    if (typeof a.dataset[type] !== 'string' || typeof b.dataset[type] !== 'string') {
-      return 0;
-    }
+  const { sortRegistry } = window;
+  // Get the sort instance from the SortRegistry
+  const sorter = sortRegistry.getSortInstance(sortKey);
 
-    if (a.dataset[type].includes('.') || b.dataset[type].includes('.')) {
-      const aVal = parseFloat(a.dataset[type]);
-      const bVal = parseFloat(b.dataset[type]);
-      return sortOrder > 0 ? aVal - bVal : bVal - aVal;
+  const { clusterManager } = window;
+
+  // Perform sorting using the sort class
+  const sortedClusters = sorter.sort(clusterManager, 1, 1000, sortOrder > 0);
+
+  // Clear the gallery and append sorted figures
+  GALLERY.innerHTML = ''; // Clear current gallery content
+  sortedClusters.forEach((cluster) => {
+    if (cluster.figureForCluster) {
+      GALLERY.appendChild(cluster.figureForCluster);
     }
-    const aVal = parseInt(a.dataset[type], 10);
-    const bVal = parseInt(b.dataset[type], 10);
-    return sortOrder > 0 ? aVal - bVal : bVal - aVal;
   });
-
-  // Append sorted figures to the gallery
-  GALLERY.append(...sorted);
 
   // Toggle the sort order for the next click
   target.dataset.order = sortOrder * -1;
@@ -846,6 +827,47 @@ async function fetchAndDisplayBatches(
   return data;
 }
 
+function addSortAction(doc, action) {
+  action.addEventListener('click', (e) => {
+    const { target } = e;
+    sortImages(doc, target);
+  });
+}
+
+function addSortActionsToActionBar(sitemapFormData, identifiers) {
+  const sortsList = document.getElementById('sorts');
+
+  // Clear existing list items
+  sortsList.innerHTML = '';
+
+  // Generate and append new list items
+  SortRegistry.getSorts(sitemapFormData, identifiers).forEach((sort) => {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    const span = document.createElement('span');
+
+    // Configure the input element
+    input.type = 'radio';
+    input.name = 'sort';
+    input.value = sort.key;
+    input.id = `sort-${sort.key}`;
+    input.setAttribute('data-order', '-1'); // Default order
+
+    // Call addSortAction with the input as action
+    addSortAction(document, input);
+
+    // Configure the span element
+    span.textContent = sort.description;
+
+    // Assemble the elements
+    label.appendChild(input);
+    label.appendChild(span);
+    li.appendChild(label);
+    sortsList.appendChild(li);
+  });
+}
+
 /* setup */
 
 function setupWindowVariables() {
@@ -857,6 +879,7 @@ function setupWindowVariables() {
   window.lastExecutionTime = Date.now();
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
   window.stopProcessing = false;
+  window.sortRegistry = new SortRegistry();
 }
 
 function prepareLoading() {
@@ -933,6 +956,8 @@ async function processForm(
   window.clusterManager.getAllClusters().forEach((cluster) => {
     updateFigureData(cluster);
   });
+
+  addSortActionsToActionBar(sitemapFormData, identifiers);
 
   finishedLoading();
 }
@@ -1102,16 +1127,11 @@ function registerListeners(doc) {
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
 
-    const rumDiv = doc.getElementById('collecting-rum');
     const domainKey = data['domain-key'];
     if (domainKey) {
       window.collectingRum = true;
-      rumDiv.setAttribute('aria-hidden', false);
-      rumDiv.setAttribute('class', 'form-field radio-field');
     } else {
       window.collectingRum = false;
-      doc.getElementById('collecting-rum').setAttribute('aria-hidden', true);
-      rumDiv.removeAttribute('class');
     }
 
     const replacementDomain = data['replacement-domain'];
@@ -1180,10 +1200,7 @@ function registerListeners(doc) {
   });
 
   SORT_ACTIONS.forEach((action) => {
-    action.addEventListener('click', (e) => {
-      const { target } = e;
-      sortImages(doc, target);
-    });
+    addSortAction(doc, action);
   });
 
   FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
