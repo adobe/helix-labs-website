@@ -447,7 +447,6 @@ function updateFigureData(cluster) {
 
   if (colorIdentity && colorIdentity.topColors.length > 0) {
     figure.dataset.topColors = colorIdentity.topColors.join(',');
-    figure.dataset.colorIndex = colorIdentity.colorIndex;
   }
 
   const altText = cluster.getAll(UrlAndPageIdentity.type, 'alt');
@@ -1121,10 +1120,8 @@ function registerListeners(doc) {
       .map((a) => a.value));
 
     if (identifiers.has(ColorIdentity.type)) {
-      doc.getElementById('color-sort').removeAttribute('aria-hidden');
       doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
     } else {
-      doc.getElementById('color-sort').setAttribute('aria-hidden', true);
       doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
     }
 

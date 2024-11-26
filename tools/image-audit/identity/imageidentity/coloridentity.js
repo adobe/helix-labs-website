@@ -131,30 +131,6 @@ class ColorIdentity extends AbstractIdentity {
     return Array.from(diffColors);
   }
 
-  get colorIndex() {
-    // accounting for unknown and transparency
-    const internalNumberOfTopColors = numberOfTopColors + 2;
-    const colorIndices = new Array(internalNumberOfTopColors + 2).fill(0);
-
-    const colorsArray = Array.from(this.#topColors);
-
-    if (!colorsArray) {
-      return 0;
-    }
-
-    for (let i = 0; i < internalNumberOfTopColors; i += 1) {
-      if (colorsArray[i]) {
-        colorIndices[i] = ColorUtility.sortedColorNames.indexOf(colorsArray[i]) + 1;
-      }
-    }
-
-    const binaryString = colorIndices.map((num) => num.toString(2).padStart(7, '0')).join('');
-
-    // Convert the binary string back into a regular number
-    const combinedNumber = parseInt(binaryString, 2);
-    return combinedNumber;
-  }
-
   static async identifyPostflightWithCanvas(identityValues, identityState) {
     const { originatingClusterId, clusterManager, href } = identityValues;
     const colorIdentity = new ColorIdentity(identityState);
