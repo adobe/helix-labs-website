@@ -65,25 +65,40 @@ class FilterRegistry {
   static include(cluster, checkedFilters) {
     if (checkedFilters.length === 0) return true;
 
-    // If no matching filter returns false,
-    // and at least one filter returns true, return true
+    // regroup the checked filters for wildcards
+    const filterKeyToFilterKeys = new Map();
 
-    let foundAnyTrue = false;
     for (let i = 0; i < checkedFilters.length; i += 1) {
       const filterKey = checkedFilters[i];
       const filter = this.get(filterKey);
       if (filter) {
-        if (filter.include(cluster, filterKey)) {
-          foundAnyTrue = true;
-        } else {
-          return false;
+        if (!filterKeyToFilterKeys.has(filter.key)) {
+          filterKeyToFilterKeys.set(filter.key, []);
         }
+        filterKeyToFilterKeys.get(filter.key).push(filterKey);
       } else {
         // eslint-disable-next-line no-console
         console.error(`Filter not found: ${filterKey}`);
+      }
+    }
+
+    let foundAnyTrue = false;
+
+    // If no matching filter returns false,
+    // and at least one filter returns true, return true
+
+    // avoiding use of generator-runtime.
+    const entries = Array.from(filterKeyToFilterKeys.entries());
+    for (let i = 0; i < entries.length; i += 1) {
+      const [filterKey, filterKeys] = entries[i];
+      const filter = this.get(filterKey);
+      if (filter.include(cluster, filterKeys)) {
+        foundAnyTrue = true;
+      } else {
         return false;
       }
     }
+
     return foundAnyTrue;
   }
 }

@@ -17,7 +17,7 @@ class Portrait extends AbstractFilter {
   }
 
   // eslint-disable-next-line no-unused-vars
-  static include(cluster, filterKey) {
+  static include(cluster, filterKeys) {
     const ratios = cluster.getAll(UrlAndPageIdentity.type, 'aspectRatio');
 
     const result = ratios.filter((ratio) => ratio < 1);
