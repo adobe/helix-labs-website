@@ -114,13 +114,18 @@
 
 .import button.negative,
 .import button.negative:focus {
-  background-color: var(--red-800);
-  color: var(--gray-100);
+  background-color: var(--gray-100);
+  color: var(--red-800);
+  border-color: var(--red-800);
+}
+
+.import button.negative:focus {
+  outline-color: var(--red-800);
 }
 
 .import button.negative:hover {
-  color: var(--color-text);
-  border-color: var(--red-800);
+  background-color: var(--red-100);
+  color: var(--red-800);
 }
 
 #results table {
