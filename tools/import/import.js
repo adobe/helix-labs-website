@@ -37,10 +37,11 @@ function formatDuration(durationMs) {
   if (!durationMs) {
     return 'N/A';
   }
-  const seconds = Math.floor((durationMs / 1000) % 60);
-  const minutes = Math.floor((durationMs / (1000 * 60)) % 60);
-  const hours = Math.floor((durationMs / (1000 * 60 * 60)) % 24);
-  const days = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+  const checkedDurationMs = Math.max(durationMs, 0);
+  const seconds = Math.floor((checkedDurationMs / 1000) % 60);
+  const minutes = Math.floor((checkedDurationMs / (1000 * 60)) % 60);
+  const hours = Math.floor((checkedDurationMs / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(checkedDurationMs / (1000 * 60 * 60 * 24));
 
   if (days === 0 && hours === 0) {
     return `${minutes}m ${seconds}s`;

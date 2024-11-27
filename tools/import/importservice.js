@@ -73,7 +73,7 @@ export default class ImportService {
       const { id: jobId } = $this.job;
       if (jobId) {
         await $this.queryJob($this.job);
-        if ($this.job.status === 'COMPLETE' || $this.job.status === 'FAILURE') {
+        if ($this.job.status !== 'RUNNING') {
           clearInterval($this.importInterval);
           $this.importInterval = undefined;
           const { downloadUrl } = await $this.fetchResult($this.job);
@@ -254,7 +254,7 @@ export default class ImportService {
     let resp;
     try {
       resp = await fetch(
-        `${this.endpoint}${IMPORT_JOBS_PATH}/${jobId}/result`,
+        `${this.endpoint}${IMPORT_JOBS_PATH}/${jobId}`,
         {
           method: 'PATCH',
           headers: this.#getAuthHeaders(),
