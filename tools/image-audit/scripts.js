@@ -4,6 +4,7 @@ import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import './crawler/defaultcrawlersloader.js';
 import './sort/defaultsortsloader.js';
+import './filter/defaultfilterloader.js';
 
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
@@ -21,6 +22,7 @@ import NamingUtil from './reports/util/namingutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
+import FilterRegistry from './filter/filterregistry.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -287,87 +289,68 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-/* image processing and display */
-/**
- * Validates that every image in an array has alt text.
- * @param {string[]} alt - Array of alt text strings associated with the image.
- * @param {number} count - Expected number of alt text entries (equal to the number of appearances).
- * @returns {boolean} `true` if the alt text is valid, `false` otherwise.
- */
-function validateAlt(alt, count) {
-  if (alt.length === 0 || alt.length !== count) return false;
-  if (alt.some((item) => item === '')) return false;
-  return true;
+function sortImages(doc, targetSort) {
+  let target = targetSort;
+  if (target) window.lastTarget = target;
+  else target = window.lastTarget;
+
+  const CANVAS = doc.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
+  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+  const checkedFilters = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+
+  const sortKey = target.value;
+  const sortOrder = parseInt(target.dataset.order, 10);
+
+  const { sortRegistry } = window;
+  // Get the sort instance from the SortRegistry
+  const sorter = sortRegistry.getSortInstance(sortKey);
+
+  const { clusterManager } = window;
+
+  // Perform sorting using the sort class
+  const sortedClusters = sorter.sort(clusterManager, checkedFilters, 1, 1000, sortOrder > 0);
+
+  // Clear the gallery and append sorted figures
+  GALLERY.innerHTML = ''; // Clear current gallery content
+  sortedClusters.forEach((cluster) => {
+    if (cluster.figureForCluster) {
+      GALLERY.appendChild(cluster.figureForCluster);
+    }
+  });
+
+  // Toggle the sort order for the next click
+  target.dataset.order = sortOrder * -1;
+
+  // Remove existing arrows from all sort options
+  SORT_ACTIONS.forEach((action) => {
+    const label = action.nextElementSibling;
+    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
+  });
+
+  // Add the arrow to the selected sort option
+  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
+  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
 }
 
-function changeFilters() {
+function changeFilters(triggerElement) {
   const CANVAS = document.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
 
-  const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-  const figures = [...GALLERY.querySelectorAll('figure')];
-
-  const checkColors = checked.filter((c) => c.startsWith('color-'));
-  const checkShapes = checked.filter((c) => c.startsWith('shape-'));
-
-  figures.forEach((figure) => {
-    const { shape } = figure.dataset;
-    let hide = true; // hide figures by default
-
-    // check images against filter critera
-    if (checked.length === 0) { // no filters are selected
-      // show all figures
-      hide = false;
-    } else {
-      let hiddenChanged = false;
-
-      if (checked.includes('missing-alt')) {
-        // only show figures without alt text
-        hide = figure.dataset.alt === 'true';
-        hiddenChanged = true;
-      }
-
-      // shapes are subtractive against missing alt.
-      if (checkShapes.length > 0) {
-        // only one shape.
-        if (checkShapes.includes(`shape-${shape}`)) {
-          if (!hiddenChanged) {
-            hide = false;
-            hiddenChanged = true;
-          }
-        } else {
-          hide = true;
-          hiddenChanged = true;
-        }
-      }
-
-      // colors are subtractive against other matches.
-      if (checkColors.length > 0) {
-        let foundAnyColor = false;
-        if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
-          figure.dataset.topColors.split(',').forEach((color) => {
-            if (checked.includes(`color-${color}`)) {
-              foundAnyColor = true;
-            }
-          });
-        }
-
-        if (!foundAnyColor) {
-          hide = true;
-          hiddenChanged = true;
-        } else if (!hiddenChanged) {
-          hide = false;
-          hiddenChanged = true;
-        }
-      } else if (!hiddenChanged) {
-        hide = false;
-      }
+  const checkedPreFilter = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+  const filter = FilterRegistry.get(triggerElement.value);
+  const uncheckSet = new Set(filter.changeCheckedFiltersOnCheck(checkedPreFilter));
+  // Uncheck all checkboxes in the uncheckSet
+  FILTER_ACTIONS.forEach((input) => {
+    if (uncheckSet.has(input.value)) {
+      input.checked = false;
     }
-
-    figure.setAttribute('aria-hidden', hide);
   });
+
+  sortImages(document, null);
 }
 
 /**
@@ -385,7 +368,7 @@ function changeFilters() {
  * in the gallery to show or hide it based on the selected filters.
  */
 function addFilterAction(action) {
-  action.addEventListener('change', () => changeFilters());
+  action.addEventListener('change', (event) => changeFilters(event.target));
 }
 
 function addColorsToFilterList(sortedColorNames) {
@@ -447,19 +430,6 @@ function updateFigureData(cluster) {
 
   if (colorIdentity && colorIdentity.topColors.length > 0) {
     figure.dataset.topColors = colorIdentity.topColors.join(',');
-  }
-
-  const altText = cluster.getAll(UrlAndPageIdentity.type, 'alt');
-  const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
-
-  figure.dataset.alt = validateAlt(altText, sites.length);
-
-  // TODO: Different copies can have different aspect ratios.
-  // This presumes they're all the same.
-  const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
-  if (identity && identity.aspectRatio) {
-    const aspect = identity.aspectRatio;
-    figure.dataset.shape = getShapeForRatio(aspect);
   }
 }
 
@@ -538,7 +508,6 @@ function displayImage(clusterId) {
   // append the figure to the gallery if needed
   gallery.append(cluster.figureForCluster);
   updateCounter(document.getElementById('images-counter'), 1);
-  changeFilters();
 }
 
 async function loadImage(
@@ -708,46 +677,6 @@ async function handleBatch(
   }
 }
 
-function sortImages(doc, target) {
-  const CANVAS = doc.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
-  const ACTION_BAR = CANVAS.querySelector('.action-bar');
-  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
-
-  const sortKey = target.value;
-  const sortOrder = parseInt(target.dataset.order, 10);
-
-  const { sortRegistry } = window;
-  // Get the sort instance from the SortRegistry
-  const sorter = sortRegistry.getSortInstance(sortKey);
-
-  const { clusterManager } = window;
-
-  // Perform sorting using the sort class
-  const sortedClusters = sorter.sort(clusterManager, 1, 1000, sortOrder > 0);
-
-  // Clear the gallery and append sorted figures
-  GALLERY.innerHTML = ''; // Clear current gallery content
-  sortedClusters.forEach((cluster) => {
-    if (cluster.figureForCluster) {
-      GALLERY.appendChild(cluster.figureForCluster);
-    }
-  });
-
-  // Toggle the sort order for the next click
-  target.dataset.order = sortOrder * -1;
-
-  // Remove existing arrows from all sort options
-  SORT_ACTIONS.forEach((action) => {
-    const label = action.nextElementSibling;
-    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
-  });
-
-  // Add the arrow to the selected sort option
-  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
-  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
-}
-
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
@@ -842,29 +771,66 @@ function addSortActionsToActionBar(sitemapFormData, identifiers) {
 
   // Generate and append new list items
   SortRegistry.getSorts(sitemapFormData, identifiers).forEach((sort) => {
-    const li = document.createElement('li');
-    const label = document.createElement('label');
-    const input = document.createElement('input');
-    const span = document.createElement('span');
+    if (!document.getElementById(`sort-${sort.key}`)) {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      const span = document.createElement('span');
 
-    // Configure the input element
-    input.type = 'radio';
-    input.name = 'sort';
-    input.value = sort.key;
-    input.id = `sort-${sort.key}`;
-    input.setAttribute('data-order', '-1'); // Default order
+      // Configure the input element
+      input.type = 'radio';
+      input.name = 'sort';
+      input.value = sort.key;
+      input.id = `sort-${sort.key}`;
+      input.setAttribute('data-order', '-1'); // Default order
 
-    // Call addSortAction with the input as action
-    addSortAction(document, input);
+      // Call addSortAction with the input as action
+      addSortAction(document, input);
 
-    // Configure the span element
-    span.textContent = sort.description;
+      // Configure the span element
+      span.textContent = sort.description;
 
-    // Assemble the elements
-    label.appendChild(input);
-    label.appendChild(span);
-    li.appendChild(label);
-    sortsList.appendChild(li);
+      // Assemble the elements
+      label.appendChild(input);
+      label.appendChild(span);
+      li.appendChild(label);
+      sortsList.appendChild(li);
+    }
+  });
+}
+
+function addFilterActionsToActionBar(sitemapFormData, identifiers) {
+  const filterList = document.getElementById('filters');
+
+  // Clear existing list items
+  filterList.innerHTML = '';
+
+  // Generate and append new list items
+  FilterRegistry.getFilters(sitemapFormData, identifiers).forEach((filter) => {
+    if (!document.getElementById(`filter-${filter.key}`)) {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      const span = document.createElement('span');
+
+      // Configure the input element
+      input.type = 'radio';
+      input.name = 'filter';
+      input.value = filter.key;
+      input.id = `filter-${filter.key}`;
+
+      // Call addSortAction with the input as action
+      addSortAction(document, input);
+
+      // Configure the span element
+      span.textContent = filter.description;
+
+      // Assemble the elements
+      label.appendChild(input);
+      label.appendChild(span);
+      li.appendChild(label);
+      filterList.appendChild(li);
+    }
   });
 }
 
@@ -872,6 +838,7 @@ function addSortActionsToActionBar(sitemapFormData, identifiers) {
 
 function setupWindowVariables() {
   window.enableModals = false;
+  window.lastTarget = null;
   window.imageCount = 0;
   window.clusterManager = new ClusterManager();
   window.identityState = {};
@@ -958,6 +925,8 @@ async function processForm(
   });
 
   addSortActionsToActionBar(sitemapFormData, identifiers);
+  addFilterActionsToActionBar(sitemapFormData, identifiers);
+  // SORT HERE
 
   finishedLoading();
 }
