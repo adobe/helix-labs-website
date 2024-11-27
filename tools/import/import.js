@@ -308,10 +308,12 @@ function addJobsList(jobs) {
 
   fields.stopButton.addEventListener('click', async (event) => {
     event.preventDefault();
-    try {
-      await service.stopCurrentJob();
-    } catch (e) {
-      fields.stopButton.querySelector('span').textContent = e.message;
-    }
+    service.stopCurrentJob()
+      .then(() => {
+        displayStopButton(false);
+      })
+      .catch((e) => {
+        fields.stopButton.querySelector('span').textContent = e.message;
+      });
   });
 })();

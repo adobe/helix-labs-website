@@ -112,6 +112,17 @@
   display: none;
 }
 
+.import button.negative,
+.import button.negative:focus {
+  background-color: var(--red-800);
+  color: var(--gray-100);
+}
+
+.import button.negative:hover {
+  color: var(--color-text);
+  border-color: var(--red-800);
+}
+
 #results table {
   display: grid;
   min-width: 100%;
