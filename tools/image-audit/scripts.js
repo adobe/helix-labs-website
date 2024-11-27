@@ -23,6 +23,7 @@ import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
 import FilterRegistry from './filter/filterregistry.js';
+import AbstractFilter from './filter/abstractfilter.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -289,7 +290,12 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-function sortImages(doc, targetSort) {
+function sortImages(doc, targetSort, targetFilter) {
+  if ((targetSort && targetFilter) || (!targetSort && !targetFilter)) {
+    throw new Error('sortImages() must be called with either targetSort or targetFilter');
+  }
+
+  const sortTriggered = targetSort !== null;
   let target = targetSort;
   if (target) window.lastTarget = target;
   else target = window.lastTarget;
@@ -302,7 +308,22 @@ function sortImages(doc, targetSort) {
   const checkedFilters = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
 
   const sortKey = target.value;
-  const sortOrder = parseInt(target.dataset.order, 10);
+
+  let ascending = false;
+
+  if (target.dataset.order === undefined
+    || target.dataset.order === null
+    || target.dataset.order === '') {
+    // not previously set, set to descending.
+    ascending = false;
+  } else if (target.dataset.order === 'ascending') {
+    // eslint-disable-next-line no-unneeded-ternary
+    ascending = sortTriggered ? false : true; // if a click on sort triggered it, flip the order
+  } else if (target.dataset.order === 'descending') {
+    // eslint-disable-next-line no-unneeded-ternary
+    ascending = sortTriggered ? true : false; // if a click on sort triggered it, flip the order
+  }
+  target.dataset.order = ascending ? 'ascending' : 'descending';
 
   const { sortRegistry } = window;
   // Get the sort instance from the SortRegistry
@@ -311,7 +332,7 @@ function sortImages(doc, targetSort) {
   const { clusterManager } = window;
 
   // Perform sorting using the sort class
-  const sortedClusters = sorter.sort(clusterManager, checkedFilters, 1, 1000, sortOrder > 0);
+  const sortedClusters = sorter.sort(clusterManager, checkedFilters, 1, 1000, ascending);
 
   // Clear the gallery and append sorted figures
   GALLERY.innerHTML = ''; // Clear current gallery content
@@ -321,18 +342,16 @@ function sortImages(doc, targetSort) {
     }
   });
 
-  // Toggle the sort order for the next click
-  target.dataset.order = sortOrder * -1;
+  if (sortTriggered) {
+    // Remove existing arrows from all sort options
+    SORT_ACTIONS.forEach((action) => {
+      const label = action.nextElementSibling;
+      label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
+    });
 
-  // Remove existing arrows from all sort options
-  SORT_ACTIONS.forEach((action) => {
-    const label = action.nextElementSibling;
-    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
-  });
-
-  // Add the arrow to the selected sort option
-  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
-  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
+    const arrow = ascending ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
+    target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
+  }
 }
 
 function changeFilters(triggerElement) {
@@ -350,7 +369,7 @@ function changeFilters(triggerElement) {
     }
   });
 
-  sortImages(document, null);
+  sortImages(document, null, triggerElement);
 }
 
 /**
@@ -402,7 +421,7 @@ function addColorsToFilterList(sortedColorNames) {
       if (checkbox.checked) colorSpan.classList.add('selected');
       else colorSpan.classList.remove('selected');
     });
-    addFilterAction(checkbox, document);
+    addFilterAction(checkbox);
 
     // Append the hidden checkbox and color square to the label
     label.appendChild(checkbox);
@@ -414,23 +433,6 @@ function addColorsToFilterList(sortedColorNames) {
     // Append the list item to the main color palette container
     colorPaletteContainer.appendChild(listItem);
   });
-}
-
-/**
- * Utility to updates the dataset attributes of a given figure element with provided data.
- * Should be called after any update to the sorting or filtering attributes.
- *
- * @param {HTMLElement} figure - The figure element to update.
- */
-function updateFigureData(cluster) {
-  const figure = cluster.figureForCluster;
-  if (!figure || !figure.dataset) return;
-
-  const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
-
-  if (colorIdentity && colorIdentity.topColors.length > 0) {
-    figure.dataset.topColors = colorIdentity.topColors.join(',');
-  }
 }
 
 async function executePreflightFunctions(identityValues, identityState) {
@@ -506,7 +508,9 @@ function displayImage(clusterId) {
   }
   const gallery = document.getElementById('image-gallery');
   // append the figure to the gallery if needed
-  gallery.append(cluster.figureForCluster);
+  if (gallery.children.length < 1000) {
+    gallery.append(cluster.figureForCluster);
+  }
   updateCounter(document.getElementById('images-counter'), 1);
 }
 
@@ -759,7 +763,7 @@ async function fetchAndDisplayBatches(
 function addSortAction(doc, action) {
   action.addEventListener('click', (e) => {
     const { target } = e;
-    sortImages(doc, target);
+    sortImages(doc, target, null);
   });
 }
 
@@ -771,7 +775,10 @@ function addSortActionsToActionBar(sitemapFormData, identifiers) {
 
   // Generate and append new list items
   SortRegistry.getSorts(sitemapFormData, identifiers).forEach((sort) => {
-    if (!document.getElementById(`sort-${sort.key}`)) {
+    const existingElement = document.getElementById(`sort-${sort.key}`);
+    if (existingElement) {
+      addSortAction(document, existingElement);
+    } else {
       const li = document.createElement('li');
       const label = document.createElement('label');
       const input = document.createElement('input');
@@ -784,7 +791,6 @@ function addSortActionsToActionBar(sitemapFormData, identifiers) {
       input.id = `sort-${sort.key}`;
       input.setAttribute('data-order', '-1'); // Default order
 
-      // Call addSortAction with the input as action
       addSortAction(document, input);
 
       // Configure the span element
@@ -807,29 +813,34 @@ function addFilterActionsToActionBar(sitemapFormData, identifiers) {
 
   // Generate and append new list items
   FilterRegistry.getFilters(sitemapFormData, identifiers).forEach((filter) => {
-    if (!document.getElementById(`filter-${filter.key}`)) {
-      const li = document.createElement('li');
-      const label = document.createElement('label');
-      const input = document.createElement('input');
-      const span = document.createElement('span');
+    // wildcards manage their own listeners and elements.
+    if (!filter.key.endsWith(AbstractFilter.WILDCARD)) {
+      const existingElement = document.getElementById(`filter-${filter.key}`);
+      if (existingElement) {
+        addFilterAction(existingElement);
+      } else {
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        const span = document.createElement('span');
 
-      // Configure the input element
-      input.type = 'radio';
-      input.name = 'filter';
-      input.value = filter.key;
-      input.id = `filter-${filter.key}`;
+        // Configure the input element
+        input.type = 'checkbox';
+        input.name = 'filter';
+        input.value = filter.key;
+        input.id = `filter-${filter.key}`;
 
-      // Call addSortAction with the input as action
-      addSortAction(document, input);
+        addFilterAction(input);
 
-      // Configure the span element
-      span.textContent = filter.description;
+        // Configure the span element
+        span.textContent = filter.description;
 
-      // Assemble the elements
-      label.appendChild(input);
-      label.appendChild(span);
-      li.appendChild(label);
-      filterList.appendChild(li);
+        // Assemble the elements
+        label.appendChild(input);
+        label.appendChild(span);
+        li.appendChild(label);
+        filterList.appendChild(li);
+      }
     }
   });
 }
@@ -879,9 +890,9 @@ function finishedLoading() {
   actionForm.setAttribute('aria-hidden', false);
 
   if (window.collectingRum) {
-    sortImages(document, document.getElementById('sort-performance'));
+    sortImages(document, document.getElementById('sort-performance'), null);
   } else {
-    sortImages(document, document.getElementById('sort-count'));
+    sortImages(document, document.getElementById('sort-count'), null);
   }
 
   window.enableModals = true;
@@ -920,13 +931,8 @@ async function processForm(
     submissionValues,
   );
 
-  window.clusterManager.getAllClusters().forEach((cluster) => {
-    updateFigureData(cluster);
-  });
-
   addSortActionsToActionBar(sitemapFormData, identifiers);
   addFilterActionsToActionBar(sitemapFormData, identifiers);
-  // SORT HERE
 
   finishedLoading();
 }
@@ -1167,12 +1173,6 @@ function registerListeners(doc) {
       }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
     }
   });
-
-  SORT_ACTIONS.forEach((action) => {
-    addSortAction(doc, action);
-  });
-
-  FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
 }
 
 function addReportsToDropdown(doc) {

@@ -25,15 +25,41 @@ class FilterRegistry {
     });
   }
 
-  static get(filterKey) {
-    return this.#filterMap.get(filterKey);
-  }
-
   static register(filter) {
     if (filter.key.endsWith(AbstractFilter.WILDCARD)) {
       this.#wildcardFilters.push(filter);
     }
     this.#filterMap.set(filter.key, filter);
+  }
+
+  static get(filterKey) {
+    if (!filterKey) return undefined;
+    if (this.#filterMap.has(filterKey)) {
+      return this.#filterMap.get(filterKey);
+    }
+
+    if (!this.#wildcardFilterMap.has(filterKey)) {
+      // try to find it in the wildcard filters
+      const matchedWildcardFilter = this.#wildcardFilters.find((wildcardFilter) => {
+        const wildcardPrefix = wildcardFilter.key.slice(0, -1); // Remove '*' character
+        return filterKey.startsWith(wildcardPrefix);
+      });
+
+      if (matchedWildcardFilter) {
+        this.#wildcardFilterMap.set(filterKey, matchedWildcardFilter);
+      } else {
+        this.#wildcardFilterMap.set(filterKey, false); // cache the empty hit.
+      }
+    }
+
+    if (this.#wildcardFilterMap.has(filterKey)) {
+      const filterClazz = this.#wildcardFilterMap.get(filterKey); // can be false (above)
+      if (filterClazz) {
+        return filterClazz;
+      }
+    }
+
+    return undefined;
   }
 
   static include(cluster, checkedFilters) {
@@ -44,36 +70,18 @@ class FilterRegistry {
 
     let foundAnyTrue = false;
     for (let i = 0; i < checkedFilters.length; i += 1) {
-      const filter = checkedFilters[i];
-      if (this.#filterMap.has(filter)) {
-        if (this.#filterMap.get(filter).include(cluster, filter)) {
+      const filterKey = checkedFilters[i];
+      const filter = this.get(filterKey);
+      if (filter) {
+        if (filter.include(cluster, filterKey)) {
           foundAnyTrue = true;
         } else {
           return false;
         }
-      } else if (!this.#wildcardFilterMap.has(filter)) {
-        // try to find it in the wildcard filters
-        const matchedWildcardFilter = this.#wildcardFilters.find((wildcardFilter) => {
-          const wildcardPrefix = wildcardFilter.key.slice(0, -1); // Remove '*' character
-          return filter.startsWith(wildcardPrefix);
-        });
-
-        if (matchedWildcardFilter) {
-          this.#wildcardFilterMap.set(filter, matchedWildcardFilter);
-        } else {
-          this.#wildcardFilterMap.set(filter, false); // cache the empty hit.
-        }
-      }
-
-      if (this.#wildcardFilterMap.has(filter)) {
-        const filterObj = this.#wildcardFilterMap.get(filter);
-        if (filterObj) { // test that it's not false
-          if (filterObj.include(cluster, filter)) {
-            foundAnyTrue = true;
-          } else {
-            return false;
-          }
-        }
+      } else {
+        // eslint-disable-next-line no-console
+        console.error(`Filter not found: ${filterKey}`);
+        return false;
       }
     }
     return foundAnyTrue;

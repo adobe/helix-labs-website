@@ -16,7 +16,7 @@ class MissingAltText extends AbstractFilter {
   }
 
   // eslint-disable-next-line no-unused-vars
-  static include(cluster, keySelection) {
+  static include(cluster, filterKey) {
     const altText = cluster.getAll(UrlAndPageIdentity.type, 'alt');
     const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
 

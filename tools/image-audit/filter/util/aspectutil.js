@@ -7,12 +7,23 @@ class AspectUtil {
 
   static get PORTRAIT_KEY() { return 'shape-portrait'; }
 
+  static #keys = new Set([
+    AspectUtil.SQUARE_KEY,
+    AspectUtil.WIDESCREEN_KEY,
+    AspectUtil.LANDSCAPE_KEY,
+    AspectUtil.PORTRAIT_KEY,
+  ]);
+
   static changeCheckedFiltersOnCheck(checkedFilters, currentFilter) {
-    return !checkedFilters.filter((filter) => filter === currentFilter
-    || (filter !== AspectUtil.PORTRAIT_KEY
-      && filter !== AspectUtil.SQUARE_KEY
-      && filter !== AspectUtil.LANDSCAPE_KEY
-      && filter !== AspectUtil.WIDESCREEN_KEY));
+    const rv = [];
+    checkedFilters.forEach((filter) => {
+      if (filter !== currentFilter) { // dont uncheck the current filter
+        if (AspectUtil.#keys.has(filter)) {
+          rv.push(filter);
+        }
+      }
+    });
+    return rv;
   }
 }
 

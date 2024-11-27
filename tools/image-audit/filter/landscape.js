@@ -17,7 +17,7 @@ class Landscape extends AbstractFilter {
   }
 
   // eslint-disable-next-line no-unused-vars
-  static include(cluster, keySelection) {
+  static include(cluster, filterKey) {
     const ratios = cluster.getAll(UrlAndPageIdentity.type, 'aspectRatio');
 
     const result = ratios.filter((ratio) => ratio <= 1.7 && ratio > 1);

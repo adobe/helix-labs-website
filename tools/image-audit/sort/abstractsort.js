@@ -26,7 +26,7 @@ class AbstractSort {
     throw new Error('Method buildSortedClusters() must be implemented');
   }
 
-  arraysHaveSameElements(arr1, arr2) {
+  #arraysHaveSameElements(arr1, arr2) {
     if (arr1.length !== arr2.length) return false; // Quick length check
     const set1 = new Set(arr1);
     const set2 = new Set(arr2);
@@ -35,7 +35,7 @@ class AbstractSort {
   }
 
   sort(clusterManager, filters, page, max, ascending = false) {
-    if (!this.#previousFilters || !this.arraysAreEqual(this.#previousFilters, filters)) {
+    if (!this.#previousFilters || !this.#arraysHaveSameElements(this.#previousFilters, filters)) {
       this.#filteredClusters = null;
       this.#previousFilters = filters;
     }

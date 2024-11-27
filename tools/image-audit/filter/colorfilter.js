@@ -15,11 +15,11 @@ class ColorFilter extends AbstractFilter {
     return 'Color Filter';
   }
 
-  static include(cluster, key) {
+  static include(cluster, filterKey) {
     const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
     if (!colorIdentity) return false;
 
-    const selectedColor = key.slice(ColorFilter.key.length - 1);
+    const selectedColor = filterKey.slice(ColorFilter.key.length - 1);
     if (colorIdentity.hasTopColor(selectedColor)) {
       return true;
     }

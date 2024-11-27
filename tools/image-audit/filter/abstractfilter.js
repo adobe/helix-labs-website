@@ -17,7 +17,7 @@ class AbstractFilter {
   }
 
   // eslint-disable-next-line no-unused-vars
-  static include(cluster, keySelection) {
+  static include(cluster, filterKey) {
     throw new Error('Not implemented');
   }
 
