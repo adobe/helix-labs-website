@@ -108,7 +108,7 @@
  padding-top: var(--spacing-s);
 }
 
-.import div.hidden {
+.import .hidden {
   display: none;
 }
 

@@ -231,6 +231,48 @@ export default class ImportService {
     return undefined;
   }
 
+  /**
+   * Stop the running bulk importer job.
+   */
+  async stopCurrentJob() {
+    if (!this.apiKey) {
+      throw new Error('API key is required');
+    }
+    const { id: jobId } = this.job;
+    if (!jobId) {
+      throw new Error('No current job ID available');
+    }
+
+    const stopBody = [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'STOPPED',
+      },
+    ];
+
+    let resp;
+    try {
+      resp = await fetch(
+        `${this.endpoint}${IMPORT_JOBS_PATH}/${jobId}/result`,
+        {
+          method: 'PATCH',
+          headers: this.#getAuthHeaders(),
+          body: JSON.stringify(stopBody),
+        },
+      );
+    } catch (e) {
+      /* eslint-disable no-console */
+      throw new Error(`Failed to stop job: ${e.message}.`);
+    }
+
+    if (!resp.ok) {
+      const msg = resp.headers.get('x-error') ?? `Status: ${resp.status}`;
+      /* eslint-disable no-console */
+      throw new Error(`Failed to stop job: ${msg}`);
+    }
+  }
+
   addListener(listener) {
     this.listeners.push(listener);
   }

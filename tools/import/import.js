@@ -14,6 +14,7 @@ const fields = Object.freeze({
   scriptButton: document.querySelector('button#script-button'),
   clearButton: document.querySelector('a#clear-button'),
   environmentLabel: document.querySelector('#environment'),
+  stopButton: document.querySelector('#stop-import-job'),
 });
 
 function clearResults() {
@@ -49,6 +50,18 @@ function formatDuration(durationMs) {
   }
 
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function displayStopButton(show) {
+  if (show) {
+    if (fields.stopButton.classList.contains('hidden')) {
+      fields.stopButton.classList.remove('hidden');
+      fields.stopButton.querySelector('span').textContent = '';
+    }
+  } else {
+    fields.stopButton.querySelector('span').textContent = '';
+    fields.stopButton.classList.add('hidden');
+  }
 }
 
 function createJobTable(job) {
@@ -177,6 +190,7 @@ function addJobsList(jobs) {
       downloadLink.download = 'import_results.zip';
       resultsContainer.append(downloadLink);
     }
+    displayStopButton(job.status === 'RUNNING');
     resultsContainer.closest('.job-details').classList.remove('hidden');
   });
 
@@ -231,6 +245,8 @@ function addJobsList(jobs) {
       window.history.pushState({}, '', url);
       resultsContainer.closest('.job-details')
         .scrollIntoView({ behavior: 'smooth' });
+
+      displayStopButton();
     }
   });
 
@@ -286,6 +302,15 @@ function addJobsList(jobs) {
           reader.readAsText(droppedFile);
         }
       });
+    }
+  });
+
+  fields.stopButton.addEventListener('click', async (event) => {
+    event.preventDefault();
+    try {
+      await service.stopCurrentJob();
+    } catch (e) {
+      fields.stopButton.querySelector('span').textContent = e.message;
     }
   });
 })();
