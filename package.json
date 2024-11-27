@@ -28,6 +28,6 @@
     "stylelint-config-standard": "36.0.1"
   },
   "dependencies": {
-    "@adobe/rum-distiller": "1.9.0"
+    "@adobe/rum-distiller": "1.11.1"
   }
 }
