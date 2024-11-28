@@ -129,6 +129,9 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     try {
     // this counts on url.plain, which wont work for non eds sites.
       const rawHtml = await CrawlerUtil.fetchPageHtml(url.plain);
+      if (!rawHtml) {
+        return [];
+      }
       // everything from here to the end needs to be synchronous or the document will load.
       // TODO: innerhtml here isn't great. Because it's using plain.html it's somewhat manageable.
       html.innerHTML = rawHtml;

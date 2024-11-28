@@ -52,10 +52,13 @@ class CrawlerUtil {
   }
 
   static async fetchPageHtml(url) {
-    const req = await fetch(url, { redirect: 'manual' });
+    const req = await fetch(url);
     if (req.ok) {
       return req.text();
     }
+    // eslint-disable-next-line no-console
+    console.warn(`Failed to fetch page at ${url} with http status ${req.status}`);
+
     return null;
   }
 }
