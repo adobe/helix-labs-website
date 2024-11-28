@@ -180,7 +180,28 @@
             <ul id="color-pallette">
             </ul>
           </div>
-        </form>
+          <div class="form-field checkbox-field" id="pagination-div"> 
+            <ul>
+              <li>
+                  <button id="decrease-slider" class="slider-arrow" type="button">◀</button>
+              </li>
+              <li>
+                <label for="pagination-slider" id="pagination-text">Showing page <span id="current-page">0</span> of <span id="pagination-counter">0</span></label>
+                <input 
+                  type="range" 
+                  id="pagination-slider" 
+                  value="1" 
+                  min="1" 
+                  max="1" 
+                  step="1" 
+                />
+              </li>
+              <li>
+                  <button id="increase-slider" class="slider-arrow" type="button">▶</button>
+              </li>
+            </ul>
+          </div>
+          </form>
       </div>
       <div class="gallery" id="image-gallery"></div>
     </div>

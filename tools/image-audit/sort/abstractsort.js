@@ -58,9 +58,11 @@ class AbstractSort {
       sortedList.reverse(); // Reverse for ascending order
     }
 
-    // Step 3: Paginate the results
     const startIndex = (page - 1) * max;
-    return sortedList.slice(startIndex, startIndex + max);
+    return {
+      clusters: sortedList.slice(startIndex, startIndex + max),
+      pageCount: Math.max(1, Math.ceil(this.#filteredClusters.length / max)),
+    };
   }
 }
 

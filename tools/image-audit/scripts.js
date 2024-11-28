@@ -30,6 +30,8 @@ import AbstractFilter from './filter/abstractfilter.js';
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
 
+const PAGE_SIZE = 10;
+
 /**
  * Creates a span element representing a color with optional clickability.
  *
@@ -290,9 +292,10 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-function sortImages(doc, targetSort, targetFilter) {
-  if ((targetSort && targetFilter) || (!targetSort && !targetFilter)) {
-    throw new Error('sortImages() must be called with either targetSort or targetFilter');
+function sortImages(doc, targetSort, targetFilter, targetPagination) {
+  if ((targetSort && targetFilter && targetPagination)
+      || (!targetSort && !targetFilter && !targetPagination)) {
+    throw new Error('Exactly one of targetSort, targetFilter, or targetPagination must be provided.');
   }
 
   const sortTriggered = targetSort !== null;
@@ -331,12 +334,20 @@ function sortImages(doc, targetSort, targetFilter) {
 
   const { clusterManager } = window;
 
+  let pageValue = 1;
+  if (targetPagination) {
+    pageValue = parseInt(targetPagination.value, 10);
+  }
+
   // Perform sorting using the sort class
-  const sortedClusters = sorter.sort(clusterManager, checkedFilters, 1, 1000, ascending);
+  const {
+    clusters,
+    pageCount,
+  } = sorter.sort(clusterManager, checkedFilters, pageValue, PAGE_SIZE, ascending);
 
   // Clear the gallery and append sorted figures
   GALLERY.innerHTML = ''; // Clear current gallery content
-  sortedClusters.forEach((cluster) => {
+  clusters.forEach((cluster) => {
     if (cluster.figureForCluster) {
       GALLERY.appendChild(cluster.figureForCluster);
     }
@@ -351,6 +362,23 @@ function sortImages(doc, targetSort, targetFilter) {
 
     const arrow = ascending ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
     target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
+  }
+
+  const pagination = doc.getElementById('pagination-div');
+  // Update the pagination
+  if (pageCount > 1) {
+    const slider = doc.getElementById('pagination-slider');
+    slider.max = pageCount;
+    slider.value = pageValue;
+    const paginationCounter = doc.getElementById('pagination-counter');
+    paginationCounter.textContent = pageCount;
+    const currentPage = doc.getElementById('current-page');
+    currentPage.textContent = pageValue;
+    pagination.setAttribute('aria-hidden', 'false');
+    pagination.style.display = '';
+  } else {
+    pagination.setAttribute('aria-hidden', 'true');
+    pagination.style.display = 'none';
   }
 }
 
@@ -508,7 +536,7 @@ function displayImage(clusterId) {
   }
   const gallery = document.getElementById('image-gallery');
   // append the figure to the gallery if needed
-  if (gallery.children.length < 1000) {
+  if (gallery.children.length < PAGE_SIZE) {
     gallery.append(cluster.figureForCluster);
   }
   updateCounter(document.getElementById('images-counter'), 1);
@@ -1089,6 +1117,27 @@ function registerListeners(doc) {
     stopButton.classList.add('stop-pulsing');
     window.stopProcessing = true;
     window.stopCallback();
+  });
+
+  doc.getElementById('decrease-slider').addEventListener('click', () => {
+    const slider = doc.getElementById('pagination-slider');
+    const value = parseInt(slider.value, 10) - 1;
+    if (value < 1) return;
+    slider.value = value;
+    slider.dispatchEvent(new Event('change'));
+  });
+
+  doc.getElementById('increase-slider').addEventListener('click', () => {
+    const slider = doc.getElementById('pagination-slider');
+    const value = parseInt(slider.value, 10) + 1;
+    const max = parseInt(slider.max, 10);
+    if (value > max) return;
+    slider.value = value;
+    slider.dispatchEvent(new Event('change'));
+  });
+
+  doc.getElementById('pagination-slider').addEventListener('change', (e) => {
+    sortImages(doc, null, null, e.target);
   });
 
   // handle form submission
