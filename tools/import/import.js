@@ -14,6 +14,7 @@ const fields = Object.freeze({
   scriptButton: document.querySelector('button#script-button'),
   clearButton: document.querySelector('a#clear-button'),
   environmentLabel: document.querySelector('#environment'),
+  stopButton: document.querySelector('#stop-import-job'),
 });
 
 function clearResults() {
@@ -36,10 +37,11 @@ function formatDuration(durationMs) {
   if (!durationMs) {
     return 'N/A';
   }
-  const seconds = Math.floor((durationMs / 1000) % 60);
-  const minutes = Math.floor((durationMs / (1000 * 60)) % 60);
-  const hours = Math.floor((durationMs / (1000 * 60 * 60)) % 24);
-  const days = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+  const checkedDurationMs = Math.max(durationMs, 0);
+  const seconds = Math.floor((checkedDurationMs / 1000) % 60);
+  const minutes = Math.floor((checkedDurationMs / (1000 * 60)) % 60);
+  const hours = Math.floor((checkedDurationMs / (1000 * 60 * 60)) % 24);
+  const days = Math.floor(checkedDurationMs / (1000 * 60 * 60 * 24));
 
   if (days === 0 && hours === 0) {
     return `${minutes}m ${seconds}s`;
@@ -49,6 +51,18 @@ function formatDuration(durationMs) {
   }
 
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+}
+
+function displayStopButton(show) {
+  if (show) {
+    if (fields.stopButton.classList.contains('hidden')) {
+      fields.stopButton.classList.remove('hidden');
+      fields.stopButton.querySelector('span').textContent = '';
+    }
+  } else {
+    fields.stopButton.querySelector('span').textContent = '';
+    fields.stopButton.classList.add('hidden');
+  }
 }
 
 function createJobTable(job) {
@@ -177,6 +191,7 @@ function addJobsList(jobs) {
       downloadLink.download = 'import_results.zip';
       resultsContainer.append(downloadLink);
     }
+    displayStopButton(job.status === 'RUNNING');
     resultsContainer.closest('.job-details').classList.remove('hidden');
   });
 
@@ -231,6 +246,8 @@ function addJobsList(jobs) {
       window.history.pushState({}, '', url);
       resultsContainer.closest('.job-details')
         .scrollIntoView({ behavior: 'smooth' });
+
+      displayStopButton();
     }
   });
 
@@ -287,5 +304,16 @@ function addJobsList(jobs) {
         }
       });
     }
+  });
+
+  fields.stopButton.addEventListener('click', async (event) => {
+    event.preventDefault();
+    service.stopCurrentJob()
+      .then(() => {
+        displayStopButton(false);
+      })
+      .catch((e) => {
+        fields.stopButton.querySelector('span').textContent = e.message;
+      });
   });
 })();
