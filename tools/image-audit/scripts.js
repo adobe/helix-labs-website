@@ -30,7 +30,7 @@ import AbstractFilter from './filter/abstractfilter.js';
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 1000;
 
 /**
  * Creates a span element representing a color with optional clickability.
