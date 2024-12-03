@@ -335,12 +335,16 @@ const sampleUrls = (sitemapData) => {
   const allUrls = [];
   sitemapData.sitemaps.forEach((sitemap) => {
     sitemap.forEach((p) => allUrls.push(
-      p.page.startsWith("/") ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page));
+      p.page.startsWith('/')
+        ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page,
+    ));
   });
 
   const topLevelUrls = allUrls.filter((u) => {
-    if(u.startsWith("/"))
+    if (u.startsWith('/')) {
+      // eslint-disable-next-line no-param-reassign
       u = sessionStorage.getItem('powerScoreUrl').concat(u);
+    }
     const url = new URL(u);
     const segments = url.pathname.split('/').filter((seg) => seg.trim() !== '');
     return segments.length < 2;

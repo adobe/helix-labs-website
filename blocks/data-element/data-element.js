@@ -137,7 +137,7 @@ const metrics = {
           copyButton.addEventListener('click', () => {
             const urls = [];
             sitemapData.sitemaps.forEach((sitemap) => {
-              sitemap.forEach((p) => urls.push(p.page.startsWith("/") ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page));
+              sitemap.forEach((p) => urls.push(p.page.startsWith('/') ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page));
             });
             navigator.clipboard.writeText(urls.join('\n'));
             copyButton.setAttribute('disabled', true);
@@ -213,7 +213,7 @@ const metrics = {
       const dataEl = blockInner.querySelector('[data-name="blockCount"]');
       if (!isCalculator) {
         dataEl.textContent = roundedBlockCount;
-      } else { 
+      } else {
         dataEl.value = roundedBlockCount;
       }
     },
