@@ -108,8 +108,24 @@
  padding-top: var(--spacing-s);
 }
 
-.import div.hidden {
+.import .hidden {
   display: none;
+}
+
+.import button.negative,
+.import button.negative:focus {
+  background-color: var(--gray-100);
+  color: var(--red-800);
+  border-color: var(--red-800);
+}
+
+.import button.negative:focus {
+  outline-color: var(--red-800);
+}
+
+.import button.negative:hover {
+  background-color: var(--red-100);
+  color: var(--red-800);
 }
 
 #results table {
