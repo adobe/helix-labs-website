@@ -137,7 +137,7 @@ const metrics = {
           copyButton.addEventListener('click', () => {
             const urls = [];
             sitemapData.sitemaps.forEach((sitemap) => {
-              sitemap.forEach((p) => urls.push(p.page));
+              sitemap.forEach((p) => urls.push(p.page.startsWith("/") ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page));
             });
             navigator.clipboard.writeText(urls.join('\n'));
             copyButton.setAttribute('disabled', true);
@@ -157,7 +157,7 @@ const metrics = {
   },
   layouts: {
     depends: [DATA_TYPES.TEMPLATES],
-    label: 'Layouts',
+    label: 'Layouts (approx.)',
     render: async (blockInner, [templateData], { isCalculator, initialRender }) => {
       const dataCopy = templateData;
       const templateCount = dataCopy.templates.numTemplates;
@@ -174,7 +174,7 @@ const metrics = {
             updateUrlHash(input.dataset.paramName, input.value);
           });
         } else {
-          blockInner.innerHTML = `<p><span data-name="numTemplates">${templateCount}</span>(-ish?)</p>`;
+          blockInner.innerHTML = `<p><span data-name="numTemplates">${templateCount}</span></p>`;
         }
         blockInner.classList.remove('loading');
       }
@@ -188,7 +188,7 @@ const metrics = {
   },
   blocks: {
     depends: [DATA_TYPES.BLOCKS],
-    label: 'Avg Blocks / Layout',
+    label: 'Blocks (approx.)',
     render: async (blockInner, [blockData], { isCalculator, initialRender }) => {
       const dataCopy = blockData;
       const { blockCount } = dataCopy;
@@ -206,14 +206,14 @@ const metrics = {
             updateUrlHash(input.dataset.paramName, input.value);
           });
         } else {
-          blockInner.innerHTML = '<p><span data-name="blockCount"></span>(-ish?)</p>';
+          blockInner.innerHTML = '<p><span data-name="blockCount"></span></p>';
         }
         blockInner.classList.remove('loading');
       }
       const dataEl = blockInner.querySelector('[data-name="blockCount"]');
       if (!isCalculator) {
         dataEl.textContent = roundedBlockCount;
-      } else {
+      } else { 
         dataEl.value = roundedBlockCount;
       }
     },
