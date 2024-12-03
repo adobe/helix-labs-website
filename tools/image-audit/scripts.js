@@ -3,6 +3,8 @@
 import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import './crawler/defaultcrawlersloader.js';
+import './sort/defaultsortsloader.js';
+import './filter/defaultfilterloader.js';
 
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
@@ -15,16 +17,20 @@ import ColorIdentity from './identity/imageidentity/coloridentity.js';
 import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
 import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
-import PerformanceUtil from './reports/util/performanceutil.js';
-import Lighthouse from './identity/imageidentity/lighthouse.js';
+import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './reports/util/namingutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
+import SortRegistry from './sort/sortregistry.js';
+import FilterRegistry from './filter/filterregistry.js';
+import AbstractFilter from './filter/abstractfilter.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
+
+const PAGE_SIZE = 1000;
 
 /**
  * Creates a span element representing a color with optional clickability.
@@ -212,7 +218,7 @@ function displayModal(figure) {
       data.topColors = colorIdentity.topColorsSorted;
     }
 
-    const lighthouse = cluster.getSingletonOf(Lighthouse.type);
+    const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
 
     if (window.collectingRum) {
       const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
@@ -226,7 +232,6 @@ function displayModal(figure) {
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
       rows.lighthouse = 'Asset Success Score';
-      data.performanceScore = `${PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, true)}`;
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
@@ -287,87 +292,112 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-/* image processing and display */
-/**
- * Validates that every image in an array has alt text.
- * @param {string[]} alt - Array of alt text strings associated with the image.
- * @param {number} count - Expected number of alt text entries (equal to the number of appearances).
- * @returns {boolean} `true` if the alt text is valid, `false` otherwise.
- */
-function validateAlt(alt, count) {
-  if (alt.length === 0 || alt.length !== count) return false;
-  if (alt.some((item) => item === '')) return false;
-  return true;
+function sortImages(doc, targetSort, targetFilter, targetPagination) {
+  if ((targetSort && targetFilter && targetPagination)
+      || (!targetSort && !targetFilter && !targetPagination)) {
+    throw new Error('Exactly one of targetSort, targetFilter, or targetPagination must be provided.');
+  }
+
+  const sortTriggered = targetSort !== null;
+  let target = targetSort;
+  if (target) window.lastTarget = target;
+  else target = window.lastTarget;
+
+  const CANVAS = doc.getElementById('canvas');
+  const GALLERY = CANVAS.querySelector('.gallery');
+  const ACTION_BAR = CANVAS.querySelector('.action-bar');
+  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
+  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+  const checkedFilters = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+
+  const sortKey = target.value;
+
+  let ascending = false;
+
+  if (target.dataset.order === undefined
+    || target.dataset.order === null
+    || target.dataset.order === '') {
+    // not previously set, set to descending.
+    ascending = false;
+  } else if (target.dataset.order === 'ascending') {
+    // eslint-disable-next-line no-unneeded-ternary
+    ascending = sortTriggered ? false : true; // if a click on sort triggered it, flip the order
+  } else if (target.dataset.order === 'descending') {
+    // eslint-disable-next-line no-unneeded-ternary
+    ascending = sortTriggered ? true : false; // if a click on sort triggered it, flip the order
+  }
+  target.dataset.order = ascending ? 'ascending' : 'descending';
+
+  const { sortRegistry } = window;
+  // Get the sort instance from the SortRegistry
+  const sorter = sortRegistry.getSortInstance(sortKey);
+
+  const { clusterManager } = window;
+
+  let pageValue = 1;
+  if (targetPagination) {
+    pageValue = parseInt(targetPagination.value, 10);
+  }
+
+  // Perform sorting using the sort class
+  const {
+    clusters,
+    pageCount,
+  } = sorter.sort(clusterManager, checkedFilters, pageValue, PAGE_SIZE, ascending);
+
+  // Clear the gallery and append sorted figures
+  GALLERY.innerHTML = ''; // Clear current gallery content
+  clusters.forEach((cluster) => {
+    if (cluster.figureForCluster) {
+      GALLERY.appendChild(cluster.figureForCluster);
+    }
+  });
+
+  if (sortTriggered) {
+    // Remove existing arrows from all sort options
+    SORT_ACTIONS.forEach((action) => {
+      const label = action.nextElementSibling;
+      label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
+    });
+
+    const arrow = ascending ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
+    target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
+  }
+
+  const pagination = doc.getElementById('pagination-div');
+  // Update the pagination
+  if (pageCount > 1) {
+    const slider = doc.getElementById('pagination-slider');
+    slider.max = pageCount;
+    slider.value = pageValue;
+    const paginationCounter = doc.getElementById('pagination-counter');
+    paginationCounter.textContent = pageCount;
+    const currentPage = doc.getElementById('current-page');
+    currentPage.textContent = pageValue;
+    pagination.setAttribute('aria-hidden', 'false');
+    pagination.style.display = '';
+  } else {
+    pagination.setAttribute('aria-hidden', 'true');
+    pagination.style.display = 'none';
+  }
 }
 
-function changeFilters() {
+function changeFilters(triggerElement) {
   const CANVAS = document.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
 
-  const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-  const figures = [...GALLERY.querySelectorAll('figure')];
-
-  const checkColors = checked.filter((c) => c.startsWith('color-'));
-  const checkShapes = checked.filter((c) => c.startsWith('shape-'));
-
-  figures.forEach((figure) => {
-    const { shape } = figure.dataset;
-    let hide = true; // hide figures by default
-
-    // check images against filter critera
-    if (checked.length === 0) { // no filters are selected
-      // show all figures
-      hide = false;
-    } else {
-      let hiddenChanged = false;
-
-      if (checked.includes('missing-alt')) {
-        // only show figures without alt text
-        hide = figure.dataset.alt === 'true';
-        hiddenChanged = true;
-      }
-
-      // shapes are subtractive against missing alt.
-      if (checkShapes.length > 0) {
-        // only one shape.
-        if (checkShapes.includes(`shape-${shape}`)) {
-          if (!hiddenChanged) {
-            hide = false;
-            hiddenChanged = true;
-          }
-        } else {
-          hide = true;
-          hiddenChanged = true;
-        }
-      }
-
-      // colors are subtractive against other matches.
-      if (checkColors.length > 0) {
-        let foundAnyColor = false;
-        if (figure.dataset.topColors != null && figure.dataset.topColors !== '') {
-          figure.dataset.topColors.split(',').forEach((color) => {
-            if (checked.includes(`color-${color}`)) {
-              foundAnyColor = true;
-            }
-          });
-        }
-
-        if (!foundAnyColor) {
-          hide = true;
-          hiddenChanged = true;
-        } else if (!hiddenChanged) {
-          hide = false;
-          hiddenChanged = true;
-        }
-      } else if (!hiddenChanged) {
-        hide = false;
-      }
+  const checkedPreFilter = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+  const filter = FilterRegistry.get(triggerElement.value);
+  const uncheckSet = new Set(filter.changeCheckedFiltersOnCheck(checkedPreFilter));
+  // Uncheck all checkboxes in the uncheckSet
+  FILTER_ACTIONS.forEach((input) => {
+    if (uncheckSet.has(input.value)) {
+      input.checked = false;
     }
-
-    figure.setAttribute('aria-hidden', hide);
   });
+
+  sortImages(document, null, triggerElement);
 }
 
 /**
@@ -385,7 +415,7 @@ function changeFilters() {
  * in the gallery to show or hide it based on the selected filters.
  */
 function addFilterAction(action) {
-  action.addEventListener('change', () => changeFilters());
+  action.addEventListener('change', (event) => changeFilters(event.target));
 }
 
 function addColorsToFilterList(sortedColorNames) {
@@ -419,7 +449,7 @@ function addColorsToFilterList(sortedColorNames) {
       if (checkbox.checked) colorSpan.classList.add('selected');
       else colorSpan.classList.remove('selected');
     });
-    addFilterAction(checkbox, document);
+    addFilterAction(checkbox);
 
     // Append the hidden checkbox and color square to the label
     label.appendChild(checkbox);
@@ -431,52 +461,6 @@ function addColorsToFilterList(sortedColorNames) {
     // Append the list item to the main color palette container
     colorPaletteContainer.appendChild(listItem);
   });
-}
-
-/**
- * Utility to updates the dataset attributes of a given figure element with provided data.
- * Should be called after any update to the sorting or filtering attributes.
- *
- * @param {HTMLElement} figure - The figure element to update.
- */
-function updateFigureData(cluster) {
-  const figure = cluster.figureForCluster;
-  if (!figure || !figure.dataset) return;
-
-  const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
-
-  if (colorIdentity && colorIdentity.topColors.length > 0) {
-    figure.dataset.topColors = colorIdentity.topColors.join(',');
-  }
-
-  const altText = cluster.getAll(UrlAndPageIdentity.type, 'alt');
-  const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
-
-  figure.dataset.alt = validateAlt(altText, sites.length);
-  figure.dataset.count = sites.length;
-
-  // TODO: Different copies can have different aspect ratios.
-  const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
-  if (identity && identity.aspectRatio) {
-    const aspect = identity.aspectRatio;
-    figure.dataset.aspect = aspect;
-    figure.dataset.shape = getShapeForRatio(aspect);
-  }
-
-  if (window.collectingRum) {
-    const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
-    const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
-    const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
-
-    const performanceScore = PerformanceUtil
-      .getPerformanceScore(conversions, pageViews, visits, false);
-    figure.dataset.performance = performanceScore * 1000000000 + pageViews;
-    figure.dataset.views = pageViews;
-    figure.dataset.visits = visits;
-    figure.dataset.clicks = conversions;
-  }
-
-  figure.dataset.lighthouse = Math.round(cluster.getSingletonOf(Lighthouse.type).scores.total);
 }
 
 async function executePreflightFunctions(identityValues, identityState) {
@@ -552,9 +536,10 @@ function displayImage(clusterId) {
   }
   const gallery = document.getElementById('image-gallery');
   // append the figure to the gallery if needed
-  gallery.append(cluster.figureForCluster);
+  if (gallery.children.length < PAGE_SIZE) {
+    gallery.append(cluster.figureForCluster);
+  }
   updateCounter(document.getElementById('images-counter'), 1);
-  changeFilters();
 }
 
 async function loadImage(
@@ -724,49 +709,6 @@ async function handleBatch(
   }
 }
 
-function sortImages(doc, target) {
-  const CANVAS = doc.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
-  const ACTION_BAR = CANVAS.querySelector('.action-bar');
-  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
-
-  const type = target.value;
-  const sortOrder = parseInt(target.dataset.order, 10);
-  const figures = [...GALLERY.querySelectorAll('figure')];
-
-  // Sort figures based on selected type and order
-  const sorted = figures.sort((a, b) => {
-    if (typeof a.dataset[type] !== 'string' || typeof b.dataset[type] !== 'string') {
-      return 0;
-    }
-
-    if (a.dataset[type].includes('.') || b.dataset[type].includes('.')) {
-      const aVal = parseFloat(a.dataset[type]);
-      const bVal = parseFloat(b.dataset[type]);
-      return sortOrder > 0 ? aVal - bVal : bVal - aVal;
-    }
-    const aVal = parseInt(a.dataset[type], 10);
-    const bVal = parseInt(b.dataset[type], 10);
-    return sortOrder > 0 ? aVal - bVal : bVal - aVal;
-  });
-
-  // Append sorted figures to the gallery
-  GALLERY.append(...sorted);
-
-  // Toggle the sort order for the next click
-  target.dataset.order = sortOrder * -1;
-
-  // Remove existing arrows from all sort options
-  SORT_ACTIONS.forEach((action) => {
-    const label = action.nextElementSibling;
-    label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
-  });
-
-  // Add the arrow to the selected sort option
-  const arrow = sortOrder > 0 ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
-  target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
-}
-
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
@@ -846,10 +788,96 @@ async function fetchAndDisplayBatches(
   return data;
 }
 
+function addSortAction(doc, action) {
+  action.addEventListener('click', (e) => {
+    const { target } = e;
+    sortImages(doc, target, null);
+  });
+}
+
+function addSortActionsToActionBar(sitemapFormData, identifiers) {
+  const sortsList = document.getElementById('sorts');
+
+  // Clear existing list items
+  sortsList.innerHTML = '';
+
+  // Generate and append new list items
+  SortRegistry.getSorts(sitemapFormData, identifiers).forEach((sort) => {
+    const existingElement = document.getElementById(`sort-${sort.key}`);
+    if (existingElement) {
+      addSortAction(document, existingElement);
+    } else {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      const span = document.createElement('span');
+
+      // Configure the input element
+      input.type = 'radio';
+      input.name = 'sort';
+      input.value = sort.key;
+      input.id = `sort-${sort.key}`;
+      input.setAttribute('data-order', '-1'); // Default order
+
+      addSortAction(document, input);
+
+      // Configure the span element
+      span.textContent = sort.description;
+
+      // Assemble the elements
+      label.appendChild(input);
+      label.appendChild(span);
+      li.appendChild(label);
+      sortsList.appendChild(li);
+    }
+  });
+}
+
+function addFilterActionsToActionBar(sitemapFormData, identifiers) {
+  const filterList = document.getElementById('filters');
+
+  // Clear existing list items
+  filterList.innerHTML = '';
+
+  // Generate and append new list items
+  FilterRegistry.getFilters(sitemapFormData, identifiers).forEach((filter) => {
+    // wildcards manage their own listeners and elements.
+    if (!filter.key.endsWith(AbstractFilter.WILDCARD)) {
+      const existingElement = document.getElementById(`filter-${filter.key}`);
+      if (existingElement) {
+        addFilterAction(existingElement);
+      } else {
+        const li = document.createElement('li');
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        const span = document.createElement('span');
+
+        // Configure the input element
+        input.type = 'checkbox';
+        input.name = 'filter';
+        input.value = filter.key;
+        input.id = `filter-${filter.key}`;
+
+        addFilterAction(input);
+
+        // Configure the span element
+        span.textContent = filter.description;
+
+        // Assemble the elements
+        label.appendChild(input);
+        label.appendChild(span);
+        li.appendChild(label);
+        filterList.appendChild(li);
+      }
+    }
+  });
+}
+
 /* setup */
 
 function setupWindowVariables() {
   window.enableModals = false;
+  window.lastTarget = null;
   window.imageCount = 0;
   window.clusterManager = new ClusterManager();
   window.identityState = {};
@@ -857,6 +885,7 @@ function setupWindowVariables() {
   window.lastExecutionTime = Date.now();
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
   window.stopProcessing = false;
+  window.sortRegistry = new SortRegistry();
 }
 
 function prepareLoading() {
@@ -889,9 +918,9 @@ function finishedLoading() {
   actionForm.setAttribute('aria-hidden', false);
 
   if (window.collectingRum) {
-    sortImages(document, document.getElementById('sort-performance'));
+    sortImages(document, document.getElementById('sort-performance'), null);
   } else {
-    sortImages(document, document.getElementById('sort-count'));
+    sortImages(document, document.getElementById('sort-count'), null);
   }
 
   window.enableModals = true;
@@ -930,9 +959,8 @@ async function processForm(
     submissionValues,
   );
 
-  window.clusterManager.getAllClusters().forEach((cluster) => {
-    updateFigureData(cluster);
-  });
+  addSortActionsToActionBar(sitemapFormData, identifiers);
+  addFilterActionsToActionBar(sitemapFormData, identifiers);
 
   finishedLoading();
 }
@@ -1091,6 +1119,27 @@ function registerListeners(doc) {
     window.stopCallback();
   });
 
+  doc.getElementById('decrease-slider').addEventListener('click', () => {
+    const slider = doc.getElementById('pagination-slider');
+    const value = parseInt(slider.value, 10) - 1;
+    if (value < 1) return;
+    slider.value = value;
+    slider.dispatchEvent(new Event('change'));
+  });
+
+  doc.getElementById('increase-slider').addEventListener('click', () => {
+    const slider = doc.getElementById('pagination-slider');
+    const value = parseInt(slider.value, 10) + 1;
+    const max = parseInt(slider.max, 10);
+    if (value > max) return;
+    slider.value = value;
+    slider.dispatchEvent(new Event('change'));
+  });
+
+  doc.getElementById('pagination-slider').addEventListener('change', (e) => {
+    sortImages(doc, null, null, e.target);
+  });
+
   // handle form submission
   URL_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1102,16 +1151,11 @@ function registerListeners(doc) {
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
 
-    const rumDiv = doc.getElementById('collecting-rum');
     const domainKey = data['domain-key'];
     if (domainKey) {
       window.collectingRum = true;
-      rumDiv.setAttribute('aria-hidden', false);
-      rumDiv.setAttribute('class', 'form-field radio-field');
     } else {
       window.collectingRum = false;
-      doc.getElementById('collecting-rum').setAttribute('aria-hidden', true);
-      rumDiv.removeAttribute('class');
     }
 
     const replacementDomain = data['replacement-domain'];
@@ -1178,15 +1222,6 @@ function registerListeners(doc) {
       }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
     }
   });
-
-  SORT_ACTIONS.forEach((action) => {
-    action.addEventListener('click', (e) => {
-      const { target } = e;
-      sortImages(doc, target);
-    });
-  });
-
-  FILTER_ACTIONS.forEach((action) => addFilterAction(action, doc));
 }
 
 function addReportsToDropdown(doc) {

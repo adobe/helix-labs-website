@@ -140,83 +140,36 @@
           <div class="form-field radio-field">
             <p>Sort by:</p>
             <ul>
-              <li>
-                <label>
-                  <input type="radio" name="sort" value="count" id="sort-count" data-order="-1">
-                  <span>Appearances</span>
-                </label>
-              </li>
-              <li>
-                <label>
-                  <input type="radio" name="sort" value="aspect" id="sort-aspect" data-order="-1">
-                  <span>Aspect Ratio</span>
-                </label>
-              </li>
-              <li>
-                <label>
-                  <input type="radio" name="sort" value="lighthouse" id="sort-lighthouse" data-order="-1">
-                  <span>Asset Success Score</span>
-                </label>
-              </li>
-              <div class="form-field radio-field" id="collecting-rum" aria-hidden="true">
-                <li>
-                  <label>
-                    <input type="radio" name="sort" value="performance" id="sort-performance" data-order="-1">
-                    <span>Top Performing</span>
-                  </label>
-                </li>
-                <li>
-                  <label>
-                    <input type="radio" name="sort" value="views" id="sort-views" data-order="-1">
-                    <span>Top Views</span>
-                  </label>
-                </li>
-                <li>
-                  <label>
-                    <input type="radio" name="sort" value="visits" id="sort-visits" data-order="-1">
-                    <span>Top Visits</span>
-                  </label>
-                </li>
-                <li>
-                  <label>
-                    <input type="radio" name="sort" value="clicks" id="sort-clicks" data-order="-1">
-                    <span>Top Conversions</span>
-                  </label>
-                </li>
+              <div class="form-field radio-field" id="sorts">
               </div>
             </ul>
           </div>
-      
           <div class="form-field checkbox-field">
             <p>Filter by:</p>
             <ul>
+              <div class="form-field radio-field" id="filters">
+              </div>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="missing-alt" id="filter-missing-alt">
-                  <span>Missing Alt Text</span>
-                </label>
-              </li>
-              <li>
-                <label>
-                  <input type="checkbox" name="filter" value="shape-Square" aria-label="Square aspect ratio" id="filter-square">
+                  <input type="checkbox" name="filter" value="shape-square" aria-label="Square aspect ratio" id="filter-shape-square">
                   <span><i class="symbol symbol-square"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="shape-Portrait" aria-label="Portrait aspect ratio" id="filter-portrait">
+                  <input type="checkbox" name="filter" value="shape-portrait" aria-label="Portrait aspect ratio" id="filter-shape-portrait">
                   <span><i class="symbol symbol-portrait"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="shape-Landscape" aria-label="Landscape aspect ratio" id="filter-landscape">
+                  <input type="checkbox" name="filter" value="shape-landscape" aria-label="Landscape aspect ratio" id="filter-shape-landscape">
                   <span><i class="symbol symbol-landscape"></i></span>
                 </label>
               </li>
               <li>
                 <label>
-                  <input type="checkbox" name="filter" value="shape-Widescreen" aria-label="Widescreen aspect ratio" id="filter-widescreen">
+                  <input type="checkbox" name="filter" value="shape-widescreen" aria-label="Widescreen aspect ratio" id="filter-shape-widescreen">
                   <span><i class="symbol symbol-widescreen"></i></span>
                 </label>
               </li>
@@ -227,7 +180,28 @@
             <ul id="color-pallette">
             </ul>
           </div>
-        </form>
+          <div class="form-field checkbox-field" id="pagination-div"> 
+            <ul>
+              <li>
+                  <button id="decrease-slider" class="slider-arrow" type="button">◀</button>
+              </li>
+              <li>
+                <label for="pagination-slider" id="pagination-text">Showing page <span id="current-page">0</span> of <span id="pagination-counter">0</span></label>
+                <input 
+                  type="range" 
+                  id="pagination-slider" 
+                  value="1" 
+                  min="1" 
+                  max="1" 
+                  step="1" 
+                />
+              </li>
+              <li>
+                  <button id="increase-slider" class="slider-arrow" type="button">▶</button>
+              </li>
+            </ul>
+          </div>
+          </form>
       </div>
       <div class="gallery" id="image-gallery"></div>
     </div>

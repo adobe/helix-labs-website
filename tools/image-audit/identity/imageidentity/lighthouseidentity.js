@@ -6,7 +6,7 @@ import SizeIdentity from './sizeidentity.js';
 import UrlAndPageIdentity from './urlandpageidentity.js';
 import TextIdentity from './textidentity.js';
 
-class Lighthouse extends AbstractIdentity {
+class LighthouseIdentity extends AbstractIdentity {
   #identityValues;
 
   #identityState;
@@ -27,7 +27,7 @@ class Lighthouse extends AbstractIdentity {
 
   static get uiSelectorProperties() {
     return {
-      identity: Lighthouse.type,
+      identity: LighthouseIdentity.type,
       display: 'Lighthouse',
       checked: true,
       hidden: true,
@@ -41,7 +41,7 @@ class Lighthouse extends AbstractIdentity {
       clusterManager,
     } = identityValues;
 
-    const identity = new Lighthouse(identityValues, identityState);
+    const identity = new LighthouseIdentity(identityValues, identityState);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
@@ -361,6 +361,6 @@ class Lighthouse extends AbstractIdentity {
   }
 }
 
-export default Lighthouse;
+export default LighthouseIdentity;
 
-IdentityRegistry.register(Lighthouse);
+IdentityRegistry.register(LighthouseIdentity);

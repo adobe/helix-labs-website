@@ -1,14 +1,14 @@
 import AbstractReport from './abstractreport.js';
 import ReportData from './reportdata.js';
 import ReportRegistry from './reportregistry.js';
-import Lighthouse from '../identity/imageidentity/lighthouse.js';
+import LighthouseIdentity from '../identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './util/namingutil.js';
 
 class LighthouseReport extends AbstractReport {
   static async generateReport(clusterManager) {
     const reportData = new ReportData('Asset Success');
     clusterManager.getAllClusters().values().forEach((cluster) => {
-      const lighthouse = cluster.getSingletonOf(Lighthouse.type);
+      const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
       const row = new Map(); // Create a new map for each row
 
       row.set('Page URLs With Asset', lighthouse.allPages.join(', ') || '');

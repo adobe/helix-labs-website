@@ -34,7 +34,7 @@ class AuditReport extends AbstractReport {
         const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
         const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
         const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
-        PerformanceUtil.decorateReportData(row, conversions, pageViews, visits, bounces);
+        PerformanceUtil.decorateReportData(row, conversions, pageViews, visits, bounces, true);
       }
 
       // Add the populated row to the reportData

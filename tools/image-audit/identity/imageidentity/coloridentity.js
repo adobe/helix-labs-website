@@ -50,6 +50,10 @@ class ColorIdentity extends AbstractIdentity {
     return Array.from(this.#topColors);
   }
 
+  hasTopColor(color) {
+    return this.#topColors.has(color);
+  }
+
   get singleton() {
     return true;
   }
