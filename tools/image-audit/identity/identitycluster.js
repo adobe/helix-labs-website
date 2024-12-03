@@ -21,6 +21,8 @@ class IdentityCluster {
 
   #clusterIdsThisClusterReplaces;
 
+  #detailHref;
+
   constructor(
     clusterCount,
     clusterManager,
@@ -28,6 +30,7 @@ class IdentityCluster {
     elementForCluster,
     figureForCluster,
     type,
+    detailHref,
   ) {
     this.#clusterManager = clusterManager;
     this.#id = `clst:${clusterCount}`;
@@ -41,6 +44,7 @@ class IdentityCluster {
     this.#typeToIdentitiesMap = new Map();
     this.addIdentity(originatingIdentity);
     this.#clusterIdsThisClusterReplaces = [];
+    this.#detailHref = detailHref;
   }
 
   get id() {
@@ -73,6 +77,10 @@ class IdentityCluster {
     }
 
     return Array.from(this.#similarityCollaboratorIdentityTypes);
+  }
+
+  get detailHref() {
+    return this.#detailHref;
   }
 
   #getSetForType(type) {

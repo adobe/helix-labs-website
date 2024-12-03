@@ -209,7 +209,7 @@ function displayModal(figure) {
       width: identity.width,
       height: identity.height,
       aspectRatio: identity.aspectRatio,
-      src: clusterManager.get(clusterId).elementForCluster.src,
+      src: clusterManager.get(clusterId).detailHref,
     };
 
     const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
@@ -468,7 +468,7 @@ async function executePreflightFunctions(identityValues, identityState) {
     .identifyPreflight(identityValues, identityState);
 }
 
-async function imageOnLoad(identityValues, identityState) {
+async function imageOnLoad(imgElement, identityValues, identityState) {
   await IdentityRegistry.identityRegistry
     .identifyPostflight(identityValues, identityState);
 
@@ -477,8 +477,8 @@ async function imageOnLoad(identityValues, identityState) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const { elementForCluster } = clusterManager.get(identityValues.originatingClusterId);
 
-  canvas.width = identityValues.width;
-  canvas.height = identityValues.height;
+  canvas.width = imgElement.width;
+  canvas.height = imgElement.height;
 
   ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
 
@@ -558,7 +558,7 @@ async function loadImage(
     // This cluster was NOT re-clustered. Run more expensive functions.
     const imageLoaded = new Promise((resolve) => {
       loadedImg.onload = async () => {
-        await imageOnLoad(identityValues, identityState)
+        await imageOnLoad(loadedImg, identityValues, identityState)
           .then(() => {
             displayImage(originatingClusterId);
             resolve(true);
@@ -598,13 +598,16 @@ async function loadImages(
     const img = individualBatch[i];
 
     const {
-      src, origin, site, alt, width, height, aspectRatio, instance, fileType,
+      src, origin, site, alt, aspectRatio, instance, fileType, width, height,
+      cardSrc, detailSrc, cardWidth, cardHeight, invalidDimensions,
     } = img;
 
     window.imageCount += 1;
     const { imageCount } = window;
+    const cardHref = new URL(cardSrc, origin).href;
+    const detailHref = new URL(detailSrc, origin).href;
     const { href } = new URL(src, origin);
-    const loadedImg = new Image(width, height);
+    const loadedImg = new Image(cardWidth, cardHeight);
     const { identityCache } = window;
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
     const figure = document.createElement('figure');
@@ -622,6 +625,7 @@ async function loadImages(
       loadedImg,
       figure,
       'image',
+      detailHref,
     );
 
     const identityValues = new IdentityValues({
@@ -631,6 +635,7 @@ async function loadImages(
       submissionValues,
       identityCache,
       href,
+      detailHref,
       site,
       alt,
       width,
@@ -640,6 +645,7 @@ async function loadImages(
       fileType,
       domainKey,
       replacementDomain,
+      invalidDimensions,
     });
 
     batchEntries.push(originatingClusterId);
@@ -652,7 +658,7 @@ async function loadImages(
         clusterManager,
         originatingClusterId,
         loadedImg,
-        href,
+        cardHref,
       );
     });
   }

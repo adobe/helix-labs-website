@@ -57,13 +57,13 @@ class SizeIdentity extends AbstractIdentity {
       originatingClusterId,
       clusterManager,
       elementForCluster,
-      href,
+      detailHref,
     } = identityValues;
 
     const size = await identityValues
       .get(SizeIdentity, 'size', async () => SizeIdentity.#getSize(elementForCluster, identityValues));
-    const id = await SizeIdentity.getSizeId(href);
-    const identity = new SizeIdentity(id, href, size);
+    const id = await SizeIdentity.getSizeId(detailHref);
+    const identity = new SizeIdentity(id, detailHref, size);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 

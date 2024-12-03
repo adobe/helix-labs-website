@@ -12,7 +12,7 @@ class LighthouseReport extends AbstractReport {
       const row = new Map(); // Create a new map for each row
 
       row.set('Page URLs With Asset', lighthouse.allPages.join(', ') || '');
-      row.set('Asset URLs', lighthouse.allPages.join(', ') || '');
+      row.set('Asset URLs', lighthouse.allSources.join(', ') || '');
       // Iterate over each category in scores (excluding the 'total' property)
 
       const { scores } = lighthouse;

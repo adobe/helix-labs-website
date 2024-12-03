@@ -19,6 +19,8 @@ class IdentityValues {
 
   #href;
 
+  #detailHref;
+
   #site;
 
   #alt;
@@ -37,6 +39,8 @@ class IdentityValues {
 
   #replacementDomain;
 
+  #invalidDimensions;
+
   constructor(
     {
       originatingClusterId,
@@ -45,6 +49,7 @@ class IdentityValues {
       submissionValues,
       identityCache,
       href,
+      detailHref,
       site,
       alt,
       width,
@@ -54,6 +59,7 @@ class IdentityValues {
       fileType,
       domainKey,
       replacementDomain,
+      invalidDimensions,
     },
   ) {
     this.#originatingClusterId = originatingClusterId;
@@ -63,6 +69,7 @@ class IdentityValues {
     this.#identityCache = identityCache;
     this.#identityHash = null;
     this.#href = href;
+    this.#detailHref = detailHref;
     this.#site = site;
     this.#alt = alt;
     this.#width = width;
@@ -72,6 +79,7 @@ class IdentityValues {
     this.#fileType = fileType;
     this.#domainKey = domainKey;
     this.#replacementDomain = replacementDomain;
+    this.#invalidDimensions = invalidDimensions;
   }
 
   async initializeIdentityHash() {
@@ -86,6 +94,10 @@ class IdentityValues {
 
   get href() {
     return this.#href;
+  }
+
+  get detailHref() {
+    return this.#detailHref;
   }
 
   get site() {

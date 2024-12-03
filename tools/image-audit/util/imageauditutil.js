@@ -1,8 +1,9 @@
 class ImageAuditUtil {
   static getFileType(src) {
+    if (src.includes('?')) return this.getFileType(src.split('?')[0]);
+
     const fileType = src.split('.')
-      .pop().split('?')
-      .shift()
+      .pop()
       .toLowerCase();
     return fileType;
   }
