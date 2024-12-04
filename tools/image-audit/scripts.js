@@ -32,6 +32,112 @@ const CORS_ANONYMOUS = true;
 
 const PAGE_SIZE = 1000;
 
+const DB_NAME = 'ImageAuditExecutions';
+const STORE_NAME = 'Executions';
+
+async function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+
+    request.onsuccess = (e) => resolve(e.target.result);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function saveFormData(url, formData) {
+  try {
+    const db = await openDB(); // Open DB
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+
+    const value = JSON.stringify(formData);
+    let key = url;
+    if (key instanceof URL) key = key.href;
+
+    const request = store.put(value, key);
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(); // Resolve promise on success
+      request.onerror = (event) => reject(event.target.error); // Reject promise on error
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error opening DB or saving form data:', error);
+    return Promise.resolve();
+  }
+}
+
+function populateFormFromData(data) {
+  Object.keys(data).forEach((key) => {
+    const input = document.querySelector(`[name="${key}"]`);
+    if (input) {
+      // Handle different input types
+      if (input.type === 'radio') {
+        const radios = document.querySelectorAll(`input[name="${key}"]`);
+        radios.forEach((radio) => {
+          if (radio.value === data[key] || (data[key] === '' && !radio.value)) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change')); // Manually trigger the change event
+          }
+        });
+      } else if (input.type === 'checkbox') {
+        if (Array.isArray(data[key])) {
+          input.checked = data[key].includes(input.value);
+        } else {
+          input.checked = data[key] === input.value;
+        }
+        input.dispatchEvent(new Event('change')); // Trigger change event for checkboxes
+      } else {
+        input.value = data[key];
+        input.dispatchEvent(new Event('change')); // Trigger change event for text inputs
+      }
+    }
+  });
+
+  document.querySelectorAll('input[name="sitemap-option"]:checked').forEach((option) => {
+    option.dispatchEvent(new Event('change'));
+  });
+}
+
+async function populateFormFromUrl(url) {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    let key = url;
+    if (key instanceof URL) key = key.href;
+
+    const request = store.get(key);
+
+    request.onsuccess = (e) => {
+      const data = e.target.result;
+      if (data) {
+        // If a match is found, populate the form fields with the corresponding data
+        const parsedData = JSON.parse(data);
+        populateFormFromData(parsedData);
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('No matching data found for:', url);
+      }
+    };
+
+    request.onerror = (e) => {
+      // eslint-disable-next-line no-console
+      console.warn('Error fetching data for', e.target.error);
+    };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error during populateFormFromUrl:', error);
+  }
+}
+
 /**
  * Creates a span element representing a color with optional clickability.
  *
@@ -1023,40 +1129,85 @@ function overrideCreateCanvas(doc) {
   };
 }
 
-function domContentLoaded() {
-  const serialized = JSON.parse(localStorage.getItem('sitemapForm'));
+function populateSiteUrlDropdown(urls) {
+  const datalist = document.getElementById('site-url-history');
+  datalist.innerHTML = ''; // Clear existing options
 
-  if (serialized) {
-    Object.keys(serialized).forEach((key) => {
-      const input = document.querySelector(`[name="${key}"]`);
-      if (input) {
-        // Skip file input as it cannot be populated directly
-        if (input.type === 'file') return;
+  // Add each URL as an option in the datalist
+  urls.forEach((url) => {
+    const option = document.createElement('option');
+    option.value = url;
+    datalist.appendChild(option);
+  });
+}
 
-        if (input.type === 'radio') {
-          // Handle radio buttons: loop through all radio buttons with the same name
-          const radios = document.querySelectorAll(`input[name="${key}"]`);
-          radios.forEach((radio) => {
-            if (radio.value === serialized[key] || (serialized[key] === '' && !radio.value)) {
-              radio.checked = true;
-              radio.dispatchEvent(new Event('change')); // Trigger change event
-            }
-          });
-        } else if (input.type === 'checkbox') {
-          // Handle checkboxes (multiple selections)
-          if (Array.isArray(serialized[key])) {
-            input.checked = serialized[key].includes(input.value);
-          } else {
-            input.checked = serialized[key] === input.value;
-          }
-          input.dispatchEvent(new Event('change')); // Trigger change event
-        } else {
-          // For other input types, just set the value
-          input.value = serialized[key];
-          input.dispatchEvent(new Event('change')); // Trigger change event
-        }
+async function handleSiteUrlChange(event) {
+  const enteredUrl = event.target.value; // The URL entered by the user
+  await populateFormFromUrl(enteredUrl); // Use the new shared function to populate the form
+}
+
+async function handleSiteUrlFocus() {
+  // Placeholder for any focus-related logic. You can still use `populateSiteUrlDropdown` if needed.
+  // In this case, we'll just populate the dropdown with previously entered URLs
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+
+    const urls = []; // Array to store previous URLs
+
+    // Open a cursor to iterate through all records in the store
+    const cursorRequest = store.openCursor();
+    cursorRequest.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        urls.push(cursor.key); // Collect URLs from the DB
+        cursor.continue(); // Continue iterating
+      } else {
+        // Populate the dropdown with the URLs once the cursor finishes
+        populateSiteUrlDropdown(urls);
       }
-    });
+    };
+
+    cursorRequest.onerror = (event) => {
+      // eslint-disable-next-line no-console
+      console.warn('Error fetching site URLs:', event.target.error);
+    };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error during site-url focus handler:', error);
+  }
+}
+
+async function domContentLoaded() {
+  try {
+    const db = await openDB(); // Open DB
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+
+    // Open a cursor and iterate in reverse order ('prev') to get the most recent entry
+    const cursorRequest = store.openCursor(null, 'prev'); // 'prev' fetches the last item
+
+    cursorRequest.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        // Assuming formData is stringified, we need to parse it back to JSON
+        const data = cursor.value;
+        const parsedData = JSON.parse(data); // Parse the stringified form data
+        populateFormFromData(parsedData); // Populate the form with the most recent data
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('No data found in the store.');
+      }
+    };
+
+    cursorRequest.onerror = (event) => {
+      // eslint-disable-next-line no-console
+      console.warn('Error fetching form data:', event.target.error);
+    };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error during domContentLoaded:', error);
   }
 }
 
@@ -1096,6 +1247,12 @@ function registerListeners(doc) {
       }
     });
   });
+
+  const siteUrlInput = document.querySelector('[name="site-url"]');
+  if (siteUrlInput) {
+    siteUrlInput.addEventListener('input', handleSiteUrlChange);
+    siteUrlInput.addEventListener('focus', handleSiteUrlFocus);
+  }
 
   doc.getElementById('embedded-sitemap-file').addEventListener('change', (event) => {
     const fileInput = event.target;
@@ -1170,9 +1327,13 @@ function registerListeners(doc) {
     }
 
     if (data['site-url']) {
-      // fetch sitemap
-      const serialized = JSON.stringify(data);
-      localStorage.setItem('sitemapForm', serialized);
+      try {
+        // Save form data into IndexedDB
+        await saveFormData(data['site-url'], data);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Error saving form data to IndexedDB:', err);
+      }
       processForm(data, identifiers, domainKey, replacementDomain, data);
     }
   });

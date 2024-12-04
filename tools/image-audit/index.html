@@ -60,7 +60,8 @@
             <li>
               <div class="form-field url-field">
                 <label for="site-url">Site URL</label>
-                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required />
+                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required list="site-url-history" />
+                <datalist id="site-url-history"></datalist>
                 <div class="field-help-text">
                   <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
                 </div>
