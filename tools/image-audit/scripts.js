@@ -952,7 +952,7 @@ async function processForm(
 
   const crawler = CrawlerRegistry.getCrawlerInstance(sitemapFormData);
 
-  window.stopCallback = crawler.stop;
+  window.stopCallback = () => crawler.stop();
 
   const urls = await crawler.fetchSitemap(sitemapFormData);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
