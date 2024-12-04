@@ -74,35 +74,76 @@ async function saveFormData(url, formData) {
   }
 }
 
+function isHidden(element) {
+  // Check if the element or any of its ancestors have aria-hidden="true"
+  if (element.closest('[aria-hidden="true"]')) {
+    return true;
+  }
+
+  // Check if the element is hidden using CSS
+  const style = getComputedStyle(element);
+  return style.display === 'none' || style.visibility === 'hidden';
+}
+
 function populateFormFromData(data) {
   Object.keys(data).forEach((key) => {
-    const input = document.querySelector(`[name="${key}"]`);
-    if (input) {
-      // Handle different input types
-      if (input.type === 'radio') {
-        const radios = document.querySelectorAll(`input[name="${key}"]`);
-        radios.forEach((radio) => {
-          if (radio.value === data[key] || (data[key] === '' && !radio.value)) {
-            radio.checked = true;
-            radio.dispatchEvent(new Event('change')); // Manually trigger the change event
-          }
-        });
-      } else if (input.type === 'checkbox') {
-        if (Array.isArray(data[key])) {
-          input.checked = data[key].includes(input.value);
-        } else {
-          input.checked = data[key] === input.value;
+    const inputs = document.querySelectorAll(`[name="${key}"]`);
+
+    if (inputs.length) {
+      inputs.forEach((input) => {
+        // Skip hidden fields or fields in containers with aria-hidden="true"
+        if (isHidden(input)) return;
+
+        if (input.type === 'file') {
+          // Skip file inputs since their value cannot be set programmatically
+          return;
         }
-        input.dispatchEvent(new Event('change')); // Trigger change event for checkboxes
-      } else {
-        input.value = data[key];
-        input.dispatchEvent(new Event('change')); // Trigger change event for text inputs
-      }
+
+        if (input.type === 'radio') {
+          // Handle radio buttons: uncheck if not the selected value
+          input.checked = input.value === data[key];
+          input.dispatchEvent(new Event('change')); // Trigger the change event
+        } else if (input.type === 'checkbox') {
+          // Handle checkboxes: uncheck if not in the data array
+          if (Array.isArray(data[key])) {
+            input.checked = data[key].includes(input.value);
+          } else {
+            input.checked = data[key] === input.value;
+          }
+          input.dispatchEvent(new Event('change')); // Trigger the change event
+        } else {
+          // Handle other input types
+          input.value = data[key] || ''; // Set to empty string if no value
+          input.dispatchEvent(new Event('change')); // Trigger the change event
+        }
+      });
     }
   });
 
+  // Uncheck or reset inputs not included in the data
+  const allInputs = document.querySelectorAll('input, select, textarea');
+  allInputs.forEach((input) => {
+    const { name, type } = input;
+
+    // Skip inputs without a name, files, hidden fields, or those already processed
+    if (!name || type === 'file' || Object.prototype.hasOwnProperty.call(data, name) || isHidden(input)) {
+      return;
+    }
+
+    if (type === 'radio' || type === 'checkbox') {
+      input.checked = false; // Uncheck unhandled radio or checkbox inputs
+      input.dispatchEvent(new Event('change')); // Trigger the change event
+    } else {
+      input.value = ''; // Clear unhandled input fields
+      input.dispatchEvent(new Event('change')); // Trigger the change event
+    }
+  });
+
+  // Explicitly trigger change events for specific options
   document.querySelectorAll('input[name="sitemap-option"]:checked').forEach((option) => {
-    option.dispatchEvent(new Event('change'));
+    if (!isHidden(option)) {
+      option.dispatchEvent(new Event('change'));
+    }
   });
 }
 
@@ -1429,8 +1470,9 @@ function registerListeners(doc) {
     .addEventListener('click', () => {
     // Replace with your method to gather form data
       const formData = getFormData(URL_FORM);
+      const json = JSON.stringify(formData);
 
-      const jsonBlob = new Blob([JSON.stringify(formData)], {
+      const jsonBlob = new Blob([json], {
         type: 'application/json',
       });
       const downloadUrl = URL.createObjectURL(jsonBlob);
@@ -1495,6 +1537,7 @@ function addIdentitySelectorsToForm(doc) {
     const checkbox = doc.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = `identity-${identity}`;
+    checkbox.name = `identity-${identity}`;
     checkbox.value = identity;
     checkbox.checked = checked;
 
