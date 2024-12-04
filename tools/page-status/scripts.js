@@ -7,7 +7,7 @@ const CAPTION = TABLE.querySelector('caption');
 const RESULTS = TABLE.querySelector('.results');
 const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
-const downloadCSV = document.getElementById('download-csv');
+const DOWNLOADCSV = document.getElementById('download-csv');
 let intervalId;
 const oneSecondFunction = () => loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
@@ -184,8 +184,8 @@ function disableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = true;
   });
-  downloadCSV.classList.remove('outline');
-  downloadCSV.classList.add('disabled');
+  DOWNLOADCSV.classList.remove('outline');
+  DOWNLOADCSV.classList.add('disabled');
 }
 
 /**
@@ -198,8 +198,8 @@ function enableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = false;
   });
-  downloadCSV.classList.add('outline');
-  downloadCSV.classList.remove('disabled');
+  DOWNLOADCSV.classList.add('outline');
+  DOWNLOADCSV.classList.remove('disabled');
 }
 
 // table management
@@ -559,7 +559,7 @@ function init() {
       enableForm(target, submitter);
     }
   });
-  downloadCSV.addEventListener('click', () => {
+  DOWNLOADCSV.addEventListener('click', () => {
     let csvData = [];
     // Get the header data
     const headers = [];
