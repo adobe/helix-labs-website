@@ -9,9 +9,7 @@ const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
 const downloadCSV = document.getElementById('download-csv');
 let intervalId;
-const oneSecondFunction = () => {
-  return loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
-};
+const oneSecondFunction = () => loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
 // utility functions
 /**
@@ -114,7 +112,7 @@ function showLoadingButton(button) {
   button.style.minHeight = `${height}px`;
   // stores original button text content
   button.dataset.label = button.textContent;
-  button.innerHTML = `<i class="symbol symbol-loading"></i>`;
+  button.innerHTML = '<i class="symbol symbol-loading"></i>';
 }
 
 /**
@@ -225,13 +223,12 @@ function updateTableDisplay(show) {
     const div = TABLE.querySelector('.loading > tr > td > div');
     const p = document.createElement('p');
     div.appendChild(p);
-    intervalId = setInterval(() => { p.innerHTML = oneSecondFunction() }, 5000);
+    intervalId = setInterval(() => { p.innerHTML = oneSecondFunction(); }, 5000);
   } else if (intervalId) {
     clearInterval(intervalId);
   }
   TABLE.querySelectorAll('tbody').forEach((tbody) => {
     tbody.setAttribute('aria-hidden', show !== tbody.className);
-
   });
 
   FILTER.value = '';
@@ -518,9 +515,9 @@ function setupJob(form, button) {
   updateTableDisplay('loading');
 }
 
-function downloadCSVFile(csv_data) {
+function downloadCSVFile(csvData) {
   // Create a Blob from the CSV data
-  const csvBlob = new Blob([csv_data], { type: 'text/csv' });
+  const csvBlob = new Blob([csvData], { type: 'text/csv' });
 
   // Create a temporary link element
   const tempLink = document.createElement('a');
@@ -563,49 +560,47 @@ function init() {
     }
   });
   downloadCSV.addEventListener('click', () => {
-    let csv_data = [];
+    let csvData = [];
     // Get the header data
-    let headers = [];
+    const headers = [];
     const headerCols = TABLE.querySelector('thead').querySelectorAll('tr > th');
-    for (let i = 0; i < headerCols.length; i++) {
+    for (let i = 0; i < headerCols.length; i += 1) {
       headers.push(headerCols[i].textContent);
     }
-    csv_data.push(headers.join(","));
+    csvData.push(headers.join(','));
     // Get each row data
-    let rows = RESULTS.getElementsByTagName('tr');
-    for (let i = 0; i < rows.length; i++) {
-
+    const rows = RESULTS.getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i += 1) {
       // Get each column data
-      let cols = rows[i].querySelectorAll('td,th');
+      const cols = rows[i].querySelectorAll('td,th');
 
       // Stores each csv row data
-      let csvrow = [];
-      for (let j = 0; j < cols.length; j++) {
-
+      const csvrow = [];
+      for (let j = 0; j < cols.length; j += 1) {
         // Get the text data of each cell of
         // a row and push it to csvrow
 
         if (cols[j].querySelector('a')) {
+          // eslint-disable-next-line prefer-destructuring
           const textContent = cols[j].querySelector('a').textContent;
           const date = new Date(textContent);
           csvrow.push(date.toString());
         } else {
+          // eslint-disable-next-line prefer-destructuring
           const textContent = cols[j].textContent;
           if (textContent.includes(':')) {
             const date = new Date(textContent);
             csvrow.push(date.toString());
-          } else
-            csvrow.push(cols[j].textContent);
+          } else csvrow.push(cols[j].textContent);
         }
       }
 
       // Combine each column value with comma
-      csv_data.push(csvrow.join(","));
+      csvData.push(csvrow.join(','));
     }
     // Combine each row data with new line character
-    csv_data = csv_data.join('\n');
-    downloadCSVFile(csv_data);
-
+    csvData = csvData.join('\n');
+    downloadCSVFile(csvData);
   });
 
   // enable table results filtering
@@ -624,8 +619,6 @@ function init() {
 
   FILTER.closest('form').addEventListener('submit', (e) => e.preventDefault());
 }
-
-
 
 /**
  * Executes status job based on params from search query string.
