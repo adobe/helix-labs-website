@@ -1,4 +1,5 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import loadingMessages from './loading-messages.js';
 
 const FORM = document.getElementById('status-form');
 const TABLE = document.querySelector('table');
@@ -6,6 +7,11 @@ const CAPTION = TABLE.querySelector('caption');
 const RESULTS = TABLE.querySelector('.results');
 const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
+const downloadCSV = document.getElementById('download-csv');
+let intervalId;
+const oneSecondFunction = () => {
+  return loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+};
 
 // utility functions
 /**
@@ -108,7 +114,7 @@ function showLoadingButton(button) {
   button.style.minHeight = `${height}px`;
   // stores original button text content
   button.dataset.label = button.textContent;
-  button.innerHTML = '<i class="symbol symbol-loading"></i>';
+  button.innerHTML = `<i class="symbol symbol-loading"></i>`;
 }
 
 /**
@@ -180,6 +186,8 @@ function disableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = true;
   });
+  downloadCSV.classList.remove('outline');
+  downloadCSV.classList.add('disabled');
 }
 
 /**
@@ -192,6 +200,8 @@ function enableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = false;
   });
+  downloadCSV.classList.add('outline');
+  downloadCSV.classList.remove('disabled');
 }
 
 // table management
@@ -211,9 +221,19 @@ function updateTableCaption(time) {
  */
 function updateTableDisplay(show) {
   // loop through tbodies and hide based on the show param
+  if (show === 'loading') {
+    const div = TABLE.querySelector('.loading > tr > td > div');
+    const p = document.createElement('p');
+    div.appendChild(p);
+    intervalId = setInterval(() => { p.innerHTML = oneSecondFunction() }, 5000);
+  } else if (intervalId) {
+    clearInterval(intervalId);
+  }
   TABLE.querySelectorAll('tbody').forEach((tbody) => {
     tbody.setAttribute('aria-hidden', show !== tbody.className);
+
   });
+
   FILTER.value = '';
   // disable filter if not showing results
   FILTER.disabled = show !== 'results';
@@ -498,6 +518,21 @@ function setupJob(form, button) {
   updateTableDisplay('loading');
 }
 
+function downloadCSVFile(csv_data) {
+  // Create a Blob from the CSV data
+  const csvBlob = new Blob([csv_data], { type: 'text/csv' });
+
+  // Create a temporary link element
+  const tempLink = document.createElement('a');
+  tempLink.href = URL.createObjectURL(csvBlob);
+  tempLink.download = 'page-status.csv';
+
+  // Append the link to the document, trigger the download, and remove the link
+  document.body.appendChild(tempLink);
+  tempLink.click();
+  document.body.removeChild(tempLink);
+}
+
 function init() {
   initConfigField();
 
@@ -527,6 +562,51 @@ function init() {
       enableForm(target, submitter);
     }
   });
+  downloadCSV.addEventListener('click', () => {
+    let csv_data = [];
+    // Get the header data
+    let headers = [];
+    const headerCols = TABLE.querySelector('thead').querySelectorAll('tr > th');
+    for (let i = 0; i < headerCols.length; i++) {
+      headers.push(headerCols[i].textContent);
+    }
+    csv_data.push(headers.join(","));
+    // Get each row data
+    let rows = RESULTS.getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i++) {
+
+      // Get each column data
+      let cols = rows[i].querySelectorAll('td,th');
+
+      // Stores each csv row data
+      let csvrow = [];
+      for (let j = 0; j < cols.length; j++) {
+
+        // Get the text data of each cell of
+        // a row and push it to csvrow
+
+        if (cols[j].querySelector('a')) {
+          const textContent = cols[j].querySelector('a').textContent;
+          const date = new Date(textContent);
+          csvrow.push(date.toString());
+        } else {
+          const textContent = cols[j].textContent;
+          if (textContent.includes(':')) {
+            const date = new Date(textContent);
+            csvrow.push(date.toString());
+          } else
+            csvrow.push(cols[j].textContent);
+        }
+      }
+
+      // Combine each column value with comma
+      csv_data.push(csvrow.join(","));
+    }
+    // Combine each row data with new line character
+    csv_data = csv_data.join('\n');
+    downloadCSVFile(csv_data);
+
+  });
 
   // enable table results filtering
   const filterTable = debounce((e) => {
@@ -544,6 +624,8 @@ function init() {
 
   FILTER.closest('form').addEventListener('submit', (e) => e.preventDefault());
 }
+
+
 
 /**
  * Executes status job based on params from search query string.

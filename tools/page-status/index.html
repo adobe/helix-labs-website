@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/styles/styles.css" />
   <script src="./scripts.js" type="module" defer></script>
   <link rel="stylesheet" href="./styles.css" />
-
+  
 </head>
 <body class="page-status">
   <header></header>
@@ -29,6 +29,7 @@
             <input name="org" id="org" list="org-list" required />
             <datalist id="org-list"></datalist>
           </div>
+         
           <div class="form-field site-field">
             <label for="site">Site</label>
             <input name="site" id="site" list="site-list" disabled required />
@@ -44,11 +45,13 @@
               Leave blank to query whole site or specify a subpath by ending with <code>/</code>.
             </p>
           </div>
-        </div>
+      </div>
+     
 
         <p class="button-wrapper">
           <button type="submit" class="button">Submit</button>
           <button type="reset" id="path-reset" class="button outline">Reset</button>
+          <a class = "button outline download" id ="download-csv">Download CSV</a>
         </p>
       </form>
     </div>
@@ -62,6 +65,7 @@
           </div>
         </form>
       </div>
+   
       <div class="table">
         <table>
           <caption aria-hidden="true">Page Status Results as of <span class="as-of"></span></caption>
@@ -106,6 +110,7 @@
               <td colspan="5">
                 <div>
                   <i class="symbol symbol-loading"></i>
+                  
                 </div>
               </td>
             </tr>
