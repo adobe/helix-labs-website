@@ -1383,6 +1383,66 @@ function registerListeners(doc) {
       }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
     }
   });
+
+  doc
+    .getElementById('import-sitemap-form-button')
+    .addEventListener('click', () => {
+      const fileInput = document.getElementById('import-sitemap-form-file');
+      fileInput.value = '';
+      document.getElementById('import-sitemap-form-file').click();
+    });
+
+  doc
+    .getElementById('import-sitemap-form-file')
+    .addEventListener('change', (event) => {
+      const file = event.target.files[0];
+
+      if (file) {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          try {
+            // Assuming .smf is JSON formatted
+            const jsonData = JSON.parse(e.target.result);
+
+            // Populate form fields with imported data
+            populateFormFromData(jsonData);
+            const formData = getFormData(URL_FORM);
+            saveFormData(formData['site-url'], formData);
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn('Error parsing imported .smf file:', error);
+          }
+        };
+
+        reader.onerror = () => {
+          // eslint-disable-next-line no-console
+          console.warn('Error reading the file.');
+        };
+
+        reader.readAsText(file);
+      }
+    });
+
+  doc
+    .getElementById('export-sitemap-form-button')
+    .addEventListener('click', () => {
+    // Replace with your method to gather form data
+      const formData = getFormData(URL_FORM);
+
+      const jsonBlob = new Blob([JSON.stringify(formData)], {
+        type: 'application/json',
+      });
+      const downloadUrl = URL.createObjectURL(jsonBlob);
+
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      const name = formData['site-url']?.hostname?.replace(/\./g, '-') || 'sitemap-form';
+      a.download = `${name}.smf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
 }
 
 function addReportsToDropdown(doc) {
