@@ -3,6 +3,7 @@
     display: grid;
     grid-template:
       'config path' auto
+      'checkbox checkbox' auto
       'button button' 1fr / 1fr 1fr;
     align-items: baseline;
     gap: 0 var(--spacing-l);
@@ -67,7 +68,8 @@
 
 .page-status table tbody.no-results td > div,
 .page-status table tbody.error td > div,
-.page-status table tbody.loading td > div {
+.page-status table tbody.loading td > div
+{
   display: flex;
   align-items: center;
   justify-content: center;
@@ -98,4 +100,22 @@
   width: 5em;
   height: 5em;
   color: var(--gray-200);
+}
+
+.page-status table tbody.loading p {
+  font-size: var(--detail-size-xl);
+  text-align: center;
+ }
+
+.page-status table tbody.loading td > div{
+flex-direction: column;
+min-height: 230px;
+}
+
+
+a.disabled {
+  pointer-events: none;
+  border-color: var(--gray-100);
+  background-color: var(--color-background);
+  color: var(--gray-400);
 }
