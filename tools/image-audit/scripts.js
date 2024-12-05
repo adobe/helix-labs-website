@@ -58,14 +58,17 @@ async function saveFormData(url, formData) {
     const store = transaction.objectStore(STORE_NAME);
 
     const value = JSON.stringify(formData);
-    let key = url;
-    if (key instanceof URL) key = key.href;
+    const key = url instanceof URL ? url.href : url;
 
     const request = store.put(value, key);
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(); // Resolve promise on success
-      request.onerror = (event) => reject(event.target.error); // Reject promise on error
+      request.onsuccess = () => {
+        // Save the URL of the most recent form data in localStorage
+        localStorage.setItem('lastExecutedURL', key);
+        resolve();
+      };
+      request.onerror = (event) => reject(event.target.error);
     });
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -1222,33 +1225,30 @@ async function handleSiteUrlFocus() {
 
 async function domContentLoaded() {
   try {
+    // Retrieve the last executed URL from localStorage
+    const lastURL = localStorage.getItem('lastExecutedURL');
+
+    if (!lastURL) {
+      return;
+    }
+
     const db = await openDB(); // Open DB
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
 
-    // Open a cursor and iterate in reverse order ('prev') to get the most recent entry
-    const cursorRequest = store.openCursor(null, 'prev'); // 'prev' fetches the last item
+    // Get the form data associated with the last URL
+    const request = store.get(lastURL);
 
-    cursorRequest.onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor) {
-        // Assuming formData is stringified, we need to parse it back to JSON
-        const data = cursor.value;
+    request.onsuccess = (event) => {
+      const data = event.target.result;
+      if (data) {
         const parsedData = JSON.parse(data); // Parse the stringified form data
-        populateFormFromData(parsedData); // Populate the form with the most recent data
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn('No data found in the store.');
+        populateFormFromData(parsedData); // Populate the form with the retrieved data
       }
-    };
-
-    cursorRequest.onerror = (event) => {
-      // eslint-disable-next-line no-console
-      console.warn('Error fetching form data:', event.target.error);
     };
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.warn('Error during domContentLoaded:', error);
+    console.debug('Error during domContentLoaded:', error);
   }
 }
 
