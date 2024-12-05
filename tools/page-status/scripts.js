@@ -1,4 +1,5 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import loadingMessages from './loading-messages.js';
 
 const FORM = document.getElementById('status-form');
 const TABLE = document.querySelector('table');
@@ -6,6 +7,9 @@ const CAPTION = TABLE.querySelector('caption');
 const RESULTS = TABLE.querySelector('.results');
 const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
+const DOWNLOADCSV = document.getElementById('download-csv');
+let intervalId;
+const oneSecondFunction = () => loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
 // utility functions
 /**
@@ -180,6 +184,8 @@ function disableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = true;
   });
+  DOWNLOADCSV.classList.remove('outline');
+  DOWNLOADCSV.classList.add('disabled');
 }
 
 /**
@@ -192,6 +198,8 @@ function enableForm(form, button) {
   [...form.elements].forEach((el) => {
     el.disabled = false;
   });
+  DOWNLOADCSV.classList.add('outline');
+  DOWNLOADCSV.classList.remove('disabled');
 }
 
 // table management
@@ -211,9 +219,18 @@ function updateTableCaption(time) {
  */
 function updateTableDisplay(show) {
   // loop through tbodies and hide based on the show param
+  if (show === 'loading') {
+    const div = TABLE.querySelector('.loading > tr > td > div');
+    const p = document.createElement('p');
+    div.appendChild(p);
+    intervalId = setInterval(() => { p.innerHTML = oneSecondFunction(); }, 5000);
+  } else if (intervalId) {
+    clearInterval(intervalId);
+  }
   TABLE.querySelectorAll('tbody').forEach((tbody) => {
     tbody.setAttribute('aria-hidden', show !== tbody.className);
   });
+
   FILTER.value = '';
   // disable filter if not showing results
   FILTER.disabled = show !== 'results';
@@ -498,6 +515,21 @@ function setupJob(form, button) {
   updateTableDisplay('loading');
 }
 
+function downloadCSVFile(csvData) {
+  // Create a Blob from the CSV data
+  const csvBlob = new Blob([csvData], { type: 'text/csv' });
+
+  // Create a temporary link element
+  const tempLink = document.createElement('a');
+  tempLink.href = URL.createObjectURL(csvBlob);
+  tempLink.download = 'page-status.csv';
+
+  // Append the link to the document, trigger the download, and remove the link
+  document.body.appendChild(tempLink);
+  tempLink.click();
+  document.body.removeChild(tempLink);
+}
+
 function init() {
   initConfigField();
 
@@ -526,6 +558,49 @@ function init() {
     } finally {
       enableForm(target, submitter);
     }
+  });
+  DOWNLOADCSV.addEventListener('click', () => {
+    let csvData = [];
+    // Get the header data
+    const headers = [];
+    const headerCols = TABLE.querySelector('thead').querySelectorAll('tr > th');
+    for (let i = 0; i < headerCols.length; i += 1) {
+      headers.push(headerCols[i].textContent);
+    }
+    csvData.push(headers.join(','));
+    // Get each row data
+    const rows = RESULTS.getElementsByTagName('tr');
+    for (let i = 0; i < rows.length; i += 1) {
+      // Get each column data
+      const cols = rows[i].querySelectorAll('td,th');
+
+      // Stores each csv row data
+      const csvrow = [];
+      for (let j = 0; j < cols.length; j += 1) {
+        // Get the text data of each cell of
+        // a row and push it to csvrow
+
+        if (cols[j].querySelector('a')) {
+          // eslint-disable-next-line prefer-destructuring
+          const textContent = cols[j].querySelector('a').textContent;
+          const date = new Date(textContent);
+          csvrow.push(date.toString());
+        } else {
+          // eslint-disable-next-line prefer-destructuring
+          const textContent = cols[j].textContent;
+          if (textContent.includes(':')) {
+            const date = new Date(textContent);
+            csvrow.push(date.toString());
+          } else csvrow.push(cols[j].textContent);
+        }
+      }
+
+      // Combine each column value with comma
+      csvData.push(csvrow.join(','));
+    }
+    // Combine each row data with new line character
+    csvData = csvData.join('\n');
+    downloadCSVFile(csvData);
   });
 
   // enable table results filtering

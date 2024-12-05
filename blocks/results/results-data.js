@@ -400,6 +400,10 @@ const sampleUrls = (sitemapData) => {
   });
 
   const topLevelUrls = allUrls.filter((u) => {
+    if (u.startsWith('/')) {
+      // eslint-disable-next-line no-param-reassign
+      u = sessionStorage.getItem('powerScoreUrl').concat(u);
+    }
     const url = new URL(u);
     const segments = url.pathname.split('/').filter((seg) => seg.trim() !== '');
     return segments.length < 2;
