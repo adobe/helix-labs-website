@@ -60,7 +60,8 @@
             <li>
               <div class="form-field url-field">
                 <label for="site-url">Site URL</label>
-                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required />
+                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required list="site-url-history" />
+                <datalist id="site-url-history"></datalist>
                 <div class="field-help-text">
                   <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
                 </div>
@@ -113,8 +114,26 @@
             </div>
             <li>
               <hr/>
+            </li>
+            <li>
               <p class="button-wrapper">
                 <button type="submit" class="button">Run</button>
+              </p>
+            </li>
+            <li>
+              <hr/>
+            </li>
+            <li>
+              <p class="button-wrapper">
+                <button type="button" id="import-sitemap-form-button" class="button">Import form</button>
+                <input 
+                  name="import-sitemap-form-file" 
+                  id="import-sitemap-form-file" 
+                  type="file" 
+                  accept=".smf" 
+                  style="display: none;" 
+                />
+                <button type="button" id="export-sitemap-form-button" class="button">Export form</button>
               </p>
             </li>
           </ul>
