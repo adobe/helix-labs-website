@@ -102,7 +102,7 @@ export default async function decorate(block) {
           id: setupData.id,
           url: setupData.origin,
           pages: sitemapData.totalUrlCnt,
-          langs: sitemapData.num_languages || 1,
+          langs: sitemapData.languages || 1,
           layouts: templateData.templates.numTemplates,
           blocks: blockData.blockCount,
           cdn: cdnData.id,

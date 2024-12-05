@@ -603,8 +603,9 @@ export const loadCalculatorData = (params) => {
   });
   provideData(DATA_TYPES.SITEMAP, {
     totalUrlCnt: params.pages ? Number(params.pages) : 1,
-    num_languages: params.langs ? Number(params.langs) : 1,
+    languages: params.langs ? Number(params.langs) : 1,
     sitemaps: [],
+    pages: [],
   });
   provideData(DATA_TYPES.TEMPLATES, {
     templates: {

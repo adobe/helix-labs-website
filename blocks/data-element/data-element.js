@@ -106,7 +106,7 @@ const metrics = {
       const dataCopy = sitemapData;
       if (initialRender) {
         const pageCount = sitemapData.totalUrlCnt;
-        const langCount = sitemapData.num_languages;
+        const langCount = sitemapData.languages;
         blockInner.innerHTML = `<div>
           <div class="page-count">
             <p><span data-param-name="pages" data-name="totalUrlCnt">${pageCount}</span> Pages</p>
@@ -115,7 +115,7 @@ const metrics = {
               <span class="label">Copy URLs</span>
             </button>
           </div>
-          <p><span data-param-name="langs" data-name="num_languages">${langCount}</span> Language(s)</p>
+          <p><span data-param-name="langs" data-name="languages">${langCount}</span> Language(s)</p>
         </div>`;
         decorateIcons(blockInner);
         const copyButton = blockInner.querySelector('.page-count button');
