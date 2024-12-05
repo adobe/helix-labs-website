@@ -171,11 +171,6 @@ async function populateFormFromUrl(url) {
         console.debug('No matching data found for:', url);
       }
     };
-
-    request.onerror = (e) => {
-      // eslint-disable-next-line no-console
-      console.warn('Error fetching data for', e.target.error);
-    };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.warn('Error during populateFormFromUrl:', error);
