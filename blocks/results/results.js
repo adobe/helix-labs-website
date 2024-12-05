@@ -68,8 +68,8 @@ export default async function decorate(block) {
   if (!isCalculator) {
     const url = new URL(link.href);
 
-    const forceUpdate = block.dataset.forceUpdate === 'true';
-    loadData(url, forceUpdate);
+    const { filterPath, sitemapUrl, forceUpdate } = block.dataset;
+    loadData(url, forceUpdate === 'true', sitemapUrl, filterPath);
   } else {
     let params = {};
     const { hash } = window.location;

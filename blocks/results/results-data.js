@@ -177,7 +177,87 @@ export const dataProviderError = (dataType, err) => {
 
 const IO_BASE_URL_STAGE = 'https://316182-301graysole-stage.adobeioruntime.net/api/v1/web/powerscore';
 const IO_BASE_URL_PROD = 'https://316182-301graysole.adobeioruntime.net/api/v1/web/powerscore';
+const CF_WORKER_BASE_URL = 'https://powerscore.adobeaem.workers.dev';
 let ioBaseURL = IO_BASE_URL_PROD;
+
+const pollForResult = (dataType, resultFetcher, pollingInterval, maxTime) => {
+  let timeWaited = 0;
+  let wait = 0;
+  const pollingIntervalMs = pollingInterval * 1000;
+
+  const exec = () => {
+    timeWaited += wait;
+    wait = pollingIntervalMs;
+    if (timeWaited >= (maxTime * 1000)) {
+      const exceededError = new Error(`action ${dataType.description} exceeded max allowed time of ${maxTime}s`);
+      dataProviderError(dataType, exceededError);
+      return;
+    }
+
+    resultFetcher().then((data) => {
+      if (data) {
+        try {
+          provideData(dataType, data);
+        } catch (err) {
+          dataProviderError(dataType, err);
+        }
+      } else {
+        setTimeout(exec, wait);
+      }
+    }).catch(() => {
+      setTimeout(exec, wait);
+    });
+  };
+  setTimeout(exec, wait);
+};
+
+const cfGetFile = async (signedUrl) => {
+  try {
+    const resp = await fetch(signedUrl);
+    if (resp.ok) {
+      const json = await resp.json();
+      return json;
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('get file failed.', err);
+  }
+
+  return undefined;
+};
+
+const invokeCfDataActionAsync = async (dataType, path, params, intervalTime = 10, maxTime = 60) => {
+  try {
+    const { id } = JSON.parse(sessionStorage.getItem('powerScoreParams'));
+    const fileName = `${id}__${dataType.description.toLowerCase()}`;
+    const paramsWithFileName = {
+      ...params,
+      fileName,
+    };
+    const paramsString = Object.entries(paramsWithFileName).map(([key, val]) => `${key}=${encodeURIComponent(val)}`).join('&');
+    const res = await fetch(`${CF_WORKER_BASE_URL}${path}?${paramsString}`, {
+      method: 'GET',
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.body && json.body.ObjectUrl) {
+        pollForResult(
+          dataType,
+          async () => cfGetFile(json.body.ObjectUrl),
+          intervalTime,
+          maxTime,
+        );
+      }
+    } else {
+      throw new Error('failed to load results');
+    }
+  } catch (err) {
+    dataProviderError(dataType, err);
+  }
+
+  return {};
+};
 
 /**
  * Invoke an IO action to get data. data is then made available to other blocks
@@ -281,9 +361,8 @@ const invokeIoDataActionAsync = async (
   intervalTime = 10,
   maxTime = 60,
 ) => {
-  let intervalId;
   try {
-    const id = sessionStorage.getItem('powerScoreId');
+    const { id } = JSON.parse(sessionStorage.getItem('powerScoreParams'));
     const fileName = `${id}__${dataType.description.toLowerCase()}.json`;
     const dataFromFile = await ioGetFile(fileName);
     if (dataFromFile) {
@@ -303,29 +382,12 @@ const invokeIoDataActionAsync = async (
       });
 
       if (res.ok) {
-        let timeWaited = 0;
-        const wait = intervalTime * 1000;
-        intervalId = setInterval(() => {
-          timeWaited += wait;
-          if (timeWaited >= (maxTime * 1000)) {
-            const exceededError = new Error(`action ${dataType.description} exceeded max allowed time of ${maxTime}s`);
-            dataProviderError(dataType, exceededError);
-            clearInterval(intervalId);
-            return;
-          }
-          ioGetFile(fileName).then((ioFileData) => {
-            if (ioFileData) {
-              provideData(dataType, ioFileData);
-              clearInterval(intervalId);
-            }
-          });
-        }, wait);
+        pollForResult(dataType, async () => ioGetFile(fileName), intervalTime, maxTime);
       } else {
         throw new Error('failed to load results');
       }
     }
   } catch (err) {
-    if (intervalId) clearInterval(intervalId);
     dataProviderError(dataType, err);
   }
 };
@@ -333,8 +395,8 @@ const invokeIoDataActionAsync = async (
 const sampleUrls = (sitemapData) => {
   const sampledUrls = [];
   const allUrls = [];
-  sitemapData.sitemaps.forEach((sitemap) => {
-    sitemap.forEach((p) => allUrls.push(p.page));
+  sitemapData.pages.forEach((pages) => {
+    pages.urls.forEach((u) => allUrls.push(u));
   });
 
   const topLevelUrls = allUrls.filter((u) => {
@@ -345,15 +407,24 @@ const sampleUrls = (sitemapData) => {
   sampledUrls.push(...topLevelUrls);
   const targetUrlCount = 50;
   const urlsToAdd = targetUrlCount - sampledUrls.length;
-  const sampleRate = urlsToAdd / allUrls.length;
-  allUrls.forEach((u) => {
-    if (!sampledUrls.includes(u)) {
-      const random = Math.random();
-      if (random < sampleRate) {
-        sampledUrls.push(u);
-      }
+  if (urlsToAdd < 0) {
+    // randomly remove urls to get to target count
+    const urlsToRemove = sampleUrls - targetUrlCount;
+    for (let i = 0; i < urlsToRemove; i += 1) {
+      const randomIndex = Math.floor(Math.random() * sampledUrls.length);
+      sampledUrls.splice(randomIndex, 1);
     }
-  });
+  } else {
+    const sampleRate = urlsToAdd / allUrls.length;
+    allUrls.forEach((u) => {
+      if (!sampledUrls.includes(u)) {
+        const random = Math.random();
+        if (random < sampleRate) {
+          sampledUrls.push(u);
+        }
+      }
+    });
+  }
 
   return sampledUrls;
 };
@@ -472,7 +543,7 @@ export const initCalculations = () => {
       return;
     }
 
-    const pageCount = sitemapData.num_pages;
+    const pageCount = sitemapData.totalUrlCnt;
     const pagesWeight = 1;
     const pagesScore = Math.min(pageCount / 20, 100);
 
@@ -531,7 +602,7 @@ export const loadCalculatorData = (params) => {
     id: params.id,
   });
   provideData(DATA_TYPES.SITEMAP, {
-    num_pages: params.pages ? Number(params.pages) : 1,
+    totalUrlCnt: params.pages ? Number(params.pages) : 1,
     num_languages: params.langs ? Number(params.langs) : 1,
     sitemaps: [],
   });
@@ -576,7 +647,7 @@ export const loadCalculatorData = (params) => {
   );
 };
 
-export const loadData = (url, forceUpdate = false) => {
+export const loadData = (url, forceUpdate = false, customSitemap = '', filterPath = '') => {
   if (window.location.hostname.includes('hlx.live') || window.location.hostname.includes('aem.live')) {
     ioBaseURL = IO_BASE_URL_PROD;
   } else {
@@ -592,12 +663,13 @@ export const loadData = (url, forceUpdate = false) => {
       return;
     }
 
-    sessionStorage.setItem('powerScoreId', setupData.id.value || setupData.id);
-    sessionStorage.setItem('powerScoreUrl', setupData.origin);
-    invokeIoDataActionAsync(DATA_TYPES.SITEMAP, 'powerscore/get-sitemap', {
-      powerscoreURL: setupData.origin,
-      id: setupData.id,
-    }, 10, 300);
+    const urlAndPath = setupData.path ? `${setupData.origin}${setupData.path}` : setupData.origin;
+    invokeCfDataActionAsync(DATA_TYPES.SITEMAP, '/api/pages/', {
+      powerscoreURL: urlAndPath,
+      sitemapUrl: setupData.sitemapUrl,
+      force: setupData.forceUpdate,
+    }, 5, 300);
+
     invokeIoDataAction(DATA_TYPES.DNS, 'dns.json', {
       powerscoreURL: setupData.origin,
       id: setupData.id,
@@ -622,17 +694,15 @@ export const loadData = (url, forceUpdate = false) => {
     }, 15, 600);
   });
 
-  const lastUrl = sessionStorage.getItem('powerScoreUrl');
-  const lastId = sessionStorage.getItem('powerScoreId');
-  if (lastUrl && lastId && !forceUpdate && url === lastUrl) {
-    provideData(DATA_TYPES.SETUP, {
-      origin: lastUrl,
-      id: lastId,
-    });
-  } else {
-    invokeIoDataAction(DATA_TYPES.SETUP, 'setup.json', {
-      powerscoreURL: url,
-      force: String(forceUpdate),
-    });
-  }
+  const powerScoreUrl = new URL(url);
+  const powerScoreId = `${powerScoreUrl.hostname.replaceAll('.', '-')}--${filterPath ? filterPath.toLowerCase().replaceAll('/', '-') : 'root'}`;
+  const powerScoreParams = {
+    id: powerScoreId,
+    origin: url.origin,
+    path: filterPath,
+    sitemapUrl: customSitemap,
+    forceUpdate,
+  };
+  sessionStorage.setItem('powerScoreParams', JSON.stringify(powerScoreParams));
+  provideData(DATA_TYPES.SETUP, powerScoreParams);
 };
