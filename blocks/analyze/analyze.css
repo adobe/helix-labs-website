@@ -12,6 +12,10 @@ main .analyze form {
     max-width: 800px;
     margin-inline: auto;
 
+    label {
+      margin: 0;
+    }
+
     .input-field-wrapper {
       display: flex;
       justify-content: start;
@@ -131,15 +135,21 @@ main .analyze form {
           justify-content: center;
           align-items: flex-start;
           overflow: hidden;
+          padding: 0;
+          transition: padding 0.2s ease-in-out;
       }
 
       &[aria-expanded="true"] {
           grid-template-rows: 1fr;
           border-width: 2px;
-          transition-property: grid-template-rows, border-top-width, border-right-width, border-left-width, border-bottom-width;
+          transition-property: grid-template-rows, border-top-width, border-right-width, border-left-width, border-bottom-width, padding;
 
           legend::after {
               transform: translateY(-50%) rotate(-45deg);
+          }
+
+          .settings-wrapper {
+            padding: 2px;
           }
       }
   }
