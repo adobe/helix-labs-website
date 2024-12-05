@@ -105,17 +105,17 @@ const metrics = {
     render: async (blockInner, [sitemapData], { isCalculator, initialRender }) => {
       const dataCopy = sitemapData;
       if (initialRender) {
-        const pageCount = sitemapData.num_pages;
-        const langCount = sitemapData.num_languages;
+        const pageCount = sitemapData.totalUrlCnt;
+        const langCount = sitemapData.languages;
         blockInner.innerHTML = `<div>
           <div class="page-count">
-            <p><span data-param-name="pages" data-name="num_pages">${pageCount}</span> Pages</p> 
+            <p><span data-param-name="pages" data-name="totalUrlCnt">${pageCount}</span> Pages</p>
             <button type="button">
               <span class="icon icon-copy"></span>
               <span class="label">Copy URLs</span>
             </button>
           </div>
-          <p><span data-param-name="langs" data-name="num_languages">${langCount}</span> Language(s)</p>
+          <p><span data-param-name="langs" data-name="languages">${langCount}</span> Language(s)</p>
         </div>`;
         decorateIcons(blockInner);
         const copyButton = blockInner.querySelector('.page-count button');
@@ -136,8 +136,8 @@ const metrics = {
         } else {
           copyButton.addEventListener('click', () => {
             const urls = [];
-            sitemapData.sitemaps.forEach((sitemap) => {
-              sitemap.forEach((p) => urls.push(p.page.startsWith('/') ? sessionStorage.getItem('powerScoreUrl').concat(p.page) : p.page));
+            sitemapData.pages.forEach((sitemap) => {
+              sitemap.urls.forEach((u) => urls.push(u));
             });
             navigator.clipboard.writeText(urls.join('\n'));
             copyButton.setAttribute('disabled', true);
