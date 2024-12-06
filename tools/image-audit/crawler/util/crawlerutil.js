@@ -23,6 +23,8 @@ class CrawlerUtil {
       } catch (error) {
         return false;
       }
+    } else if (typeof url?.href === 'string' && typeof url?.plain === 'string') {
+      return this.isUrlValid(url.href) && this.isUrlValid(url.plain);
     } else if (typeof url?.href === 'string') {
       return this.isUrlValid(url.href);
     } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
