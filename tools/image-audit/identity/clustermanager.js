@@ -30,7 +30,7 @@ class ClusterManager {
     return this.#clusterCount;
   }
 
-  newCluster(originatingIdentity, elementForCluster, figureForCluster, type) {
+  newCluster(originatingIdentity, elementForCluster, figureForCluster, type, detailHref) {
     this.#clusterCount += 1;
 
     const cluster = new IdentityCluster(
@@ -40,6 +40,7 @@ class ClusterManager {
       elementForCluster,
       figureForCluster,
       type,
+      detailHref,
     );
 
     this.#add(cluster);

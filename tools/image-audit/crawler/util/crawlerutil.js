@@ -52,14 +52,27 @@ class CrawlerUtil {
   }
 
   static async fetchPageHtml(url) {
-    const req = await fetch(url);
-    if (req.ok) {
-      return req.text();
-    }
-    // eslint-disable-next-line no-console
-    console.warn(`Failed to fetch page at ${url} with http status ${req.status}`);
+    try {
+      const req = await fetch(url);
+      if (!req.ok) {
+        // eslint-disable-next-line no-console
+        console.warn(`Failed to fetch page at ${url} with HTTP status ${req.status}`);
+        return null;
+      }
 
-    return null;
+      const contentType = req.headers.get('Content-Type');
+      if (!contentType || !contentType.includes('text/html')) {
+        // eslint-disable-next-line no-console
+        console.warn(`Fetched content is not HTML. Content-Type: ${contentType}`);
+        return null;
+      }
+
+      return req.text();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Error fetching page at ${url}:`, error);
+      return null;
+    }
   }
 }
 

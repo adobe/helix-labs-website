@@ -1,8 +1,10 @@
 /* eslint-disable class-methods-use-this */
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
-import SizeIdentity from './sizeidentity.js';
 import Hash from '../util/hash.js';
+import PromisePool from '../../util/promisepool.js';
+
+const concurrentSHA = 5;
 
 class CryptoIdentity extends AbstractIdentity {
   static get type() {
@@ -29,17 +31,17 @@ class CryptoIdentity extends AbstractIdentity {
       clusterManager,
       canvas,
       ctx,
-      href,
     } = identityValues;
 
-    const sizeIdentifier = clusterManager.get(originatingClusterId)
-      .get(await SizeIdentity.getSizeId(href));
-    if (sizeIdentifier?.tooBigForWeb) {
-      // don't bother with large images.
-      return;
+    if (!identityState.promisePool) {
+      // this ensures a limited number of text identifications happening simultaneously.
+      // shared between instances.
+      identityState.promisePool = new PromisePool(concurrentSHA, 'OCR Pool', false);
     }
 
-    const hash = await identityValues.get(CryptoIdentity, 'hash', async () => CryptoIdentity.#getHash(canvas, ctx));
+    const { promisePool } = identityState;
+
+    const hash = await promisePool.run(async () => identityValues.get(CryptoIdentity, 'hash', async () => CryptoIdentity.#getHash(canvas, ctx)));
     const identity = new CryptoIdentity(hash);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }

@@ -6,10 +6,19 @@ import ImageAudutUtil from '../../util/imageauditutil.js';
 import AbstractCrawler from '../abstractcrawler.js';
 import CrawlerImageValues from '../crawlerimagevalues.js';
 
+// TODO: Make this dynamic? These are the max dimensions for the card and image compares.
+const MAX_DIMENSION = 256;
+const MIN_DIMENSION = 32;
+
 class AbstractEDSSitemapCrawler extends AbstractCrawler {
   #duplicateFilter;
 
   #stopped = false;
+
+  // TODO: make these come from the sitemap form
+  #skip = 0;
+
+  #end = 99999;
 
   constructor() {
     super();
@@ -124,10 +133,20 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
   }
 
   async #fetchImageDataFromPage(url) {
+    this.#end -= 1;
+    if (this.#skip > 0) {
+      this.#skip -= 1;
+      return [];
+    }
+    if (this.#end <= 0) {
+      return [];
+    }
+
     const html = document.createElement('div');
 
     try {
-    // this counts on url.plain, which wont work for non eds sites.
+      // this counts on url.plain, which wont work for non eds sites.
+      // console.log('Crawling page: ', url.plain);
       const rawHtml = await CrawlerUtil.fetchPageHtml(url.plain);
       if (!rawHtml) {
         return [];
@@ -139,18 +158,41 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
         const seenMap = new Map();
         const images = html.querySelectorAll('img[src]');
         const imgData = [...images].map((img) => {
-          const width = img.getAttribute('width') || img.naturalWidth;
+          let width = img.getAttribute('width') || img.naturalWidth;
+          let height = img.getAttribute('height') || img.naturalHeight;
+          const invalidDimensions = width === 0 || height === 0;
+          if (!width) width = MIN_DIMENSION;
+          if (!height) height = MIN_DIMENSION;
+
+          const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
+
+          let cardWidth = width;
+          let cardHeight = height;
+
+          if (cardWidth < MIN_DIMENSION || cardHeight < MIN_DIMENSION) {
+            const scalingFactor = MIN_DIMENSION / Math.min(cardWidth, cardHeight);
+            cardWidth = Math.round(cardWidth * scalingFactor);
+            cardHeight = Math.round(cardHeight * scalingFactor);
+          }
+
+          if (cardWidth > MAX_DIMENSION || cardHeight > MAX_DIMENSION) {
+            const scalingFactor = MAX_DIMENSION / Math.max(cardWidth, cardHeight);
+            cardWidth = Math.round(cardWidth * scalingFactor);
+            cardHeight = Math.round(cardHeight * scalingFactor);
+          }
+
           const { origin } = new URL(url.href);
-          const imgSrc = img.getAttribute('src');
-          const originalUrl = new URL(imgSrc, origin);
+          const src = img.getAttribute('src').split('?')[0];
+          const originalUrl = new URL(src, origin);
 
           if (!CrawlerUtil.isUrlValid(originalUrl)) {
             return null;
           }
 
-          const src = this.#getEDSOptimizedImageUrl(imgSrc, origin, width);
+          const detailSrc = this.#getEDSOptimizedImageUrl(src, origin, width);
+          const cardSrc = this.#getEDSOptimizedImageUrl(src, origin, cardWidth);
 
-          if (!CrawlerUtil.isUrlValid(new URL(src, origin))) {
+          if (!CrawlerUtil.isUrlValid(new URL(cardSrc, origin))) {
             return null;
           }
 
@@ -161,17 +203,20 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
           seenMap.set(src, instance);
 
           const alt = img.getAttribute('alt') || '';
-          const height = img.getAttribute('height') || img.naturalHeight;
-          const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
-          const fileType = ImageAudutUtil.getFileType(imgSrc);
+          const fileType = ImageAudutUtil.getFileType(src);
 
           return new CrawlerImageValues({
             site: url.href,
             origin,
             src,
+            cardSrc,
+            detailSrc,
             alt,
             width,
             height,
+            cardWidth,
+            cardHeight,
+            invalidDimensions,
             aspectRatio,
             instance,
             fileType,

@@ -5,11 +5,21 @@ class CrawlerImageValues {
 
   #src;
 
+  #cardSrc;
+
+  #detailSrc;
+
   #alt;
 
   #width;
 
   #height;
+
+  #cardWidth;
+
+  #cardHeight;
+
+  #invalidDimensions;
 
   #aspectRatio;
 
@@ -21,9 +31,14 @@ class CrawlerImageValues {
     site,
     origin,
     src,
+    cardSrc,
+    detailSrc,
     alt,
     width,
     height,
+    cardWidth,
+    cardHeight,
+    invalidDimensions,
     aspectRatio,
     instance,
     fileType,
@@ -34,9 +49,14 @@ class CrawlerImageValues {
     this.#alt = alt;
     this.#width = width;
     this.#height = height;
+    this.#cardWidth = cardWidth;
+    this.#cardHeight = cardHeight;
+    this.#invalidDimensions = invalidDimensions;
     this.#aspectRatio = aspectRatio;
     this.#instance = instance;
     this.#fileType = fileType;
+    this.#cardSrc = cardSrc;
+    this.#detailSrc = detailSrc;
   }
 
   get site() {
@@ -63,8 +83,28 @@ class CrawlerImageValues {
     return this.#height;
   }
 
+  get cardSrc() {
+    return this.#cardSrc;
+  }
+
+  get detailSrc() {
+    return this.#detailSrc;
+  }
+
+  get cardWidth() {
+    return this.#cardWidth;
+  }
+
+  get cardHeight() {
+    return this.#cardHeight;
+  }
+
   get aspectRatio() {
     return this.#aspectRatio;
+  }
+
+  get invalidDimensions() {
+    return this.#invalidDimensions;
   }
 
   get instance() {

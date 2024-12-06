@@ -40,10 +40,7 @@ class TextIdentity extends AbstractIdentity {
 
     const sizeIdentifier = clusterManager.get(originatingClusterId)
       .get(await SizeIdentity.getSizeId(href));
-    if (sizeIdentifier?.tooBigForWeb) {
-      // don't bother with large images.
-      return;
-    }
+    const tooBigForWeb = sizeIdentifier?.tooBigForWeb;
 
     if (!identityState.promisePool) {
       // this ensures a limited number of text identifications happening simultaneously.
@@ -60,6 +57,7 @@ class TextIdentity extends AbstractIdentity {
           identityValues,
           identityState,
           clusterManager,
+          tooBigForWeb,
         )));
 
     if (!text || !identityText) return;
@@ -69,14 +67,43 @@ class TextIdentity extends AbstractIdentity {
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
-  static async #identifyText(originatingClusterId, identityValues, identityState, clusterManager) {
+  static async #identifyText(
+    originatingClusterId,
+    identityValues,
+    identityState,
+    clusterManager,
+    tooBigForWeb,
+  ) {
     let text = '';
     let identityText = '';
     try {
-      // eslint-disable-next-line no-undef
+      let imgElement = null;
+      if (tooBigForWeb) {
+        imgElement = clusterManager
+          .get(originatingClusterId).elementForCluster;
+      } else {
+        // prepare the high res image for OCR
+        const newImgElement = clusterManager
+          .get(originatingClusterId).elementForCluster.cloneNode(true);
+        newImgElement.width = identityValues.width;
+        newImgElement.height = identityValues.height;
+
+        // Wait for the image to load
+        const loaded = new Promise((resolve, reject) => {
+          newImgElement.onload = () => resolve();
+          newImgElement.onerror = (error) => reject(new Error(`Detailed image failed to load: ${error.message}`));
+        });
+
+        newImgElement.src = identityValues.detailHref;
+
+        await loaded;
+
+        imgElement = newImgElement;
+      }
+
       await Tesseract.recognize(
-        clusterManager.get(originatingClusterId).elementForCluster,
-        'eng',
+        imgElement,
+        'eng', // TODO: Multiple languages
       ).then(async ({ data: { words } }) => {
         // Filter words based on confidence level
         const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
