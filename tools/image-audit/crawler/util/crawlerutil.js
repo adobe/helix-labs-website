@@ -10,37 +10,39 @@ class CrawlerUtil {
   */
   static isUrlValid(url) {
     if (!url) return false;
-    let protocol = '';
     if (url instanceof URL) {
-      if (url.hostname === 'localhost') {
+      if (url.hostname === 'localhost' || url.hostname === '') {
         return false;
       }
-      protocol = url.protocol.replace(':', '').toLowerCase();
-    } else if (typeof url === 'string') {
+      const protocol = url.protocol.replace(':', '').toLowerCase();
+      return this.#permittedProtocols.includes(protocol);
+    }
+    if (typeof url === 'string') {
       try {
         const newUrl = new URL(url);
         return this.isUrlValid(newUrl);
       } catch (error) {
         return false;
       }
-    } else if (typeof url?.href === 'string' && typeof url?.plain === 'string') {
+    }
+    if (typeof url?.href === 'string' && typeof url?.plain === 'string') {
       return this.isUrlValid(url.href) && this.isUrlValid(url.plain);
-    } else if (typeof url?.href === 'string') {
+    }
+    if (typeof url?.href === 'string') {
       return this.isUrlValid(url.href);
-    } else if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
+    }
+    if (typeof url?.origin === 'string' && typeof url?.src === 'string') {
       try {
         const newUrl = new URL(url.src, url.origin);
         return this.isUrlValid(newUrl);
       } catch (error) {
         return false;
       }
-    } else if (typeof url?.origin === 'string') {
-      return this.isUrlValid(url.origin);
-    } else {
-      return false;
     }
-
-    return this.#permittedProtocols.includes(protocol);
+    if (typeof url?.origin === 'string') {
+      return this.isUrlValid(url.origin);
+    }
+    return false;
   }
 
   /**
