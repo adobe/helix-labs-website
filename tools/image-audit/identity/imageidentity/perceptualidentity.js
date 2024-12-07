@@ -75,8 +75,9 @@ class PerceptualIdentity extends AbstractIdentity {
       return; // it already has one, maybe due to a merge.
     }
 
+    const sizeId = await SizeIdentity.getSizeId(href);
     const sizeIdentifier = clusterManager.get(originatingClusterId)
-      .get(await SizeIdentity.getSizeId(href));
+      .get(sizeId);
     if (sizeIdentifier?.tooBigForWeb) {
       // don't bother with large images.
       return;

@@ -98,7 +98,6 @@ class IdentityCluster {
       // This should only happen because the cluster we're referencing has had another
       // cluster merged into it, and async operations are still operating on the current cluster
       // eslint-disable-next-line no-console
-      console.debug(`Adding singleton identity ${identity.type} to cluster ${this.id} which already has this identity type. Merging.`);
       this.getSingletonOf(identity.type)?.mergeOther(identity);
     } else {
       this.#insertIdentity(identity);

@@ -56,30 +56,41 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  #getEDSOptimizedImageUrl(src, origin, defaultWidth) {
+  #getEDSOptimizedImageUrl(src, origin, width) {
     const originalUrl = new URL(src, origin);
+    if (!CrawlerUtil.isUrlValid(originalUrl)) {
+      return null;
+    }
     const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
     if (!aemSite) {
       return src;
     }
 
+    originalUrl.searchParams.set('width', width);
+    originalUrl.searchParams.set('format', 'webply');
+    originalUrl.searchParams.set('optimize', 'medium');
+
+    return originalUrl.href;
+
+    /*
     // Use the width from the query parameter if available, otherwise use the provided defaultWidth
     const width = originalUrl.searchParams.has('width')
       ? originalUrl.searchParams.get('width')
       : defaultWidth;
-
     const pictureElement = createOptimizedPicture(
       originalUrl,
       'Optimized Image',
-      false,
+      true,
       [
         { media: `(min-width: ${width}px)`, width: `${width}` },
         { width: `${width}` },
       ],
     );
-
     // Extract the URL of the best-matched <source> for this device from pictureElement
-    return `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
+    const rv = `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
+    pictureElement.outerHTML = '';
+    return rv;
+    */
   }
 
   stop() {

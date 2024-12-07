@@ -61,8 +61,10 @@ class ClusterManager {
   reclusterComplete(persistedCluster, consumedCluster) {
     // This maintains a reference from the old cluster to the new one
     // so that any async operations automatically pick up this change.
+    // console.debug(`Setting ${consumedCluster.id} to ${persistedCluster.id}`);
     this.#clusterMap.set(consumedCluster.id, persistedCluster);
     consumedCluster.clusterIdsThisClusterReplaces.forEach((clusterId) => {
+      // console.debug(`Setting ${clusterId} to ${persistedCluster.id}`);
       this.#clusterMap.set(clusterId, persistedCluster);
     });
   }
