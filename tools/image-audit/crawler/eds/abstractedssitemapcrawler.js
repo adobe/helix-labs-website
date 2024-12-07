@@ -70,26 +70,6 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     originalUrl.searchParams.set('optimize', 'medium');
 
     return originalUrl.href;
-
-    /*
-    // Use the width from the query parameter if available, otherwise use the provided defaultWidth
-    const width = originalUrl.searchParams.has('width')
-      ? originalUrl.searchParams.get('width')
-      : defaultWidth;
-    const pictureElement = createOptimizedPicture(
-      originalUrl,
-      'Optimized Image',
-      true,
-      [
-        { media: `(min-width: ${width}px)`, width: `${width}` },
-        { width: `${width}` },
-      ],
-    );
-    // Extract the URL of the best-matched <source> for this device from pictureElement
-    const rv = `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
-    pictureElement.outerHTML = '';
-    return rv;
-    */
   }
 
   stop() {
