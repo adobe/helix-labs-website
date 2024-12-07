@@ -139,8 +139,9 @@ class ColorIdentity extends AbstractIdentity {
     const { originatingClusterId, clusterManager, href } = identityValues;
     const colorIdentity = new ColorIdentity(identityState);
 
+    const sizeId = await SizeIdentity.getSizeId(href);
     const sizeIdentifier = clusterManager.get(originatingClusterId)
-      .get(await SizeIdentity.getSizeId(href));
+      .get(sizeId);
     if (sizeIdentifier?.tooBigForWeb) {
       // don't bother with large images.
       colorIdentity.#topColors.add(ColorUtility.UNKNOWN_NAME);

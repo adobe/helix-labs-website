@@ -38,8 +38,9 @@ class TextIdentity extends AbstractIdentity {
   static async identifyPostflight(identityValues, identityState) {
     const { originatingClusterId, clusterManager, href } = identityValues;
 
+    const sizeId = await SizeIdentity.getSizeId(href);
     const sizeIdentifier = clusterManager.get(originatingClusterId)
-      .get(await SizeIdentity.getSizeId(href));
+      .get(sizeId);
     const tooBigForWeb = sizeIdentifier?.tooBigForWeb;
 
     if (!identityState.promisePool) {
