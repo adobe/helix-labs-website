@@ -1,5 +1,4 @@
 // eslint-disable-next-line import/no-relative-packages
-import { createOptimizedPicture } from '../../../../scripts/aem.js';
 import { AEM_EDS_HOSTS } from '../../identity/imageidentity/urlidentity.js';
 import CrawlerUtil from '../util/crawlerutil.js';
 import ImageAudutUtil from '../../util/imageauditutil.js';
