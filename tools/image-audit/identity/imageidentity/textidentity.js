@@ -36,7 +36,11 @@ class TextIdentity extends AbstractIdentity {
   }
 
   static async identifyPostflight(identityValues, identityState) {
-    const { originatingClusterId, clusterManager, href } = identityValues;
+    const {
+      originatingClusterId, clusterManager, href, width, height,
+    } = identityValues;
+
+    if (width <= 3 || height <= 3) return; // OCR doesn't work on these.
 
     const sizeId = await SizeIdentity.getSizeId(href);
     const sizeIdentifier = clusterManager.get(originatingClusterId)

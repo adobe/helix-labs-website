@@ -146,7 +146,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       html.innerHTML = rawHtml;
       if (html) {
         const seenMap = new Map();
-        const images = html.querySelectorAll('img[src]');
+        const images = html.querySelectorAll('img[crawledsrc]');
         const imgData = [...images].map((img) => {
           let width = img.getAttribute('width') || img.naturalWidth;
           let height = img.getAttribute('height') || img.naturalHeight;
@@ -172,7 +172,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
           }
 
           const { origin } = new URL(url.href);
-          const src = img.getAttribute('src').split('?')[0];
+          const src = img?.getAttribute('crawledsrc')?.split('?')[0];
           const originalUrl = new URL(src, origin);
 
           if (!CrawlerUtil.isUrlValid(originalUrl)) {

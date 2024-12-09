@@ -17,6 +17,8 @@ const exactMatchDifferentPixelPercent = 0.004;
 
 const phashConcurrency = 20;
 
+const maximalAspectRatioDifference = 0.1;
+
 class PerceptualIdentity extends AbstractIdentity {
   #phash; // ImageHash object, not hex string.
 
@@ -38,7 +40,9 @@ class PerceptualIdentity extends AbstractIdentity {
 
   #promisePool;
 
-  constructor(phash, identityValues, elementForCluster, identityState) {
+  #aspectRatio;
+
+  constructor(phash, identityValues, elementForCluster, identityState, aspectRatio) {
     super('pi');
     this.#phash = phash;
     this.#identityState = identityState;
@@ -49,6 +53,7 @@ class PerceptualIdentity extends AbstractIdentity {
     this.#width = elementForCluster.width;
     this.#height = elementForCluster.height;
     this.#elementForCluster = elementForCluster;
+    this.#aspectRatio = aspectRatio;
   }
 
   get singleton() {
@@ -107,6 +112,7 @@ class PerceptualIdentity extends AbstractIdentity {
       identityValues,
       elementForCluster,
       identityState,
+      identityValues.aspectRatio,
     );
 
     // just in case it was reclustered while we were waiting for the hash.
@@ -136,6 +142,10 @@ class PerceptualIdentity extends AbstractIdentity {
   }
 
   async getMergeWeight(otherIdentity) {
+    if (Math.abs(this.#aspectRatio - otherIdentity.#aspectRatio) > maximalAspectRatioDifference) {
+      return 0; // aspect ratio is too different. Save other efforts.
+    }
+
     const otherCacheKey = otherIdentity.#identityValues.identityHash;
 
     // this section is all about caching the weight hit. Two identityHashes
