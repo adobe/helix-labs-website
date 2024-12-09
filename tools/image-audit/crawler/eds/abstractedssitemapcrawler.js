@@ -1,5 +1,4 @@
 // eslint-disable-next-line import/no-relative-packages
-import { createOptimizedPicture } from '../../../../scripts/aem.js';
 import { AEM_EDS_HOSTS } from '../../identity/imageidentity/urlidentity.js';
 import CrawlerUtil from '../util/crawlerutil.js';
 import ImageAudutUtil from '../../util/imageauditutil.js';
@@ -56,30 +55,21 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  #getEDSOptimizedImageUrl(src, origin, defaultWidth) {
+  #getEDSOptimizedImageUrl(src, origin, width) {
     const originalUrl = new URL(src, origin);
+    if (!CrawlerUtil.isUrlValid(originalUrl)) {
+      return null;
+    }
     const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
     if (!aemSite) {
       return src;
     }
 
-    // Use the width from the query parameter if available, otherwise use the provided defaultWidth
-    const width = originalUrl.searchParams.has('width')
-      ? originalUrl.searchParams.get('width')
-      : defaultWidth;
+    originalUrl.searchParams.set('width', width);
+    originalUrl.searchParams.set('format', 'webply');
+    originalUrl.searchParams.set('optimize', 'medium');
 
-    const pictureElement = createOptimizedPicture(
-      originalUrl,
-      'Optimized Image',
-      false,
-      [
-        { media: `(min-width: ${width}px)`, width: `${width}` },
-        { width: `${width}` },
-      ],
-    );
-
-    // Extract the URL of the best-matched <source> for this device from pictureElement
-    return `.${pictureElement.querySelector('source').getAttribute('srcset')}`;
+    return originalUrl.href;
   }
 
   stop() {
@@ -156,7 +146,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       html.innerHTML = rawHtml;
       if (html) {
         const seenMap = new Map();
-        const images = html.querySelectorAll('img[src]');
+        const images = html.querySelectorAll('img[crawledsrc]');
         const imgData = [...images].map((img) => {
           let width = img.getAttribute('width') || img.naturalWidth;
           let height = img.getAttribute('height') || img.naturalHeight;
@@ -182,7 +172,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
           }
 
           const { origin } = new URL(url.href);
-          const src = img.getAttribute('src').split('?')[0];
+          const src = img?.getAttribute('crawledsrc')?.split('?')[0];
           const originalUrl = new URL(src, origin);
 
           if (!CrawlerUtil.isUrlValid(originalUrl)) {

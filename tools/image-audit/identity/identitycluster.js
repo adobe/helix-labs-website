@@ -94,9 +94,15 @@ class IdentityCluster {
     if (this.#replacedBy) {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
-
-    this.#insertIdentity(identity);
-    this.#clusterManager.identityAdded(identity, this);
+    if (identity.singleton && this.getSingletonOf(identity.type)) {
+      // This should only happen because the cluster we're referencing has had another
+      // cluster merged into it, and async operations are still operating on the current cluster
+      // eslint-disable-next-line no-console
+      this.getSingletonOf(identity.type)?.mergeOther(identity);
+    } else {
+      this.#insertIdentity(identity);
+      this.#clusterManager.identityAdded(identity, this);
+    }
   }
 
   #insertIdentity(identity) {
