@@ -4,6 +4,7 @@ import CrawlerUtil from '../util/crawlerutil.js';
 import ImageAudutUtil from '../../util/imageauditutil.js';
 import AbstractCrawler from '../abstractcrawler.js';
 import CrawlerImageValues from '../crawlerimagevalues.js';
+import PromisePool from '../../util/promisepool.js';
 
 // TODO: Make this dynamic? These are the max dimensions for the card and image compares.
 const MAX_DIMENSION = 256;
@@ -226,10 +227,10 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
 
   async fetchBatch(batch, maxBatchSize, pageCounterIncrement) {
     const results = [];
-    const tasks = [];
+    const promisePool = new PromisePool(Infinity, 'Sitemap crawler fetchBatch pool');
 
     for (let i = 0; !this.#stopped && i < maxBatchSize; i += 1) {
-      tasks.push((async () => {
+      promisePool.run(async () => {
         while (batch.length > 0 && !this.#stopped) {
         // get the next URL from the batch
           const url = batch.shift();
@@ -247,15 +248,10 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
             console.debug('Duplicate URL found:', url.plain);
           }
         }
-      })());
+      });
     }
 
-    const promiseResults = await Promise.allSettled(tasks);
-    promiseResults
-      .filter((result) => result.status === 'rejected')
-    // eslint-disable-next-line no-console
-      .forEach((error) => console.error('Error processing batch', error));
-
+    await promisePool.allSettled();
     return results;
   }
 }

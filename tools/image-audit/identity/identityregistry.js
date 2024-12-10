@@ -1,6 +1,7 @@
 import AbstractIdentity from './abstractidentity.js';
 import AbstractIdentityHashProvider from './cacheprovider/abstractidentityhashprovider.js';
 import AbstractCacheProvider from './cacheprovider/abstractcacheprovider.js';
+import PromisePool from '../util/promisepool.js';
 
 class IdentityRegistry {
   static #identityRegistry = new IdentityRegistry();
@@ -86,7 +87,7 @@ class IdentityRegistry {
 
   // eslint-disable-next-line class-methods-use-this
   async #runIdentifications(set, methodName, identityValues, identityState) {
-    const promises = [];
+    const promisePool = new PromisePool(Infinity, `IdentityRegistry identification pool for ${identityValues.originatingClusterId}`);
     const selectedIdentifiers = Array.from(set)
       .filter((clazz) => identityValues.selectedIdentifiers.has(clazz.type));
 
@@ -96,14 +97,9 @@ class IdentityRegistry {
         identityState[clazz.type] = {};
       }
 
-      promises.push(clazz[methodName](identityValues, identityState[clazz.type]));
+      promisePool.run(async () => clazz[methodName](identityValues, identityState[clazz.type]));
     });
-
-    const results = await Promise.allSettled(promises);
-    results
-      .filter((result) => result.status === 'rejected')
-      // eslint-disable-next-line no-console
-      .forEach((error) => console.error('Error handling identification', error));
+    return promisePool.allSettled();
   }
 
   async identifyPreflight(identityValues, identityState) {

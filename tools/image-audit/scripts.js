@@ -34,6 +34,8 @@ const PAGE_SIZE = 1000;
 
 const DB_NAME = 'ImageAuditExecutions';
 const STORE_NAME = 'Executions';
+const LOAD_URLS_CONCURRENCY = 50;
+const MAX_BATCH_SIZE = 100;
 
 async function openDB() {
   return new Promise((resolve, reject) => {
@@ -695,39 +697,50 @@ async function loadImage(
   loadedImg,
   href,
 ) {
+  const { urlFetchingPool } = window;
   // preflight checks are lightweight and must be done to prevent other
   // heavywieght operations from running on meaningless items.
-  // eslint-disable-next-line no-await-in-loop
   await executePreflightFunctions(identityValues, identityState);
+
   if (clusterManager.get(originatingClusterId).id === originatingClusterId) {
-    // This cluster was NOT re-clustered. Run more expensive functions.
-    const imageLoaded = new Promise((resolve) => {
-      loadedImg.onload = async () => {
-        await imageOnLoad(loadedImg, identityValues, identityState)
-          .then(() => {
-            displayImage(originatingClusterId);
-            resolve(true);
-            return true;
-          });
-      };
-      // eslint-disable-next-line no-unused-vars
-      loadedImg.onerror = async (error) => {
-        await imageOnError(identityValues, identityState, error);
-        resolve(true);
-      };
+    let onLoadError = null;
+    let success = false;
+    // This cluster was NOT re-clustered. Load the image.
+    await urlFetchingPool.run(async () => {
+      const imageLoaded = new Promise((resolve) => {
+        loadedImg.onload = () => {
+          success = true;
+          resolve(true);
+        };
+        // eslint-disable-next-line no-unused-vars
+        loadedImg.onerror = (error) => {
+          onLoadError = error;
+          success = false;
+          resolve(true);
+        };
+      });
+
+      // dont start loading the image until here.
+      loadedImg.src = href;
+      return imageLoaded;
     });
 
-    // dont start loading the image until here.
-    loadedImg.src = href;
-    return imageLoaded;
-  } // else
+    // run more expensive functions.
+    if (success) {
+      return imageOnLoad(loadedImg, identityValues, identityState)
+        .then(() => {
+          displayImage(originatingClusterId);
+        });
+    }
+    return imageOnError(identityValues, identityState, onLoadError);
+  }
+
   updateCounter(document.getElementById('duplicate-images-counter'), 1);
   return Promise.resolve(true);
 }
 
 async function loadImages(
   individualBatch,
-  concurrency,
   selectedIdentifiers,
   domainKey,
   replacementDomain,
@@ -735,8 +748,9 @@ async function loadImages(
 ) {
   const { clusterManager, identityState } = window;
 
+  const loadingImagesPool = new PromisePool(Infinity, 'loadImages pool');
+
   // use a map to track unique images by their src attribute
-  const promisePool = new PromisePool(concurrency, 'Load Images', false);
   const batchEntries = [];
 
   for (let i = 0; !window.stopProcessing && i < individualBatch.length; i += 1) {
@@ -795,9 +809,9 @@ async function loadImages(
 
     batchEntries.push(originatingClusterId);
 
-    promisePool.run(async () => {
+    loadingImagesPool.run(async () => {
       await identityValues.initializeIdentityHash();
-      return loadImage(
+      await loadImage(
         identityValues,
         identityState,
         clusterManager,
@@ -808,10 +822,10 @@ async function loadImages(
     });
   }
 
-  await promisePool.allSettled();
+  await loadingImagesPool.allSettled();
 
-  // similarity computed per batch
-  await clusterManager.detectSimilarity(batchEntries, identityState, concurrency);
+  // similarity computed per batch -- maybe should be done once at the very end instead.
+  await clusterManager.detectSimilarity(batchEntries, identityState);
 
   // colors updated per batch
   if (identityState[ColorIdentity.type]?.usedColors) {
@@ -824,12 +838,8 @@ async function loadImages(
 async function handleBatch(
   crawler,
   batch,
-  concurrency,
   pagesCounter,
   data,
-  main,
-  results,
-  imagesCounter,
   gallery,
   identifiers,
   domainKey,
@@ -837,22 +847,20 @@ async function handleBatch(
   submissionValues,
 ) {
   try {
+    let pageCount = 0;
     const batchData = await crawler
-      .fetchBatch(batch, concurrency, () => updateCounter(pagesCounter, 1));
+      .fetchBatch(batch, MAX_BATCH_SIZE, () => { pageCount += 1; });
 
     data.push(...batchData);
 
-    // Display images as they are fetched
-    main.dataset.canvas = true;
-    results.removeAttribute('aria-hidden');
     await loadImages(
       batchData,
-      concurrency,
       identifiers,
       domainKey,
       replacementDomain,
       submissionValues,
     );
+    updateCounter(pagesCounter, pageCount);
     decorateIcons(gallery);
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -863,8 +871,7 @@ async function handleBatch(
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
- * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
- * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
+ * @param {number} - Number of URLs to fetch per batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
 async function fetchAndDisplayBatches(
@@ -874,12 +881,12 @@ async function fetchAndDisplayBatches(
   domainKey,
   replacementDomain,
   submissionValues,
-  batchSize = 50,
-  concurrency = 5,
+  batchSize = MAX_BATCH_SIZE,
 ) {
+  const promisePool = new PromisePool(Infinity, 'fetchAndDisplayBatches pool');
   const data = [];
   const main = document.querySelector('main');
-  const results = document.getElementById('audit-results');
+  main.dataset.canvas = true;
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
 
@@ -904,8 +911,10 @@ async function fetchAndDisplayBatches(
     }
   }, 1000);
 
-  // Collect promises for all batches
-  const promisePool = new PromisePool(concurrency, 'Handle Batches', false);
+  // Show the results section
+  const results = document.getElementById('audit-results');
+  results.removeAttribute('aria-hidden');
+
   for (let i = 0; !window.stopProcessing && i < urls.length; i += batchSize) {
     const batch = urls.slice(i, i + batchSize);
 
@@ -913,12 +922,8 @@ async function fetchAndDisplayBatches(
     promisePool.run(async () => handleBatch(
       crawler,
       batch,
-      concurrency, // this means each concurrent batch also gets concurrent tasks = 25.
       pagesCounter,
       data,
-      main,
-      results,
-      imagesCounter,
       gallery,
       identifiers,
       domainKey,
@@ -1037,6 +1042,7 @@ function setupWindowVariables() {
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
   window.stopProcessing = false;
   window.sortRegistry = new SortRegistry();
+  window.urlFetchingPool = new PromisePool(LOAD_URLS_CONCURRENCY, 'Load Urls Pool');
 }
 
 function prepareLoading() {
@@ -1171,6 +1177,12 @@ function overrideCreateCanvas(doc) {
       return canvas;
     }
     return document.originalCreateElement(tagName, options);
+  };
+
+  const originalFetch = fetch;
+  const { urlFetchingPool } = window;
+  window.fetch = async function fetch(input, init) {
+    return urlFetchingPool.run(async () => originalFetch(input, init));
   };
 }
 

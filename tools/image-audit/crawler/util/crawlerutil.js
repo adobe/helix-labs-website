@@ -1,3 +1,7 @@
+import PromisePool from '../../util/promisepool.js';
+
+const MAX_SIMULTANEOUS_REQUESTS = 5;
+
 class CrawlerUtil {
   static #permittedProtocols = ['http', 'https', 'data'];
 
@@ -81,9 +85,11 @@ class CrawlerUtil {
     }
   }
 
+  static #requestPool = new PromisePool(MAX_SIMULTANEOUS_REQUESTS, 'Crawler request pool');
+
   static async fetchPageHtml(url) {
     try {
-      const req = await fetch(url);
+      const req = await this.#requestPool.run(async () => fetch(url));
       if (!req.ok) {
         // eslint-disable-next-line no-console
         console.warn(`Failed to fetch page at ${url} with HTTP status ${req.status}`);

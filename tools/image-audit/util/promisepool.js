@@ -138,8 +138,16 @@ class PromisePool {
 
       if (this.#activeTasks.length !== 0) {
         return Promise.allSettled(this.#activeTasks).then(() => {
+          if (this.#timer) {
+            this.#timerActive = false;
+            clearInterval(this.#timer);
+          }
           if (this.#debugpool) console.debug(`${this.#poolName} Finished waiting for tasks to settle`);
         });
+      }
+      if (this.#timer) {
+        this.#timerActive = false;
+        clearInterval(this.#timer);
       }
       return Promise.resolve();
     } finally {

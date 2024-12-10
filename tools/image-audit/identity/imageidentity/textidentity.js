@@ -1,13 +1,9 @@
 /* eslint-disable class-methods-use-this */
-import Tesseract from 'tesseract.js';
-
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
-import PromisePool from '../../util/promisepool.js';
 import TextUtility from '../util/textutility.js';
-
-const concurrentOCR = 5;
+import TextRecognizerPool from '../util/textrecognizerpool.js';
 
 const wordConfidenceThreshold = 85;
 const exactTextMatchThresholdPercent = 0.2;
@@ -47,15 +43,7 @@ class TextIdentity extends AbstractIdentity {
       .get(sizeId);
     const tooBigForWeb = sizeIdentifier?.tooBigForWeb;
 
-    if (!identityState.promisePool) {
-      // this ensures a limited number of text identifications happening simultaneously.
-      // shared between instances.
-      identityState.promisePool = new PromisePool(concurrentOCR, 'OCR Pool', false);
-    }
-
-    const { promisePool } = identityState;
-
-    const { identityText, text } = await promisePool.run(async () => identityValues
+    const { identityText, text } = await identityValues
       .get(TextIdentity, 'text', async () => TextIdentity
         .#identifyText(
           originatingClusterId,
@@ -63,7 +51,7 @@ class TextIdentity extends AbstractIdentity {
           identityState,
           clusterManager,
           tooBigForWeb,
-        )));
+        ));
 
     if (!text || !identityText) return;
 
@@ -79,6 +67,13 @@ class TextIdentity extends AbstractIdentity {
     clusterManager,
     tooBigForWeb,
   ) {
+    if (!identityState.textRecognizerPool) {
+      // this ensures a limited number of text identifications happening simultaneously.
+      // shared between instances.
+      identityState.textRecognizerPool = new TextRecognizerPool(); // TODO: More than english?
+    }
+
+    const { textRecognizerPool } = identityState;
     let text = '';
     let identityText = '';
     try {
@@ -106,23 +101,21 @@ class TextIdentity extends AbstractIdentity {
         imgElement = newImgElement;
       }
 
-      await Tesseract.recognize(
-        imgElement,
-        'eng', // TODO: Multiple languages
-      ).then(async ({ data: { words } }) => {
+      await textRecognizerPool.recognize(imgElement)
+        .then(({ data: { words } }) => {
         // Filter words based on confidence level
-        const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
+          const confidentWords = words.filter((word) => word.confidence > wordConfidenceThreshold);
 
-        if (confidentWords.length === 0) {
+          if (confidentWords.length === 0) {
+            return true;
+          }
+          text = confidentWords
+            .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
+            .join(' ').replace(/\s+/g, ' ').trim();
+
+          identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
           return true;
-        }
-        text = confidentWords
-          .map((word) => word.text.replace(/[^a-zA-Z0-9 ]/g, ''))
-          .join(' ').replace(/\s+/g, ' ').trim();
-
-        identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
-        return true;
-      });
+        });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(`Error processing OCR for cluster ${originatingClusterId}`, error);

@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 import IdentityCluster from './identitycluster.js';
 import SimilarClusterIdentity from './similarclusteridentity.js';
+import PromisePool from '../util/promisepool.js';
 // eslint-disable-next-line no-unused-vars
 import IdentityRegistry from './identityregistry.js'; // Add this line to import IdentityRegistry
 
@@ -95,7 +96,7 @@ class ClusterManager {
     }
   }
 
-  async detectSimilarity(batchedClusterIds, identityState, concurrency) {
+  async detectSimilarity(batchedClusterIds, identityState) {
     const callCount = { value: 0 }; // Use an object to hold the count
     const clusterInfoWithInstigator = [];
 
@@ -119,7 +120,7 @@ class ClusterManager {
     }
 
     // Collect all similarity comparison promises
-    const promises = [];
+    const promisePool = new PromisePool(Infinity, 'Similarity detection pool');
 
     // Iterate over each cluster info with instigator
     clusterInfoWithInstigator.forEach((clusterInfo) => {
@@ -132,22 +133,16 @@ class ClusterManager {
 
       // Collect promises for each similarity check
       clustersToCompare.forEach((similarCluster) => {
-        promises.push(this.#compareClustersForSimilarity(
+        promisePool.run(async () => this.#compareClustersForSimilarity(
           instigatingCluster,
           similarCluster,
           similarityCollaboratorIdentityTypes,
           callCount,
-          concurrency,
         ));
       });
     });
 
-    const promiseResults = await Promise.allSettled(promises);
-
-    promiseResults
-      .filter((result) => result.status === 'rejected')
-      // eslint-disable-next-line no-console
-      .forEach((error) => console.error('Error detecting similarity', error));
+    return promisePool.allSettled();
   }
 
   async #compareClustersForSimilarity(
@@ -180,7 +175,7 @@ class ClusterManager {
 
   async #calculateMergeScore(sourceCluster, compareCluster, identityTypes) {
     let totalScore = 0; // Initialize total score
-    const promises = []; // Array to store all merge weight promises
+    const promisePool = new PromisePool(Infinity, 'Merge score calculation pool');
     const identityScores = []; // Array to store intermediate scores for each identity type
 
     // Iterate over each identity type
@@ -196,7 +191,7 @@ class ClusterManager {
 
         compareClusterIdentities.forEach((compareIdentity, compareIndex) => {
           // Push the getMergeWeight promise into the array with index tracking
-          promises.push(sourceIdentity
+          promisePool.run(async () => sourceIdentity
             .getMergeWeight(compareIdentity)
             .then((weight) => {
               if (Number.isNaN(weight)) {
@@ -218,13 +213,7 @@ class ClusterManager {
       });
     });
 
-    // Await all collected promises
-    const promiseResults = await Promise.allSettled(promises);
-
-    promiseResults
-      .filter((result) => result.status === 'rejected')
-      // eslint-disable-next-line no-console
-      .forEach((error) => console.error('Error calculating similarity', error));
+    await promisePool.allSettled();
 
     // Accumulate total score from all identity types
     totalScore = identityScores.reduce((acc, score) => acc + score, 0);
