@@ -398,10 +398,7 @@ async function fetchHosts(org, site) {
       preview: new URL(json.preview.url).host,
     };
   } catch (error) {
-    return {
-      live: null,
-      preview: null,
-    };
+    return { error };
   }
 }
 
@@ -412,7 +409,12 @@ async function fetchHosts(org, site) {
  * @returns {Promise<>} Object with `live` and `preview` hostnames.
  */
 async function validateHosts(org, site) {
-  const { live, preview } = await fetchHosts(org, site);
+  const { live, preview, error } = await fetchHosts(org, site);
+  if (error) {
+    const e = new Error(`Failed to fetch host config for ${org}/${site}`);
+    e.code = error.status;
+    throw e;
+  }
   if (!live || !preview) {
     throw new Error(`Invalid project configuration for ${org}/${site}`);
   }
@@ -553,7 +555,11 @@ function init() {
       if (!jobUrl) throw new Error('Failed to create page status job.');
       await runAndDisplayJob(jobUrl, live, preview);
     } catch (error) {
-      updateTableError('Job');
+      if (error.code) {
+        updateTableError(error.code);
+      } else {
+        updateTableError('Job');
+      }
       removeJobParam();
     } finally {
       enableForm(target, submitter);
