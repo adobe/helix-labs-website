@@ -1,4 +1,5 @@
 import PromisePool from '../../util/promisepool.js';
+import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 const MAX_SIMULTANEOUS_REQUESTS = 5;
 
@@ -89,7 +90,7 @@ class CrawlerUtil {
 
   static async fetchPageHtml(url) {
     try {
-      const req = await this.#requestPool.run(async () => fetch(url));
+      const req = await this.#requestPool.run(async () => UrlResourceHandler.fetch(url));
       if (!req.ok) {
         // eslint-disable-next-line no-console
         console.warn(`Failed to fetch page at ${url} with HTTP status ${req.status}`);

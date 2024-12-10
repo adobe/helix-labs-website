@@ -5,6 +5,7 @@ import ImageAudutUtil from '../../util/imageauditutil.js';
 import AbstractCrawler from '../abstractcrawler.js';
 import CrawlerImageValues from '../crawlerimagevalues.js';
 import PromisePool from '../../util/promisepool.js';
+import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 // TODO: Make this dynamic? These are the max dimensions for the card and image compares.
 const MAX_DIMENSION = 256;
@@ -83,7 +84,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
   }
 
   async walkSitemapFromUrl(sitemap, hlxHostname) {
-    const req = await fetch(sitemap);
+    const req = await UrlResourceHandler.fetch(sitemap);
     if (req.ok) {
       const text = await req.text();
       return this.walkSitemap(text, hlxHostname);

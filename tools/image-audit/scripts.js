@@ -24,6 +24,7 @@ import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
 import FilterRegistry from './filter/filterregistry.js';
 import AbstractFilter from './filter/abstractfilter.js';
+import UrlResourceHandler from './util/urlresourcehandler.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
@@ -34,7 +35,6 @@ const PAGE_SIZE = 1000;
 
 const DB_NAME = 'ImageAuditExecutions';
 const STORE_NAME = 'Executions';
-const LOAD_URLS_CONCURRENCY = 50;
 const MAX_BATCH_SIZE = 100;
 
 async function openDB() {
@@ -697,7 +697,6 @@ async function loadImage(
   loadedImg,
   href,
 ) {
-  const { urlFetchingPool } = window;
   // preflight checks are lightweight and must be done to prevent other
   // heavywieght operations from running on meaningless items.
   await executePreflightFunctions(identityValues, identityState);
@@ -706,7 +705,7 @@ async function loadImage(
     let onLoadError = null;
     let success = false;
     // This cluster was NOT re-clustered. Load the image.
-    await urlFetchingPool.run(async () => {
+    await UrlResourceHandler.run(async () => {
       const imageLoaded = new Promise((resolve) => {
         loadedImg.onload = () => {
           success = true;
@@ -1042,7 +1041,7 @@ function setupWindowVariables() {
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
   window.stopProcessing = false;
   window.sortRegistry = new SortRegistry();
-  window.urlFetchingPool = new PromisePool(LOAD_URLS_CONCURRENCY, 'Load Urls Pool');
+  UrlResourceHandler.initialize();
 }
 
 function prepareLoading() {
@@ -1177,12 +1176,6 @@ function overrideCreateCanvas(doc) {
       return canvas;
     }
     return document.originalCreateElement(tagName, options);
-  };
-
-  const originalFetch = fetch;
-  const { urlFetchingPool } = window;
-  window.fetch = async function fetch(input, init) {
-    return urlFetchingPool.run(async () => originalFetch(input, init));
   };
 }
 

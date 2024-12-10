@@ -2,6 +2,7 @@
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import Hash from '../util/hash.js';
+import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 class SizeIdentity extends AbstractIdentity {
   #src;
@@ -72,13 +73,13 @@ class SizeIdentity extends AbstractIdentity {
     const url = new URL(href);
     try {
       // Fetch the image to get the ETag from headers (if available)
-      const headResponse = await fetch(url, { method: 'HEAD', cache: 'force-cache' }); // HEAD request to only fetch headers
+      const headResponse = await UrlResourceHandler.fetch(url, { method: 'HEAD', cache: 'force-cache' }); // HEAD request to only fetch headers
       const contentLength = headResponse.headers.get('Content-Length'); // Get the Content-Length if available
       if (contentLength) {
         return contentLength;
       }
 
-      const response = await fetch(url, { cache: 'force-cache' });
+      const response = await UrlResourceHandler.fetch(url, { cache: 'force-cache' });
       if (!response.body) throw new Error('ReadableStream not supported');
 
       let totalBytes = 0;

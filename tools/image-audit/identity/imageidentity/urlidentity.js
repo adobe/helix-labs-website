@@ -2,6 +2,7 @@
 import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import Hash from '../util/hash.js';
+import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 
@@ -81,7 +82,7 @@ class UrlIdentity extends AbstractIdentity {
     } else {
       try {
         // Fetch the image to get the ETag from headers (if available)
-        const response = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
+        const response = await UrlResourceHandler.fetch(url, { method: 'HEAD', cache: 'force-cache' });
         const etag = response.headers.get('ETag'); // Get the ETag if available
         const lastModified = response.headers.get('Last-Modified'); // Get the Last-Modified if available
         const contentLength = response.headers.get('Content-Length'); // Get the Content-Length if available

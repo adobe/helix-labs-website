@@ -19,7 +19,7 @@ class SitemapCrawler extends AbstractEDSSitemapCrawler {
    * @returns {Promise<string|null>} Sitemap URL.
    */
   // async function findSitemapUrl(url) {
-  //   const req = await fetch(url);
+  //   const req = await UrlResourceHandler.fetch(url);
   //   if (req.ok) {
   //     const text = await req.text();
   //     const lines = text.split('\n');
