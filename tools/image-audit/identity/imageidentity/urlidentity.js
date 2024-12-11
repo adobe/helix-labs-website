@@ -40,8 +40,9 @@ class UrlIdentity extends AbstractIdentity {
     const {
       originatingClusterId,
       clusterManager,
-      href,
     } = identityValues;
+
+    const { href } = identityValues.imageOptions.original;
 
     const { identityId, durability } = await identityValues
       .get(UrlIdentity, 'identityId', async () => UrlIdentity.getUrlIdentityID(
@@ -64,7 +65,7 @@ class UrlIdentity extends AbstractIdentity {
     additionalTokensToSum = [],
   ) {
     let durability = false;
-    const url = new URL(href);
+    const url = new URL(href); // TODO: Non-EDS sites should use a different href
     const cluster = clusterManager.get(clusterId);
     const { elementForCluster } = cluster;
 

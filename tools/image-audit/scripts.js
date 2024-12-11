@@ -252,8 +252,8 @@ class RewrittenData {
     return ar(value, getShapeForRatio(value));
   }
 
-  src(value) {
-    return `<img src="${new URL(value, this.data.origin).href}" />`;
+  imageOptions(value) {
+    return `<img src="${value.detail.href}" />`;
   }
 
   topColors(value) {
@@ -333,7 +333,7 @@ function displayModal(figure) {
       site: 'Where',
       dimensions: 'Dimensions',
       aspectRatio: 'Aspect ratio',
-      src: 'Preview',
+      imageOptions: 'Preview',
       alt: 'Alt Text',
     };
 
@@ -356,7 +356,7 @@ function displayModal(figure) {
       width: identity.width,
       height: identity.height,
       aspectRatio: identity.aspectRatio,
-      src: clusterManager.get(clusterId).detailHref,
+      imageOptions: clusterManager.get(clusterId).imageOptions,
     };
 
     const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
@@ -756,16 +756,12 @@ async function loadImages(
     const img = individualBatch[i];
 
     const {
-      src, origin, site, alt, aspectRatio, instance, fileType, width, height,
-      cardSrc, detailSrc, cardWidth, cardHeight, invalidDimensions,
+      site, alt, aspectRatio, instance, fileType, width, height, imageOptions, invalidDimensions,
     } = img;
 
     window.imageCount += 1;
     const { imageCount } = window;
-    const cardHref = new URL(cardSrc, origin).href;
-    const detailHref = new URL(detailSrc, origin).href;
-    const { href } = new URL(src, origin);
-    const loadedImg = new Image(cardWidth, cardHeight);
+    const loadedImg = new Image(imageOptions.card.width, imageOptions.card.height);
     const { identityCache } = window;
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
     const figure = document.createElement('figure');
@@ -783,7 +779,7 @@ async function loadImages(
       loadedImg,
       figure,
       'image',
-      detailHref,
+      imageOptions.original.href,
     );
 
     const identityValues = new IdentityValues({
@@ -792,8 +788,7 @@ async function loadImages(
       selectedIdentifiers,
       submissionValues,
       identityCache,
-      href,
-      detailHref,
+      imageOptions,
       site,
       alt,
       width,
@@ -816,7 +811,7 @@ async function loadImages(
         clusterManager,
         originatingClusterId,
         loadedImg,
-        cardHref,
+        imageOptions.card.href,
       );
     });
   }

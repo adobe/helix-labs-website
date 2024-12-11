@@ -8,7 +8,9 @@ import PromisePool from '../../util/promisepool.js';
 import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 // TODO: Make this dynamic? These are the max dimensions for the card and image compares.
-const MAX_DIMENSION = 256;
+const MAX_DETAIL_DIMENSION = 1024;
+const MAX_MEDIUM_DIMENSION = 800;
+const MAX_CARD_DIMENSION = 256;
 const MIN_DIMENSION = 32;
 
 class AbstractEDSSitemapCrawler extends AbstractCrawler {
@@ -56,6 +58,35 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     return null;
   }
 
+  #getAdjustedEDSOptimizedImageUrl(img, origin, width, height, maxLongestEdge) {
+    let adjustedWidth = width;
+    let adjustedHeight = height;
+
+    if (adjustedWidth < MIN_DIMENSION || adjustedHeight < MIN_DIMENSION) {
+      const scalingFactor = MIN_DIMENSION / Math.min(adjustedWidth, adjustedHeight);
+      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
+      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
+    }
+
+    if (adjustedWidth > maxLongestEdge || adjustedHeight > maxLongestEdge) {
+      const scalingFactor = maxLongestEdge / Math.max(adjustedWidth, adjustedHeight);
+      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
+      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
+    }
+
+    const src = img?.getAttribute('crawledsrc')?.split('?')[0];
+    const url = this.#getEDSOptimizedImageUrl(src, origin, adjustedWidth);
+    if (!CrawlerUtil.isUrlValid(url)) {
+      return null;
+    }
+
+    return {
+      href: url.href,
+      width: adjustedWidth,
+      height: adjustedHeight,
+    };
+  }
+
   // eslint-disable-next-line class-methods-use-this
   #getEDSOptimizedImageUrl(src, origin, width) {
     const originalUrl = new URL(src, origin);
@@ -71,7 +102,7 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     originalUrl.searchParams.set('format', 'webply');
     originalUrl.searchParams.set('optimize', 'medium');
 
-    return originalUrl.href;
+    return originalUrl;
   }
 
   stop() {
@@ -158,21 +189,6 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
 
           const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
 
-          let cardWidth = width;
-          let cardHeight = height;
-
-          if (cardWidth < MIN_DIMENSION || cardHeight < MIN_DIMENSION) {
-            const scalingFactor = MIN_DIMENSION / Math.min(cardWidth, cardHeight);
-            cardWidth = Math.round(cardWidth * scalingFactor);
-            cardHeight = Math.round(cardHeight * scalingFactor);
-          }
-
-          if (cardWidth > MAX_DIMENSION || cardHeight > MAX_DIMENSION) {
-            const scalingFactor = MAX_DIMENSION / Math.max(cardWidth, cardHeight);
-            cardWidth = Math.round(cardWidth * scalingFactor);
-            cardHeight = Math.round(cardHeight * scalingFactor);
-          }
-
           const { origin } = new URL(url.href);
           const src = img?.getAttribute('crawledsrc')?.split('?')[0];
           const originalUrl = new URL(src, origin);
@@ -181,12 +197,19 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
             return null;
           }
 
-          const detailSrc = this.#getEDSOptimizedImageUrl(src, origin, width);
-          const cardSrc = this.#getEDSOptimizedImageUrl(src, origin, cardWidth);
+          const original = { href: originalUrl.href, height, width };
+          const detail = this
+            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_DETAIL_DIMENSION);
+          const medium = this
+            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_MEDIUM_DIMENSION);
+          const card = this
+            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_CARD_DIMENSION);
 
-          if (!CrawlerUtil.isUrlValid(new URL(cardSrc, origin))) {
-            return null;
-          }
+          const imageOptions = {};
+          imageOptions.original = original;
+          if (detail) imageOptions.detail = detail;
+          if (medium) imageOptions.medium = medium;
+          if (card) imageOptions.card = card;
 
           let instance = 1;
           if (seenMap.has(src)) {
@@ -201,13 +224,10 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
             site: url.href,
             origin,
             src,
-            cardSrc,
-            detailSrc,
+            imageOptions,
             alt,
             width,
             height,
-            cardWidth,
-            cardHeight,
             invalidDimensions,
             aspectRatio,
             instance,

@@ -73,8 +73,9 @@ class PerceptualIdentity extends AbstractIdentity {
     const {
       originatingClusterId,
       clusterManager,
-      href,
     } = identityValues;
+
+    const { href } = identityValues.imageOptions.original;
 
     if (clusterManager.get(originatingClusterId).getSingletonOf(PerceptualIdentity.type)) {
       return; // it already has one, maybe due to a merge.

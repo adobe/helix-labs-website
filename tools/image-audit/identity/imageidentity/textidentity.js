@@ -32,9 +32,8 @@ class TextIdentity extends AbstractIdentity {
   }
 
   static async identifyPostflight(identityValues, identityState) {
-    const {
-      originatingClusterId, clusterManager, href, width, height,
-    } = identityValues;
+    const { originatingClusterId, clusterManager } = identityValues;
+    const { href, width, height } = identityValues.imageOptions.medium;
 
     if (width <= 3 || height <= 3) return; // OCR doesn't work on these.
 
@@ -74,6 +73,8 @@ class TextIdentity extends AbstractIdentity {
     }
 
     const { textRecognizerPool } = identityState;
+
+    const { href, width, height } = identityValues.imageOptions.medium;
     let text = '';
     let identityText = '';
     try {
@@ -85,8 +86,8 @@ class TextIdentity extends AbstractIdentity {
         // prepare the high res image for OCR
         const newImgElement = clusterManager
           .get(originatingClusterId).elementForCluster.cloneNode(true);
-        newImgElement.width = identityValues.width;
-        newImgElement.height = identityValues.height;
+        newImgElement.width = width;
+        newImgElement.height = height;
 
         // Wait for the image to load
         const loaded = new Promise((resolve, reject) => {
@@ -94,7 +95,7 @@ class TextIdentity extends AbstractIdentity {
           newImgElement.onerror = (error) => reject(new Error(`Detailed image failed to load: ${error.message}`));
         });
 
-        newImgElement.src = identityValues.detailHref;
+        newImgElement.src = href;
 
         await loaded;
 

@@ -19,10 +19,6 @@ class SizeIdentity extends AbstractIdentity {
     return `size:${await Hash.createHash(href)}`;
   }
 
-  static get fileSizeTooLargeForWeb() {
-    return 100000; // 1KB
-  }
-
   static get maxBytesToCount() {
     return 10000000; // 10MB
   }
@@ -44,10 +40,6 @@ class SizeIdentity extends AbstractIdentity {
     return this.#src;
   }
 
-  get tooBigForWeb() {
-    return this.#size >= this.fileSizeTooLargeForWeb;
-  }
-
   get size() {
     return this.#size;
   }
@@ -58,18 +50,19 @@ class SizeIdentity extends AbstractIdentity {
       originatingClusterId,
       clusterManager,
       elementForCluster,
-      detailHref,
     } = identityValues;
+
+    const { href } = identityValues.imageOptions.original;
 
     const size = await identityValues
       .get(SizeIdentity, 'size', async () => SizeIdentity.#getSize(elementForCluster, identityValues));
-    const id = await SizeIdentity.getSizeId(detailHref);
-    const identity = new SizeIdentity(id, detailHref, size);
+    const id = await SizeIdentity.getSizeId(href);
+    const identity = new SizeIdentity(id, href, size);
     clusterManager.get(originatingClusterId).addIdentity(identity);
   }
 
   static async #getSize(elementForCluster, identityValues) {
-    const { href, height, width } = identityValues;
+    const { href, height, width } = identityValues.imageOptions.original;
     const url = new URL(href);
     try {
       // Fetch the image to get the ETag from headers (if available)
@@ -103,7 +96,8 @@ class SizeIdentity extends AbstractIdentity {
 
   // eslint-disable-next-line no-unused-vars
   mergeOther(otherIdentity) {
-    // nothing to merge. If they have the same id, they are the same identity.
+    // nothing to merge. If they have the same id,
+    // they are the same size, and hence the same identity.
   }
 }
 

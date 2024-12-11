@@ -8,15 +8,15 @@ class TextRecognizerPool {
 
   #lang;
 
-  #inactivityTimeout = 30000; // 30 seconds
+  #inactivityTimeout = 60000; // 60 seconds
 
-  #recognitionTimeout = 20000; // 20 seconds
+  #recognitionTimeout = 40000; // 40 seconds
 
   #inactivityTimer;
 
   #promisePool;
 
-  constructor(languages = ['eng'], concurrency = 5) {
+  constructor(languages = ['eng'], concurrency = 10) {
     this.#lang = languages.join('+'); // Combine languages for Tesseract
     this.#promisePool = new PromisePool(concurrency, 'OCR Pool');
   }

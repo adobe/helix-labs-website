@@ -136,7 +136,8 @@ class ColorIdentity extends AbstractIdentity {
   }
 
   static async identifyPostflightWithCanvas(identityValues, identityState) {
-    const { originatingClusterId, clusterManager, href } = identityValues;
+    const { originatingClusterId, clusterManager } = identityValues;
+    const { href } = identityValues.imageOptions.original;
     const colorIdentity = new ColorIdentity(identityState);
 
     const sizeId = await SizeIdentity.getSizeId(href);

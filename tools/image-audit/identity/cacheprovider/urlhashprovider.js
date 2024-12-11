@@ -7,8 +7,9 @@ class UrlHashProvider extends AbstractIdentityHashProvider {
     const {
       clusterManager,
       originatingClusterId,
-      href,
     } = identityValues;
+
+    const { href } = identityValues.imageOptions.original;
 
     const { identityId, durability } = await UrlIdentity.getUrlIdentityID(
       clusterManager,

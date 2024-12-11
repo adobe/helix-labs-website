@@ -17,10 +17,6 @@ class IdentityValues {
 
   #identityCache;
 
-  #href;
-
-  #detailHref;
-
   #site;
 
   #alt;
@@ -41,6 +37,8 @@ class IdentityValues {
 
   #invalidDimensions;
 
+  #imageOptions;
+
   constructor(
     {
       originatingClusterId,
@@ -48,8 +46,7 @@ class IdentityValues {
       selectedIdentifiers,
       submissionValues,
       identityCache,
-      href,
-      detailHref,
+      imageOptions,
       site,
       alt,
       width,
@@ -68,8 +65,7 @@ class IdentityValues {
     this.#submissionValues = submissionValues;
     this.#identityCache = identityCache;
     this.#identityHash = null;
-    this.#href = href;
-    this.#detailHref = detailHref;
+    this.#imageOptions = imageOptions;
     this.#site = site;
     this.#alt = alt;
     this.#width = width;
@@ -92,12 +88,8 @@ class IdentityValues {
     }
   }
 
-  get href() {
-    return this.#href;
-  }
-
-  get detailHref() {
-    return this.#detailHref;
+  get imageOptions() {
+    return this.#imageOptions;
   }
 
   get site() {

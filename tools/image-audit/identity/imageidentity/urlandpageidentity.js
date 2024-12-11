@@ -103,7 +103,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
     const {
       originatingClusterId,
       clusterManager,
-      href,
       site,
       alt,
       width,
@@ -111,6 +110,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
       aspectRatio,
       instance,
     } = identityValues;
+
+    const { href } = identityValues.imageOptions.original;
 
     const url = new URL(site);
     const additionalTokensToSum = [site];
