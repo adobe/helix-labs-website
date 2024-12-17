@@ -747,7 +747,7 @@ async function loadImages(
 ) {
   const { clusterManager, identityState } = window;
 
-  const loadingImagesPool = new PromisePool(Infinity, 'loadImages pool');
+  const loadingImagesPool = new PromisePool(10, 'loadImages pool');
 
   // use a map to track unique images by their src attribute
   const batchEntries = [];
@@ -877,7 +877,7 @@ async function fetchAndDisplayBatches(
   submissionValues,
   batchSize = MAX_BATCH_SIZE,
 ) {
-  const promisePool = new PromisePool(Infinity, 'fetchAndDisplayBatches pool');
+  const promisePool = new PromisePool(10, 'fetchAndDisplayBatches pool');
   const data = [];
   const main = document.querySelector('main');
   main.dataset.canvas = true;
@@ -1100,7 +1100,6 @@ async function processForm(
   window.stopCallback = () => crawler.stop();
 
   const urls = await crawler.fetchSitemap(sitemapFormData);
-  // await fetchAndDisplayBatches(urls.slice(8000, 8100));
   await fetchAndDisplayBatches(
     crawler,
     urls,
