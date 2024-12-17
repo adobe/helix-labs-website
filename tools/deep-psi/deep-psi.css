@@ -1,0 +1,84 @@
+body {
+  font-family: 'Helvetica';
+}
+
+input {
+  padding: 5px;
+  font-size: 16px;
+  width: 100%;
+}
+
+h1,
+h2 {
+  text-align: center;  
+}
+
+.form {
+  display: flex;
+  max-width: 800px;
+  margin: 1rem auto;
+  gap: 1rem;
+}
+
+.field label {
+  display: flex;
+  height: 100%;
+  align-items: center;
+}
+
+.results {
+  display: flex;
+  margin: auto;
+  flex-wrap: wrap;
+}
+
+.results > div {
+  flex: 1;
+  margin: 1rem;
+}
+
+table {
+  font-size: 25px;
+  width: 100%;
+}
+
+td {
+  text-align: center;
+  padding: 5px;
+}
+
+tr:nth-child(odd) {
+  background-color: #eee;
+}
+
+tr.average {
+  font-weight: 600;
+  background-color: #ddd;
+}
+
+.loading {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-inline-start: 2ch;
+}
+
+.loading::after {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border: 2px solid #f3f3f3;
+  border-top: 3px solid #f25a41;
+  border-radius: 100%;
+  will-change: transform;
+  animation: spin 1s infinite linear
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
