@@ -320,7 +320,7 @@ function buildSequenceStatus(edit, preview, publish) {
     status = 'Not published';
     span.classList.add('positive');
   } else {
-    status = inSequence ? 'Current' : 'Pending Changes';
+    status = inSequence ? 'Current' : 'Pending changes';
     span.classList.add('positive');
   }
   span.textContent = status;
