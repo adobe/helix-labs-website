@@ -305,23 +305,23 @@ function buildSequenceStatus(edit, preview, publish) {
   const span = document.createElement('span');
   span.className = 'status-light';
   let status;
-  if (!date(editDate) && previewDate <= publishDate) {
+  if (!date(editDate)) {
     status = 'No source';
-    span.classList.add('notice');
+    span.classList.add('negative');
   } else if (date(editDate) && !date(previewDate) && !date(publishDate)) {
-    status = 'Unpreviewed';
-    span.classList.add('notice');
+    status = 'Not previewed';
+    span.classList.add('positive');
   } else if (
     date(editDate)
     && date(previewDate)
     && !date(publishDate)
     && editDate <= previewDate
   ) {
-    status = 'Unpublished';
-    span.classList.add('notice');
+    status = 'Not published';
+    span.classList.add('positive');
   } else {
-    status = inSequence ? 'In sequence' : 'Out of sequence';
-    span.classList.add(inSequence ? 'positive' : 'negative');
+    status = inSequence ? 'Current' : 'Pending changes';
+    span.classList.add('positive');
   }
   span.textContent = status;
   return span;
@@ -342,7 +342,8 @@ function buildResource(resource, live, preview) {
     previewLastModified,
     publishLastModified,
   } = resource;
-  if (path) {
+  const ignore = ['/helix-env.json', '/sitemap.json'];
+  if (path && !ignore.includes(path)) {
     const row = document.createElement('tr');
     const status = buildSequenceStatus(
       sourceLastModified,
