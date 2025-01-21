@@ -129,51 +129,12 @@ function resetLoadingButton(button) {
 
 // form management
 /**
- * Extracts and formats form data from given form element.
+ * Returns FormData object from given form element.
  * @param {HTMLFormElement} form - Form element.
- * @returns {Object} Form data (field names as keys, field values as values).
+ * @returns {FormData} Form data object.
  */
 function getFormData(form) {
-  const data = {};
-  [...form.elements].forEach((field) => {
-    const { name, type, value } = field;
-    if (name && type && value) {
-      switch (type) {
-        // parse number and range as floats
-        case 'number':
-        case 'range':
-          data[name] = parseFloat(value, 10);
-          break;
-        // convert date and datetime-local to date objects
-        case 'date':
-        case 'datetime-local':
-          data[name] = new Date(value);
-          break;
-        // store checked checkbox values in array
-        case 'checkbox':
-          if (field.checked) {
-            if (data[name] && Array.isArray(data[name])) data[name].push(value);
-            else data[name] = [value];
-          }
-          break;
-        // only store checked radio
-        case 'radio':
-          if (field.checked) data[name] = value;
-          break;
-        // convert url to url object
-        case 'url':
-          data[name] = new URL(value);
-          break;
-        // store file filelist objects
-        case 'file':
-          data[name] = field.files;
-          break;
-        default:
-          data[name] = value;
-      }
-    }
-  });
-  return data;
+  return new FormData(form);
 }
 
 /**
@@ -576,8 +537,9 @@ function init() {
         // initial setup
         console.log('initial setup for site:', site);
         setupJob(target, submitter);
-        const data = getFormData(target);
-        const { org, path } = data;
+        const formData = getFormData(target);
+        const org = formData.get('org');
+        const path = formData.get('path');
         // fetch host config
         // eslint-disable-next-line no-await-in-loop
         const { live, preview } = await validateHosts(org, site);
