@@ -9,7 +9,7 @@ const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
 const DOWNLOADCSV = document.getElementById('download-csv');
 const ORG = document.getElementById('org');
-
+const TOGGLE_ALL = document.getElementById('toggle-all');
 let intervalId;
 const oneSecondFunction = () => loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
@@ -516,6 +516,13 @@ async function addSitesToSiteList(org) {
 
 function init() {
   initConfigField();
+
+  TOGGLE_ALL.addEventListener('change', () => {
+    const sites = document.querySelectorAll('input[name="site"][type="checkbox"]');
+    sites.forEach((site) => {
+      site.checked = TOGGLE_ALL.checked;
+    });
+  });
 
   ORG.addEventListener('change', () => {
     addSitesToSiteList(ORG.value);

@@ -30,10 +30,12 @@
           </div>
           <div class="form-field site-field">
             <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" disabled required />
+            <input name="site" id="site" type="hidden" list="site-list" disabled required />
             <datalist id="site-list"></datalist>
-          </div>
+            <input type="checkbox" id="toggle-all"/>
+            <label for="toggle-all">All</label>
           <div class="form-field site-list" id="site-list-checkboxes">
+          </div>
           </div>
         </section>
 
