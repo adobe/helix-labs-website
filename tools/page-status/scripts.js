@@ -535,9 +535,8 @@ function init() {
       const site = sites.shift();
       try {
         // initial setup
-        console.log('initial setup for site:', site);
-        setupJob(target, submitter);
         const formData = getFormData(target);
+        setupJob(target, submitter);
         const org = formData.get('org');
         const path = formData.get('path');
         // fetch host config
