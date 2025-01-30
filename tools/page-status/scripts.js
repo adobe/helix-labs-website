@@ -1,3 +1,4 @@
+import { decorateIcons } from '../../scripts/aem.js';
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
 import loadingMessages from './loading-messages.js';
 
@@ -327,6 +328,35 @@ function buildSequenceStatus(edit, preview, publish) {
   return span;
 }
 
+function buildRedirectIcon(redirectLocation) {
+  if (!redirectLocation) return '';
+
+  const iconWrapper = document.createElement('div');
+  iconWrapper.className = 'icon-wrapper';
+
+  const icon = document.createElement('span');
+  icon.className = 'icon icon-redirect';
+
+  iconWrapper.append(icon);
+
+  const location = document.createElement('span');
+  location.className = 'redirect-location';
+  location.textContent = redirectLocation;
+
+  iconWrapper.append(location);
+
+  decorateIcons(iconWrapper);
+
+  iconWrapper.addEventListener('mouseenter', () => {
+    location.classList.add('open');
+  });
+  iconWrapper.addEventListener('mouseleave', () => {
+    location.classList.remove('open');
+  });
+
+  return iconWrapper;
+}
+
 /**
  * Builds row (`<tr>`) element with resource path, status, and modification timestamps.
  * @param {Object} resource - Resource object containing metadata.
@@ -341,6 +371,8 @@ function buildResource(resource, live, preview) {
     sourceLastModified,
     previewLastModified,
     publishLastModified,
+    publishConfigRedirectLocation,
+    previewConfigRedirectLocation,
   } = resource;
   const ignore = ['/helix-env.json', '/sitemap.json'];
   if (path && !ignore.includes(path)) {
@@ -352,6 +384,7 @@ function buildResource(resource, live, preview) {
     );
     const cols = [
       path,
+      buildRedirectIcon(publishConfigRedirectLocation || previewConfigRedirectLocation),
       status,
       sourceLastModified ? toUTCDate(sourceLastModified) : '-',
       previewLastModified ? buildLink(previewLastModified, preview, path) : '-',
@@ -363,6 +396,7 @@ function buildResource(resource, live, preview) {
       else cell.append(col);
       row.append(cell);
     });
+
     return row;
   }
   return null;

@@ -66,6 +66,30 @@
   display: none;
 }
 
+.page-status table tbody.results td .icon-wrapper {
+  position: relative;
+  display: grid;
+  place-items: center; 
+}
+
+.page-status table tbody.results td .icon-wrapper .redirect-location {
+  display: none;
+}
+
+.page-status table tbody.results td .icon-wrapper .redirect-location.open {
+  display: block;
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: .75rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0.5rem rgba(0 0 0 / 25%);
+  width: max-content;
+  z-index: 1;
+}
+
 .page-status table tbody.no-results td > div,
 .page-status table tbody.error td > div,
 .page-status table tbody.loading td > div
