@@ -270,6 +270,9 @@ function buildSequenceStatus(edit, preview, publish) {
   let status;
   if (!date(editDate)) {
     status = 'No source';
+    if (date(publishDate)) {
+      status = 'No source, still published';
+    }
     span.classList.add('negative');
   } else if (date(editDate) && !date(previewDate) && !date(publishDate)) {
     status = 'Not previewed';
@@ -306,7 +309,6 @@ function buildResource(resource, live, preview, site) {
     publishLastModified,
   } = resource;
 
-  console.log(resource);
   const ignore = ['/helix-env.json', '/sitemap.json'];
   if (path && !ignore.includes(path)) {
     const row = document.createElement('tr');
@@ -394,7 +396,6 @@ async function validateHosts(org, site) {
  * @returns {Promise<string|null>} Job URL if job is successfully created, or `null` if error.
  */
 async function fetchJobUrl(org, site, path) {
-  console.log('fetching job url for site:', org, site, path);
   try {
     const options = {
       body: JSON.stringify({
@@ -464,7 +465,7 @@ async function runJob(url, retry = 2000) {
  * @returns {Promise<>} Promise that resolves once job has run and results are displayed.
  */
 async function runAndDisplayJob(jobUrl, live, preview, site) {
-  const paths = await runJob(jobUrl);
+  const paths = (await runJob(jobUrl)).filter((r) => !r.path.startsWith('/drafts/'));
   if (!paths || paths.length === 0) {
     throw new Error('No page status data found.');
   }
