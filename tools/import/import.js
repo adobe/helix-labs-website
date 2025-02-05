@@ -155,9 +155,9 @@ function addJobsList(jobs) {
 }
 
 (() => {
-  const service = new ImportService({ poll: true });
-
   const urlParams = new URLSearchParams(window.location.search);
+
+  const service = new ImportService({ poll: true, apiKey: urlParams.get('apikey') });
   const searchJob = { id: urlParams.get('jobid') };
 
   // Allow for stage environment override via URL parameter.
