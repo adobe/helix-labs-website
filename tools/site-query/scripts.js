@@ -67,7 +67,7 @@ function clearResults(table) {
 }
 
 function updateTableError(table, status, org, site) {
-  const { title, msg} = (() => {
+  const { title, msg } = (() => {
     switch (status) {
       case 401:
         return {
