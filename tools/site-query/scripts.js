@@ -1,4 +1,3 @@
-import { decorateIcons } from '../../scripts/aem.js';
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
 
 function getFormData(form) {
@@ -82,24 +81,15 @@ function updateTableError(table, status, org, site) {
     }
   })();
 
-  const errorRow = document.createElement('tr');
-  errorRow.className = 'error';
-  errorRow.innerHTML = `
-    <td colspan="3">
-      <div>
-        <span class="icon icon-notice"></span>
-        <div>
-          <p><strong>${title}</strong></p>
-          <p>${msg}</p>
-        </div>
-      </div>
-    </td>
-  `;
-
-  const tbody = table.querySelector('tbody.results');
-  tbody.append(errorRow);
-
-  decorateIcons(tbody);
+  table.querySelectorAll('tbody').forEach((tbody) => {
+    if (tbody.classList.contains('error')) {
+      tbody.setAttribute('aria-hidden', 'false');
+      tbody.querySelector('.error-title').textContent = title;
+      tbody.querySelector('.error-msg').innerHTML = msg;
+    } else {
+      tbody.setAttribute('aria-hidden', 'true');
+    }
+  });
 }
 
 function displayResult(url, matches, org, site) {
@@ -215,10 +205,16 @@ async function init(doc) {
 
   const form = doc.querySelector('#search-form');
   const table = doc.querySelector('.table table');
-  const tbody = table.querySelector('tbody.results');
+  const results = table.querySelector('tbody.results');
+  const error = table.querySelector('tbody.error');
+  const noResults = table.querySelector('tbody.no-results');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    results.setAttribute('aria-hidden', 'false');
+    error.setAttribute('aria-hidden', 'true');
+    noResults.setAttribute('aria-hidden', 'true');
 
     const {
       org, site, query, sitemap, queryType, path,
@@ -255,11 +251,16 @@ async function init(doc) {
         if (matches > 0) {
           found += 1;
           const tr = displayResult(sitemapUrl, matches, org, site);
-          tbody.append(tr);
+          results.append(tr);
         }
 
         caption.querySelector('.results-found').textContent = found;
         caption.querySelector('.results-of').textContent = searched;
+      }
+
+      if (found === 0) {
+        noResults.setAttribute('aria-hidden', 'false');
+        results.setAttribute('aria-hidden', 'true');
       }
     } catch (err) {
       updateTableError(table, 500, org, site);

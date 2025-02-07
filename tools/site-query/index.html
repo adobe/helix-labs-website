@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
-<body class="admin-search">
+<body class="site-query">
   <header></header>
   <main>
     <div>
@@ -34,32 +34,35 @@
           </div>
         </section>
 
-        <div class="form-field text-field">
-          <label for="query">Query</label>
-          <input name="query" id="query" required />
-          <div class="field-help-text">
-            <p>Query is executed against the undecorated page HTML</p>
+        <div class="field-group">
+          <div class="form-field text-field">
+            <label for="query">Query</label>
+            <input name="query" id="query" required />
+            <div class="field-help-text">
+              <p>Query is executed against the undecorated page HTML</p>
+            </div>
+          </div>
+          
+          <div class="form-field select-field">
+            <label for="queryType">Query Type</label>
+            <select name="queryType" id="queryType">
+              <option value="selector" selected>CSS Selector</option>
+              <option value="Text">Text Content</option>
+            </select>
           </div>
         </div>
 
-        <div class="form-field select-field">
-          <label for="queryType">Query Type</label>
-          <select name="queryType" id="queryType">
-            <option value="selector" selected>CSS Selector</option>
-            <option value="Text">Text Content</option>
-          </select>
+        <div class="field-group">
+          <div class="form-field text-field">
+            <label for="sitemap">Sitemap</label>
+            <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
+          </div>
+          
+          <div class="form-field text-field">
+            <label for="path">Path Filter</label>
+            <input name="path" id="path" data-default-value="/" placeholder="/" />
+          </div>
         </div>
-
-        <div class="form-field text-field">
-          <label for="sitemap">Sitemap</label>
-          <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
-        </div>
-
-        <div class="form-field text-field">
-          <label for="path">Path Filter</label>
-          <input name="path" id="path" data-default-value="/" placeholder="/" />
-        </div>
-
 
         <p class="button-wrapper">
           <button type="submit" class="button">Submit</button>
@@ -68,19 +71,47 @@
       </form>
     </div>
 
-    <div class="table">
-      <table>
-        <caption>Search for <span class="term"></span> found on <span class="results-found"></span>
-          of <span class="results-of"></span> pages</caption>
-        <thead>
-          <tr>
-            <th id="page-edit">Edit</th>
-            <th id="page-path">Path</th>
-            <th id="page-occurences">Occurences</th>
-          </tr>
-        </thead>
-        <tbody class="results"></tbody>
-      </table>
+    <div>
+      <div class="table">
+        <table>
+          <caption aria-hidden="true">Search for <span class="term"></span> found on <span class="results-found"></span>
+            of <span class="results-of"></span> pages</caption>
+          <thead>
+            <tr>
+              <th id="page-edit">Edit</th>
+              <th id="page-path">Path</th>
+              <th id="page-occurences">Occurences</th>
+            </tr>
+          </thead>
+          <tbody class="results" aria-hidden="true"></tbody>
+          <tbody class="no-results" aria-hidden="false">
+            <tr>
+              <td colspan="3">
+                <div>
+                  <span class="icon icon-search"></span>
+                  <div>
+                    <p><strong>No results</strong></p>
+                    <p>Submit the form above to display results</p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          <tbody class="error" aria-hidden="true">
+            <tr>
+              <td colspan="3">
+                <div>
+                  <span class="icon icon-notice"></span>
+                  <div>
+                    <p><strong class="error-title">Error</strong></p>
+                    <p class="error-msg">Unable to display the page status.</p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+          </table>
+      </div>
     </div>
   </main>
   <footer></footer>
