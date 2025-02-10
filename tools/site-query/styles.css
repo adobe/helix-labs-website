@@ -1,11 +1,3 @@
-body.site-query {
-  display: none;
-}
-
-body.site-query[data-status="loaded"] {
-  display: block;
-}
-
 .site-query .table {
   margin-top: var(--spacing-l);
   padding-top: 0;
