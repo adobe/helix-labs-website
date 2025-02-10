@@ -1,4 +1,5 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { buildModal } from '../../scripts/scripts.js';
 
 function getFormData(form) {
   const data = {};
@@ -216,6 +217,28 @@ function updateCaption(caption, found, searched) {
   caption.querySelector('.results-of').textContent = searched;
 }
 
+function initHelp(doc) {
+  const helpButton = doc.getElementById('help-button');
+  const [newModal, body] = buildModal();
+  newModal.id = 'help-modal';
+  body.innerHTML = `
+    <h2>Site Query Help</h2>
+    <p>Search all of your site's content to find block usages and more.</p>
+    <p>Enter the organization and site to search, then enter a query to search for. The query is executed against
+      the undecorated page HTML, which means anything added during decoration will not be matched.</p>
+    <p>Pages are discovered by using a query index or sitemap. By default, it tries to use <code>/sitemap-index.xml</code></p>
+    <div class="note">
+      <p class="note-title">Cross-Origin Access</p>
+      <p>This tool requires cross-origin (CORS) access to work. Either use a CORS allow plugin or add a header
+        <code>Access-Control-Allow-Origin: https://labs.aem.live</code> in your site config.</p>
+    </div>
+  `;
+  doc.body.append(newModal);
+  helpButton.addEventListener('click', () => {
+    newModal.showModal();
+  });
+}
+
 /**
  * Fetches the live and preview host URLs for org/site.
  * @param {string} org - Organization name.
@@ -317,6 +340,8 @@ async function init(doc) {
   form.addEventListener('reset', () => {
     clearResults(table);
   });
+
+  initHelp(doc);
 
   doc.querySelector('.site-query').dataset.status = 'loaded';
 }

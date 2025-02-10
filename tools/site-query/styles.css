@@ -78,3 +78,32 @@
   text-decoration: none;
   cursor: default;
 }
+
+.site-query #help-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  line-height: 1;
+  font-size: var(--body-size-s);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background-color: var(--color-background);
+  color: var(--color-link);
+}
+
+.site-query #help-modal h2 {
+  margin-top: 0;
+}
+
+.site-query .note {
+  padding: 1rem 2rem;
+  background-color: var(--gray-400);
+}
+
+.site-query .note .note-title {
+  font-size: var(--heading-size-m);
+  font-weight: var(--weight-bold);
+  margin-top: 0;
+}
