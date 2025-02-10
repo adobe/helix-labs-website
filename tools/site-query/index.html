@@ -54,8 +54,11 @@
 
         <div class="field-group">
           <div class="form-field text-field">
-            <label for="sitemap">Sitemap</label>
+            <label for="sitemap">Sitemap or Query Index</label>
             <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
+            <div class="field-help-text">
+              <p>Path to sitemap or query index to find pages</p>
+            </div>
           </div>
           
           <div class="form-field text-field">
@@ -78,7 +81,6 @@
             of <span class="results-of"></span> pages</caption>
           <thead>
             <tr>
-              <th id="page-edit">Edit</th>
               <th id="page-path">Path</th>
               <th id="page-occurences">Occurences</th>
             </tr>
@@ -86,7 +88,7 @@
           <tbody class="results" aria-hidden="true"></tbody>
           <tbody class="no-results" aria-hidden="false">
             <tr>
-              <td colspan="3">
+              <td colspan="2">
                 <div>
                   <span class="icon icon-search"></span>
                   <div>
@@ -99,7 +101,7 @@
           </tbody>
           <tbody class="error" aria-hidden="true">
             <tr>
-              <td colspan="3">
+              <td colspan="2">
                 <div>
                   <span class="icon icon-notice"></span>
                   <div>

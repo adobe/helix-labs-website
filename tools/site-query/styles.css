@@ -31,9 +31,12 @@
   flex-grow: 1;
 }
 
-.site-query .field-group .form-field:has([name="queryType"]) {
-  max-width: max-content;
+@media (width >= 900px) {
+  .site-query .field-group .form-field:has([name="queryType"]) {
+    flex-grow: 0;
+  }
 }
+
 
 .site-query .field-group .form-field + .form-field {
   margin-top: 0;
@@ -63,4 +66,15 @@
 .site-query table tbody.error span.icon,
 .site-query table tbody.error p strong {
   color: var(--red-900);
+}
+
+.site-query table a.edit-link {
+  font-size: var(--body-size-s);
+}
+
+.site-query table a.edit-link.disabled {
+  color: var(--red-900);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: default;
 }

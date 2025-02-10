@@ -95,18 +95,27 @@ function updateTableError(table, status, org, site) {
 function displayResult(url, matches, org, site) {
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td class="edit-link"><a href="#">Edit</a></td>
-    <td><a href="${url.href}" target="_blank">${url.href}</a></td>
+    <td><a href="${url.href}" target="_blank">${url.href}</a> (<a class="edit-link" href="#">Edit</a>)</td>
     <td>${matches}</td>
   `;
 
-  tr.querySelector('.edit-link a').addEventListener('click', async (e) => {
+  const editLink = tr.querySelector('a.edit-link');
+  editLink.addEventListener('click', async (e) => {
     e.preventDefault();
+
+    if (editLink.classList.contains('disabled')) return;
+
+    if (editLink.getAttribute('href') !== '#') {
+      window.open(editLink.href);
+      return;
+    }
+
     try {
       const statusRes = await fetch(`https://admin.hlx.page/status/${org}/${site}/main${url.pathname}?editUrl=auto`);
       const status = await statusRes.json();
       const editUrl = status.edit && status.edit.url;
       if (editUrl) {
+        editLink.href = editUrl;
         window.open(editUrl);
       } else {
         throw new Error('admin did not return an edit url');
@@ -114,10 +123,33 @@ function displayResult(url, matches, org, site) {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('failed to open edit link', err);
+      editLink.textContent = 'Error opening edit link';
+      editLink.classList.add('disabled');
     }
   });
 
   return tr;
+}
+
+async function* fetchQueryIndex(queryIndexPath, liveHost) {
+  const limit = 512;
+  let offset = 0;
+  let more = true;
+
+  do {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+    // eslint-disable-next-line no-await-in-loop
+    const json = await res.json();
+    offset += limit;
+    more = json.data.length > 0;
+    for (let i = 0; i < json.data.length; i += 1) {
+      const item = json.data[i];
+      const url = new URL(item.path, `https://${liveHost}`);
+      url.host = liveHost;
+      yield url;
+    }
+  } while (more);
 }
 
 async function* fetchSitemap(sitemapPath, liveHost) {
@@ -140,7 +172,7 @@ async function* fetchSitemap(sitemapPath, liveHost) {
   const urlLocs = doc.querySelectorAll('url > loc');
   for (let i = 0; i < urlLocs.length; i += 1) {
     const loc = urlLocs[i];
-    const url = new URL(loc.textContent);
+    const url = new URL(loc.textContent, `https://${liveHost}`);
     url.host = liveHost;
     yield url;
   }
@@ -152,11 +184,8 @@ async function* fetchSitemap(sitemapPath, liveHost) {
  * @param {URL} url the url to query
  * @param {string} query the query string
  * @param {string} queryType the query type
- * @param {string} path the path filter
  */
-async function queryPage(url, query, queryType, path) {
-  if (!url.pathname.startsWith(path)) return 0;
-
+async function queryPage(url, query, queryType) {
   const res = await fetch(url);
   const html = await res.text();
   const parser = new DOMParser();
@@ -171,6 +200,20 @@ async function queryPage(url, query, queryType, path) {
   const text = body.textContent;
   const matches = text.match(new RegExp(query, 'gi'));
   return matches ? matches.length : 0;
+}
+
+async function processUrl(sitemapUrl, query, queryType, org, site) {
+  const matches = await queryPage(sitemapUrl, query, queryType);
+  if (matches > 0) {
+    return displayResult(sitemapUrl, matches, org, site);
+  }
+
+  return null;
+}
+
+function updateCaption(caption, found, searched) {
+  caption.querySelector('.results-found').textContent = found;
+  caption.querySelector('.results-of').textContent = searched;
 }
 
 /**
@@ -233,36 +276,37 @@ async function init(doc) {
 
       updateConfig();
 
-      const sitemapUrls = fetchSitemap(sitemap, live);
+      const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
 
-      let found = 0;
       let searched = 0;
 
       const caption = table.querySelector('caption');
       caption.setAttribute('aria-hidden', false);
       caption.querySelector('.term').textContent = query;
-      caption.querySelector('.results-found').textContent = found;
-      caption.querySelector('.results-of').textContent = searched;
+      caption.querySelector('.results-found').textContent = 0;
+      caption.querySelector('.results-of').textContent = 0;
 
       // eslint-disable-next-line no-restricted-syntax
       for await (const sitemapUrl of sitemapUrls) {
-        searched += 1;
-        const matches = await queryPage(sitemapUrl, query, queryType, path);
-        if (matches > 0) {
-          found += 1;
-          const tr = displayResult(sitemapUrl, matches, org, site);
-          results.append(tr);
+        if (sitemapUrl.pathname.startsWith(path)) {
+          searched += 1;
+          processUrl(sitemapUrl, query, queryType, org, site).then((tr) => {
+            if (tr) {
+              results.append(tr);
+            }
+          });
         }
-
-        caption.querySelector('.results-found').textContent = found;
-        caption.querySelector('.results-of').textContent = searched;
+        updateCaption(caption, results.children.length, searched);
       }
+      updateCaption(caption, results.children.length, searched);
 
-      if (found === 0) {
+      if (results.children.length === 0) {
         noResults.setAttribute('aria-hidden', 'false');
         results.setAttribute('aria-hidden', 'true');
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(err);
       updateTableError(table, 500, org, site);
     } finally {
       enableForm(form);
