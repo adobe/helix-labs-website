@@ -244,6 +244,7 @@ async function fetchHosts(org, site) {
 }
 
 async function init(doc) {
+  doc.querySelector('.site-query').dataset.status = 'loading';
   initConfigField();
 
   const form = doc.querySelector('#search-form');
@@ -316,6 +317,8 @@ async function init(doc) {
   form.addEventListener('reset', () => {
     clearResults(table);
   });
+
+  doc.querySelector('.site-query').dataset.status = 'loaded';
 }
 
 init(document);
