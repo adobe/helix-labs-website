@@ -3,6 +3,10 @@ main .analyze-container {
     min-height: 80vh;
 }
 
+main .analyze-container .button-wrapper:has(a[title='Docs']) {
+  justify-content: flex-end;
+}
+
 main .analyze form {
     display: grid;
     gap: 1rem;
