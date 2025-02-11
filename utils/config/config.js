@@ -178,52 +178,80 @@ function populateFromStorage(org, orgList, site, siteList) {
 /**
  * Populates org field from sidekick.
  */
-function populateFromSidekick(org, orgList) {
+async function populateFromSidekick(org, orgList, site, siteList) {
+  return new Promise((resolve) => {
   // eslint-disable-next-line no-undef
-  if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-    const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
-    // eslint-disable-next-line no-undef
-    chrome.runtime.sendMessage(id, { action: 'getAuthInfo' }, (orgs) => {
-      if (orgs[0]) {
-        // populate org list
-        populateList(orgList, orgs);
-        // populate org field
-        const lastOrg = orgs[0];
-        setFieldValue(org, lastOrg, 'sidekick');
-      }
-    });
-  }
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      let messageResolved = false;
+      const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
+      // eslint-disable-next-line no-undef
+      chrome.runtime.sendMessage(id, { action: 'getSites' }, (projects) => {
+      // eslint-disable-next-line indent
+      if (projects[0]) {
+          const { orgs, sites } = projects.reduce((acc, part) => {
+            const [orgVal, siteVal] = part.split('/');
+
+            if (!acc.orgs.includes(orgVal)) acc.orgs.push(orgVal);
+            if (!acc.sites[orgVal]) acc.sites[orgVal] = [];
+            if (!acc.sites[orgVal].includes(siteVal)) acc.sites[orgVal].push(siteVal);
+
+            return acc;
+          }, { orgs: [], sites: {} });
+
+          // populate org list
+          populateList(orgList, orgs);
+
+          // populate org & site field
+          const [lastOrg, lastSite] = projects[0].split('/');
+          setFieldValue(org, lastOrg, 'sidekick');
+
+          populateList(siteList, sites[lastOrg] || []);
+          setFieldValue(site, lastSite, 'sidekick');
+
+          messageResolved = true;
+          resolve();
+        }
+      });
+
+      setTimeout(() => {
+        if (!messageResolved) {
+          // eslint-disable-next-line no-console
+          console.warn('Sidekick message not resolved in 1 second');
+          resolve();
+        }
+      }, 1000);
+    }
+
+    resolve();
+  });
 }
 
-function populateConfig(config) {
+async function populateConfig(config) {
   const {
     org, orgList, site, siteList,
   } = config;
   populateFromParams([org, site], window.location.search);
+  await populateFromSidekick(org, orgList, site, siteList);
   populateFromStorage(org, orgList, site, siteList);
-  populateFromSidekick(org, orgList);
 }
 
 /**
- * Loads org/site config CSS.
- * @param {Event} e - Event object containing target element to highlight, if available.
+ * Loads org/site config CSS and initializes config field datalists/values.
  */
-export function initConfigField() {
+export async function initConfigField() {
   const cfg = validDOM();
 
   if (cfg) {
-    loadCSS('../../utils/config/config.css').then(() => {
-      // enable site when org has value
-      cfg.org.addEventListener('input', () => {
-        cfg.site.disabled = !cfg.org.value;
-      }, { once: true });
+    // enable site when org has value
+    cfg.org.addEventListener('input', () => {
+      cfg.site.disabled = !cfg.org.value;
+    }, { once: true });
 
-      // refresh site datalist to match org
-      cfg.org.addEventListener('change', (e) => {
-        resetSiteListForOrg(e.target.value, cfg.site, cfg.siteList);
-      });
-
-      populateConfig(cfg);
+    // refresh site datalist to match org
+    cfg.org.addEventListener('change', (e) => {
+      resetSiteListForOrg(e.target.value, cfg.site, cfg.siteList);
     });
+
+    await Promise.all([loadCSS('../../utils/config/config.css'), populateConfig(cfg)]);
   }
 }
