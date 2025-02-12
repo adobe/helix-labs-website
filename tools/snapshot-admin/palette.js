@@ -1,4 +1,9 @@
-import { fetchSnapshotManifest, addToSnapshot, deleteFromSnapshot, fetchStatus } from './snapshot-utils.js';
+import {
+  fetchSnapshotManifest,
+  addToSnapshot,
+  deleteFromSnapshot,
+  fetchStatus,
+} from './snapshot-utils.js';
 
 const params = new URLSearchParams(window.location.search);
 const referrer = new URL(params.get('referrer'));
