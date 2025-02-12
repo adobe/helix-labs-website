@@ -190,7 +190,7 @@ adminForm.addEventListener('submit', async (e) => {
 });
 
 const params = new URLSearchParams(window.location.search);
-snapshotURL.value = localStorage.getItem('snapshot') || params.get('snapshot');
+snapshotURL.value = params.get('snapshot') || localStorage.getItem('snapshot');
 if (snapshotURL.value) fetchSnapshotManifest(snapshotURL.value);
 
 snapshotResources.addEventListener('input', () => {

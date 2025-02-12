@@ -1,3 +1,7 @@
+@import url('/styles/colors.css');
+@import url('/styles/containers.css');
+@import url('/styles/typography.css');
+
 .snapshot-admin [aria-hidden='true'] {
   display: none;
 }
