@@ -36,6 +36,7 @@
 
 .image-audit dialog table td {
   vertical-align: top;
+  padding: 0.6em 0.7em;
 }
 
 .image-audit dialog table tr td:first-of-type {
@@ -65,10 +66,6 @@
     linear-gradient(135deg, transparent 75%, var(--color-background) 75%);
   background-size: 16px 16px;
   background-position: 0 0, 8px 0, 8px -8px, 0 8px;
-}
-
-.image-audit dialog table td {
-  padding: 0.6em 0.7em;
 }
 
 .image-audit dialog table tr:not(:last-of-type) td {
