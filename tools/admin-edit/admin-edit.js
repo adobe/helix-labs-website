@@ -180,7 +180,7 @@ bodyForm.addEventListener('submit', async (e) => {
   if (body.value) {
     headers['content-type'] = adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json';
   }
-  
+
   const resp = await fetch(adminURL.value, {
     method: reqMethod.value,
     body: body.value,
