@@ -1,0 +1,42 @@
+
+p {
+  margin: 8px 0;
+  font-size: 14px;
+  font-family: adobe-clean, "Adobe Clean", "Source Sans Pro", -apple-system, system-ui, sans-serif;
+}
+
+body {
+  background-color: #222c;
+  font-family: Arial, sans-serif;
+  color: #DBDBDB;
+  padding: 0 8px;
+}
+
+button {
+  color: #dbdbdb;
+  background-color: unset;
+  border-radius: 16px;
+  border: 2px solid #DBDBDB;
+  padding: 4px 8px;
+  min-width: 80px;
+  font-size: 14px;
+}
+
+.button-wrapper {
+  display: inline-block;
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+button:disabled {
+  display: none;
+}
+
+a {
+  color: #dbdbdb;
+}
+
+p.buttons {
+padding-top: 8px;
+height: 32px;
+}
