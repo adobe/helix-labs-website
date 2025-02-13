@@ -410,44 +410,6 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   return data;
 }
 
-/* url and sitemap utility */
-const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
-
-/**
- * Determines the type of a URL based on its hostname and pathname.
- * @param {string} url - URL to evaluate.
- * @returns {string|boolean} Type of URL.
- */
-function extractUrlType(url) {
-  const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
-  if (pathname.endsWith('.xml')) return 'sitemap';
-  if (pathname.includes('robots.txt')) return 'robots';
-  if (aemSite || hostname.includes('github')) return 'write sitemap';
-  return null;
-}
-
-/**
- * Constructs a sitemap URL.
- * @param {string} url - URL to use for constructing the sitemap.
- * @returns {string|null} Sitemap URL.
- */
-function writeSitemapUrl(url) {
-  const { hostname, pathname } = new URL(url);
-  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
-  // construct sitemap URL for an AEM site
-  if (aemSite) {
-    const [ref, repo, owner] = hostname.replace(`.${aemSite}`, '').split('--');
-    return `https://${ref}--${repo}--${owner}.${aemSite.split('.')[0]}.live/sitemap.xml`;
-  }
-  // construct a sitemap URL for a GitHub repository
-  if (hostname.includes('github')) {
-    const [owner, repo] = pathname.split('/').filter((p) => p);
-    return `https://main--${repo}--${owner}.hlx.live/sitemap.xml`;
-  }
-  return null;
-}
-
 /**
  * Attempts to find a sitemap URL within a robots.txt file.
  * @param {string} url - URL of the robots.txt file.
@@ -508,43 +470,6 @@ async function processForm(sitemap) {
   await fetchAndDisplayBatches(urls);
 }
 
-function getFormData(form) {
-  const data = {};
-  [...form.elements].forEach((field) => {
-    const { name, type, value } = field;
-    if (name && type && value) {
-      switch (type) {
-        case 'number':
-        case 'range':
-          data[name] = parseFloat(value, 10);
-          break;
-        case 'date':
-        case 'datetime-local':
-          data[name] = new Date(value);
-          break;
-        case 'checkbox':
-          if (field.checked) {
-            if (data[name]) data[name].push(value);
-            else data[name] = [value];
-          }
-          break;
-        case 'radio':
-          if (field.checked) data[name] = value;
-          break;
-        case 'url':
-          data[name] = new URL(value);
-          break;
-        case 'file':
-          data[name] = field.files;
-          break;
-        default:
-          data[name] = value;
-      }
-    }
-  });
-  return data;
-}
-
 function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
@@ -554,20 +479,24 @@ function registerListeners(doc) {
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
 
+  /**
+   * Handles admin form submission.
+   * @param {Event} e - Submit event
+   */
+
   // handle form submission
   URL_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     // clear all sorting and filters
     // eslint-disable-next-line no-return-assign
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
-    const data = getFormData(e.srcElement);
-    const url = data['site-url'];
-    const urlType = extractUrlType(url);
-    if (urlType.includes('sitemap')) {
-      // fetch sitemap
-      const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
-      processForm(sitemap);
-    }
+    // const data = getFormData(e.srcElement);
+    // const url = data['site-url'];
+    const org = document.getElementById('org');
+    const site = document.getElementById('site');
+    const url = `https://main--${site.value}--${org.value}.aem.live/sitemap.xml`;
+
+    processForm(url);
   });
 
   // handle gallery clicks to display modals
