@@ -13,9 +13,15 @@ export default function decorate(block) {
     ul.append(li);
   });
   // decorate card content
-  ul.querySelectorAll('img').forEach((img) => img.closest('picture').replaceWith(
-    createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }]),
-  ));
+  ul.querySelectorAll('picture > img').forEach((img) => {
+    const picture = img.closest('picture');
+    const newPicture = createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }]);
+    picture.replaceWith(newPicture);
+
+    const newImg = newPicture.querySelector('img');
+    newImg.setAttribute('height', img.getAttribute('height'));
+    newImg.setAttribute('width', img.getAttribute('width'));
+  });
   ul.querySelectorAll(':scope > li a[href]:first-of-type').forEach((a) => {
     const li = a.closest('li');
     li.className = 'cards-card-linked';
