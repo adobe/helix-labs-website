@@ -16,7 +16,7 @@ export default function decorate(block) {
     const src = source.getAttribute(attrName);
     const srcUrl = new URL(src, window.location);
     const params = new URLSearchParams(srcUrl.search);
-    params.set('width', '750');
+    params.set('width', '600');
     if (source.hasAttribute('media')) {
       params.set('optimize', 'high');
     }
