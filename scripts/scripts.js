@@ -6,6 +6,7 @@ import {
   decorateSections,
   decorateBlocks,
   decorateTemplateAndTheme,
+  waitForFirstImage,
   loadSection,
   loadSections,
   loadCSS,
@@ -193,7 +194,7 @@ async function loadEager(doc) {
   if (main) {
     decorateMain(main);
     document.body.classList.add('appear');
-    loadSection(main.querySelector('.section'));
+    await loadSection(main.querySelector('.section'), waitForFirstImage);
   }
 
   sampleRUM.enhance();

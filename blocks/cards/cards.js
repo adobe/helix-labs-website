@@ -1,5 +1,3 @@
-import { createOptimizedPicture } from '../../scripts/aem.js';
-
 export default function decorate(block) {
   // convert cards to list and list items
   const ul = document.createElement('ul');
@@ -13,15 +11,18 @@ export default function decorate(block) {
     ul.append(li);
   });
   // decorate card content
-  // ul.querySelectorAll('picture > img').forEach((img) => {
-  //   const picture = img.closest('picture');
-  //   const newPicture = createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }]);
-  //   picture.replaceWith(newPicture);
-
-  //   const newImg = newPicture.querySelector('img');
-  //   newImg.setAttribute('height', img.getAttribute('height'));
-  //   newImg.setAttribute('width', img.getAttribute('width'));
-  // });
+  ul.querySelectorAll('picture > img, picture > source').forEach((source) => {
+    const attrName = source.tagName === 'IMG' ? 'src' : 'srcset';
+    const src = source.getAttribute(attrName);
+    const srcUrl = new URL(src, window.location);
+    const params = new URLSearchParams(srcUrl.search);
+    params.set('width', '750');
+    if (source.hasAttribute('media')) {
+      params.set('optimize', 'high');
+    }
+    srcUrl.search = params.toString();
+    source.setAttribute(attrName, srcUrl.href);
+  });
   ul.querySelectorAll(':scope > li a[href]:first-of-type').forEach((a) => {
     const li = a.closest('li');
     li.className = 'cards-card-linked';
