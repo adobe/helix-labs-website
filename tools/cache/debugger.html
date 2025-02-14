@@ -1,12 +1,17 @@
 <html>
 
 <head>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
+    move-as-header="true"
+  >
   <title>Cache Debugger | AEM Live</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="/scripts/aem.js" type="module"></script>
-  <script src="/scripts/scripts.js" type="module"></script>
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
   <link rel="stylesheet" href="/styles/styles.css" />
-  <script src="./debugger.js" type="module"></script>
+  <script nonce="aem" src="./debugger.js" type="module"></script>
   <link rel="stylesheet" href="./debugger.css">
 </head>
 
