@@ -235,13 +235,17 @@ function init() {
     localStorage.setItem('admin-url', adminURL.value);
     updateConfigFields();
 
+    const headers = {};
+    if (body.value) {
+      headers['content-type'] = adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json';
+    }
+
     const resp = await fetch(adminURL.value, {
       method: reqMethod.value,
       body: body.value,
-      headers: {
-        'content-type': adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json',
-      },
+      headers,
     });
+
     resp.text().then(() => {
       logResponse([resp.status, reqMethod.value, adminURL.value, resp.headers.get('x-error') || '']);
     });
