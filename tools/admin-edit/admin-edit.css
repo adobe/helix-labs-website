@@ -141,12 +141,7 @@ pre[class*='language-'] {
   word-break: normal;
   word-spacing: normal;
   word-wrap: normal;
-  -webkit-hyphens: none;
-  -moz-hyphens: none;
-  -ms-hyphens: none;
   hyphens: none;
-  -moz-tab-size: 2;
-  -o-tab-size: 2;
   tab-size: 2;
 }
 
