@@ -2,9 +2,14 @@
 
 <head>
   <title>Deep PSI</title>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
+    move-as-header="true"
+  >
 </head>
-<script src="//cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
-<script type="module">
+<script nonce="aem" src="//cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+<script nonce="aem" type="module">
   import { sampleRUM } from '../../scripts/aem.js';
   import pLimit from 'https://cdn.skypack.dev/p-limit@4.0.0';
   const parallelism = new URL(window.location.href).searchParams.get('parallelism');
