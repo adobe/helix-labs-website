@@ -1,5 +1,4 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
-import { buildModal } from '../../scripts/scripts.js';
 
 function getFormData(form) {
   const data = {};
@@ -66,18 +65,28 @@ function clearResults(table) {
   caption.setAttribute('aria-hidden', true);
 }
 
-function updateTableError(table, status, org, site) {
+function updateTableError(table, errCode, org, site) {
   const { title, msg } = (() => {
-    switch (status) {
+    switch (errCode) {
       case 401:
         return {
           title: '401 Unauthorized Error',
           msg: `Unable to display results. <a target="_blank" href="https://main--${site}--${org}.aem.page">Sign in to the ${site} project sidekick</a> to view the results.`,
         };
+      case 404:
+        return {
+          title: '404 Not Found Error',
+          msg: 'Unable to display results. Ensure your sitemap/index path is correct.',
+        };
+      case 499:
+        return {
+          title: 'Initial Fetch Failed',
+          msg: 'This is likely due to CORS. Either use a CORS allow plugin or add a header <code>Access-Control-Allow-Origin: https://labs.aem.live</code> in your site config.',
+        };
       default:
         return {
           title: 'Error',
-          msg: 'Unable to display results',
+          msg: 'Unable to display results. Please check the console for more information.',
         };
     }
   })();
@@ -138,8 +147,17 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
   let more = true;
 
   do {
-    // eslint-disable-next-line no-await-in-loop
-    const res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+    let res;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+    } catch (err) {
+      throw new Error('Failed on initial fetch of index.', err);
+    }
+
+    if (!res.ok) {
+      throw new Error(`Not found: ${queryIndexPath}`);
+    }
     // eslint-disable-next-line no-await-in-loop
     const json = await res.json();
     offset += limit;
@@ -154,7 +172,16 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
 }
 
 async function* fetchSitemap(sitemapPath, liveHost) {
-  const res = await fetch(`https://${liveHost}${sitemapPath}`);
+  let res;
+  try {
+    res = await fetch(`https://${liveHost}${sitemapPath}`);
+    if (!res.ok) {
+      throw new Error(`Not found: ${sitemapPath}`);
+    }
+  } catch (err) {
+    throw new Error('Failed on initial fetch of sitemap.', err);
+  }
+
   const xml = await res.text();
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
@@ -215,28 +242,6 @@ async function processUrl(sitemapUrl, query, queryType, org, site) {
 function updateCaption(caption, found, searched) {
   caption.querySelector('.results-found').textContent = found;
   caption.querySelector('.results-of').textContent = searched;
-}
-
-function initHelp(doc) {
-  const helpButton = doc.getElementById('help-button');
-  const [newModal, body] = buildModal();
-  newModal.id = 'help-modal';
-  body.innerHTML = `
-    <h2>Site Query Help</h2>
-    <p>Search all of your site's content to find block usages and more.</p>
-    <p>Enter the organization and site to search, then enter a query to search for. The query is executed against
-      the undecorated page HTML, which means anything added during decoration will not be matched.</p>
-    <p>Pages are discovered by using a query index or sitemap. By default, it tries to use <code>/sitemap-index.xml</code></p>
-    <div class="note">
-      <p class="note-title">Cross-Origin Access</p>
-      <p>This tool requires cross-origin (CORS) access to work. Either use a CORS allow plugin or add a header
-        <code>Access-Control-Allow-Origin: https://labs.aem.live</code> in your site config.</p>
-    </div>
-  `;
-  doc.body.append(newModal);
-  helpButton.addEventListener('click', () => {
-    newModal.showModal();
-  });
 }
 
 /**
@@ -331,7 +336,13 @@ async function init(doc) {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err);
-      updateTableError(table, 500, org, site);
+      if (err.message.startsWith('Failed on initial fetch')) {
+        updateTableError(table, 499, org, site);
+      } else if (err.message.startsWith('Not found')) {
+        updateTableError(table, 404, org, site);
+      } else {
+        updateTableError(table, 500, org, site);
+      }
     } finally {
       enableForm(form);
     }
@@ -341,7 +352,7 @@ async function init(doc) {
     clearResults(table);
   });
 
-  initHelp(doc);
+  // (doc);
 
   doc.querySelector('.site-query').dataset.status = 'loaded';
 }
