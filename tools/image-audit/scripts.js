@@ -1,218 +1,59 @@
-/* eslint-disable import/no-relative-packages, max-classes-per-file, class-methods-use-this */
-// These imports register the classes with the IdentityRegistry
-import './identity/defaultidentityloader.js';
-import './reports/defaultreportsloader.js';
-import './crawler/defaultcrawlersloader.js';
-import './sort/defaultsortsloader.js';
-import './filter/defaultfilterloader.js';
-
+/* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
 
-import ClusterManager from './identity/clustermanager.js';
-import IdentityRegistry from './identity/identityregistry.js';
-import IdentityValues from './identity/identityvalues.js';
-import SitemapLoadOrderIdentity from './identity/sitemaploadorderidentity.js';
-import ColorIdentity from './identity/imageidentity/coloridentity.js';
-import UrlAndPageIdentity from './identity/imageidentity/urlandpageidentity.js';
-import PromisePool from './util/promisepool.js';
-import ReportRegistry from './reports/reportregistry.js';
-import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
-import NamingUtil from './reports/util/namingutil.js';
-import ImageAuditUtil from './util/imageauditutil.js';
-import CrawlerRegistry from './crawler/crawlerregistry.js';
-import SortRegistry from './sort/sortregistry.js';
-import FilterRegistry from './filter/filterregistry.js';
-import AbstractFilter from './filter/abstractfilter.js';
-
-// import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
-
-/* url and sitemap utility */
-const CORS_ANONYMOUS = true;
-
-const PAGE_SIZE = 1000;
-
-const DB_NAME = 'ImageAuditExecutions';
-const STORE_NAME = 'Executions';
-
-async function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-
-    request.onsuccess = (e) => resolve(e.target.result);
-    request.onerror = (e) => reject(e.target.error);
-  });
-}
-
-async function saveFormData(url, formData) {
-  try {
-    const db = await openDB(); // Open DB
-    const transaction = db.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const value = JSON.stringify(formData);
-    const key = url instanceof URL ? url.href : url;
-
-    const request = store.put(value, key);
-
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => {
-        // Save the URL of the most recent form data in localStorage
-        localStorage.setItem('lastExecutedURL', key);
-        resolve();
-      };
-      request.onerror = (event) => reject(event.target.error);
-    });
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Error opening DB or saving form data:', error);
-    return Promise.resolve();
-  }
-}
-
-function isHidden(element) {
-  // Check if the element or any of its ancestors have aria-hidden="true"
-  if (element.closest('[aria-hidden="true"]')) {
-    return true;
-  }
-
-  // Check if the element is hidden using CSS
-  const style = getComputedStyle(element);
-  return style.display === 'none' || style.visibility === 'hidden';
-}
-
-function populateFormFromData(data) {
-  Object.keys(data).forEach((key) => {
-    const inputs = document.querySelectorAll(`[name="${key}"]`);
-
-    if (inputs.length) {
-      inputs.forEach((input) => {
-        // Skip hidden fields or fields in containers with aria-hidden="true"
-        if (isHidden(input)) return;
-
-        if (input.type === 'file') {
-          // Skip file inputs since their value cannot be set programmatically
-          return;
-        }
-
-        if (input.type === 'radio') {
-          // Handle radio buttons: uncheck if not the selected value
-          input.checked = input.value === data[key];
-          input.dispatchEvent(new Event('change')); // Trigger the change event
-        } else if (input.type === 'checkbox') {
-          // Handle checkboxes: uncheck if not in the data array
-          if (Array.isArray(data[key])) {
-            input.checked = data[key].includes(input.value);
-          } else {
-            input.checked = data[key] === input.value;
-          }
-          input.dispatchEvent(new Event('change')); // Trigger the change event
-        } else {
-          // Handle other input types
-          input.value = data[key] || ''; // Set to empty string if no value
-          input.dispatchEvent(new Event('change')); // Trigger the change event
-        }
+/* reporting utilities */
+/**
+ * Generates sorted array of audit report rows.
+ * @returns {Object[]} Sorted array of report rows.
+ */
+function writeReportRows() {
+  const unique = window.audit;
+  const entries = [];
+  unique.forEach((image) => {
+    if (image && image.site) {
+      image.site.forEach((site, i) => {
+        entries.push({
+          Site: site,
+          'Image Source': new URL(image.src, image.origin).href,
+          'Alt Text': image.alt[i],
+        });
       });
     }
   });
-
-  // Uncheck or reset inputs not included in the data
-  const allInputs = document.querySelectorAll('input, select, textarea');
-  allInputs.forEach((input) => {
-    const { name, type } = input;
-
-    // Skip inputs without a name, files, hidden fields, or those already processed
-    if (!name || type === 'file' || Object.prototype.hasOwnProperty.call(data, name) || isHidden(input)) {
-      return;
-    }
-
-    if (type === 'radio' || type === 'checkbox') {
-      input.checked = false; // Uncheck unhandled radio or checkbox inputs
-      input.dispatchEvent(new Event('change')); // Trigger the change event
-    } else {
-      input.value = ''; // Clear unhandled input fields
-      input.dispatchEvent(new Event('change')); // Trigger the change event
-    }
-  });
-
-  // Explicitly trigger change events for specific options
-  document.querySelectorAll('input[name="sitemap-option"]:checked').forEach((option) => {
-    if (!isHidden(option)) {
-      option.dispatchEvent(new Event('change'));
-    }
-  });
-}
-
-async function populateFormFromUrl(url) {
-  try {
-    const db = await openDB();
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    let key = url;
-    if (key instanceof URL) key = key.href;
-
-    const request = store.get(key);
-
-    request.onsuccess = (e) => {
-      const data = e.target.result;
-      if (data) {
-        // If a match is found, populate the form fields with the corresponding data
-        const parsedData = JSON.parse(data);
-        populateFormFromData(parsedData);
-      } else {
-        // eslint-disable-next-line no-console
-        console.debug('No matching data found for:', url);
-      }
-    };
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Error during populateFormFromUrl:', error);
-  }
+  // sort the entries array alphabetically by the 'Site' property
+  const sorted = entries.sort((a, b) => a.Site.localeCompare(b.Site));
+  return sorted;
 }
 
 /**
- * Creates a span element representing a color with optional clickability.
- *
- * @param {string} color - The color to be represented from the ccsColors list.
- * @param {boolean} clickable - Determines if the formatting is for a clickable color.
- * @returns {HTMLSpanElement} The span element representing the color.
+ * Converts report rows into a CSV Blob.
+ * @param {Object[]} rows - Array of report rows to be converted.
+ * @returns {Blob|null} Blob representing the CSV data.
  */
-function getColorSpan(color, clickable) {
-  const colorSpan = document.createElement('span');
-
-  // Add title for hover text
-  colorSpan.title = color.replace(/([a-z])([A-Z])/g, '$1 $2'); // Set hover text
-
-  colorSpan.classList.add('color-span');
-
-  if (color === 'Unknown') {
-    colorSpan.classList.add('unknown');
-    colorSpan.style.backgroundImage = "url('/icons/question.svg')";
-  } else if (color === 'Transparency') {
-    colorSpan.classList.add('alpha');
-  } else {
-    colorSpan.style.backgroundColor = color; // Set background color if not "Unknown"
-  }
-
-  if (!clickable) {
-    colorSpan.style.cursor = 'default'; // Set cursor to pointer for colors
-  }
-
-  return colorSpan;
+function generateCSV(rows) {
+  if (rows.length === 0) return null;
+  // write the CSV column headers using the keys from the first row object
+  const headers = `${Object.keys(rows[0]).join(',')}\n`;
+  // convert the rows into a single string separated by newlines
+  const csv = headers + rows.map((row) => Object.values(row).map((value) => {
+    const escape = (`${value}`).replace(/"/g, '""'); // escape quotes
+    return `"${escape}"`;
+  }).join(',')).join('\n');
+  // create a Blob from the CSV string
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  return blob;
 }
 
-function getShapeForRatio(ratio) {
-  if (ratio === 1) return 'Square';
-  if (ratio < 1) return 'Portrait';
-  if (ratio > 1.7) return 'Widescreen';
-  return 'Landscape';
+/* modal utilities */
+/**
+ * Generates a unique ID for a modal based on the image source URL.
+ * @param {string} src - Source URL of the image.
+ * @returns {string} Generated or extracted modal ID.
+ */
+function getModalId(src) {
+  if (src.includes('_')) return src.split('_')[1].split('.')[0];
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
 }
 
 class RewrittenData {
@@ -228,10 +69,7 @@ class RewrittenData {
   site(value) {
     if (!value) return '-';
     const sites = value.map((site, i) => {
-      let alt = null;
-      if (this.data.alt.length <= i) {
-        alt = this.data.alt[i]; // this is not technically correct. They arent 1:1
-      }
+      const alt = this.data.alt[i];
       const a = `<a href="${new URL(site, this.data.origin).href}" target="_blank">${new URL(site).pathname}</a>`;
       return alt ? `<p>${a} (${alt})</p>` : `<p>${a}</p>`;
     });
@@ -247,52 +85,14 @@ class RewrittenData {
   aspectRatio(value) {
     if (!value) return '-';
     const ar = (v, symbol) => `<i class="symbol symbol-${symbol.toLowerCase()}"></i> ${symbol} (${v})`;
-    return ar(value, getShapeForRatio(value));
+    if (value === 1) return ar(value, 'Square');
+    if (value < 1) return ar(value, 'Portrait');
+    if (value > 1.7) return ar(value, 'Widescreen');
+    return ar(value, 'Landscape');
   }
 
   src(value) {
     return `<img src="${new URL(value, this.data.origin).href}" />`;
-  }
-
-  topColors(value) {
-    if (!value) return '-';
-    return value.map((color) => getColorSpan(color, false).outerHTML).join(' ');
-  }
-
-  lighthouse(scores) {
-    let html = '';
-
-    // Assuming 'scores.total' contains the overall Lighthouse score
-    const roundedOverallTotal = Math.round(scores.total);
-
-    // Add the Lighthouse score at the top
-    html += `<div><strong>Success Score: ${roundedOverallTotal}</strong></div><br/>`;
-
-    // Iterate over each category in scores (excluding the 'total' property)
-    Object.keys(scores).forEach((category) => {
-      if (category !== 'total' && Object.prototype.hasOwnProperty.call(scores, category)) {
-        const categoryData = scores[category];
-
-        // Convert the category name to a pretty name and round the total score
-        const categoryName = NamingUtil.formatPropertyNameForUI(category);
-        const roundedTotal = Math.round(categoryData.total);
-
-        // Add the category name and total score
-        html += `<div><strong>${categoryName} - Total: ${roundedTotal}</strong></div>`;
-
-        // If there are sub-scores, break them down
-        Object.keys(categoryData).forEach((subscore) => {
-          if (subscore !== 'total' && Object.prototype.hasOwnProperty.call(categoryData, subscore)) {
-            const subscoreName = NamingUtil.formatPropertyNameForUI(subscore);
-            const roundedScore = Math.round(categoryData[subscore]);
-            html += `<div style="margin-left: 20px;">${subscoreName}: ${roundedScore}</div>`;
-          }
-        });
-      }
-    });
-
-    // Return the generated HTML
-    return html;
   }
 
   // rewrite data based on key
@@ -310,20 +110,17 @@ class RewrittenData {
  * @param {HTMLElement} figure - Figure element representing the image.
  */
 function displayModal(figure) {
-  const clusterId = figure.querySelector(':scope > img[data-src]').dataset.src;
+  const { src } = figure.querySelector(':scope > img[data-src]').dataset;
+  const id = getModalId(src);
   // check if a modal with this ID already exists
-  const modalId = `m:${clusterId}`;
-  let modal = document.getElementById(modalId);
-
+  let modal = document.getElementById(id);
   if (!modal) {
     // build new modal
     const [newModal, body] = buildModal();
-
-    newModal.id = modalId;
+    newModal.id = id;
     modal = newModal;
     // define and populate modal content
     const table = document.createElement('table');
-
     table.innerHTML = '<tbody></tbody>';
     const rows = {
       fileType: 'Kind',
@@ -332,98 +129,12 @@ function displayModal(figure) {
       dimensions: 'Dimensions',
       aspectRatio: 'Aspect ratio',
       src: 'Preview',
-      alt: 'Alt Text',
     };
-
-    const { clusterManager } = window;
-    const cluster = clusterManager.get(clusterId);
-
-    const site = cluster.getAll(UrlAndPageIdentity.type, 'site');
-    const alt = cluster.getAll(UrlAndPageIdentity.type, 'alt');
-    // todo: this should be done as multiple entries of width, height, src.
-    const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
-    if (identity === null) {
-      return;
-    }
-
-    const data = {
-      fileType: ImageAuditUtil.getFileType(clusterManager.get(clusterId).elementForCluster.src),
-      count: site.length,
-      site,
-      alt,
-      width: identity.width,
-      height: identity.height,
-      aspectRatio: identity.aspectRatio,
-      src: clusterManager.get(clusterId).detailHref,
-    };
-
-    const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
-    if (colorIdentity) {
-      rows.topColors = 'Top Colors';
-      data.topColors = colorIdentity.topColorsSorted;
-    }
-
-    const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
-
-    if (window.collectingRum) {
-      const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
-      const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
-      const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
-      const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
-
-      rows.performanceScore = 'Performance Score';
-      rows.pageViews = 'Page Views';
-      rows.conversions = 'Conversions';
-      rows.visits = 'Visits';
-      rows.bounces = 'Bounces';
-      rows.lighthouse = 'Asset Success Score';
-      data.pageViews = pageViews > 0 ? pageViews : ' < 100';
-      data.conversions = conversions > 0 ? conversions : ' < 100';
-      data.visits = visits > 0 ? visits : ' < 100';
-      data.bounces = bounces > 0 ? bounces : ' < 100';
-    }
-    data.lighthouse = lighthouse.scores;
-
-    const textIdentity = cluster.getSingletonOf('text-identity');
-    if (textIdentity) {
-      rows.text = 'OCR Text';
-      data.text = textIdentity.identityText;
-    }
-
-    /* work in progress
-    const similarClusters = cluster.getAllIdentitiesOf('similar-perceptual-identity');
-    if (similarClusters.length > 0) {
-      rows.similar = 'Similar Images';
-      // Assuming 'clusters' is an array containing your clusters
-      const urlMap = new Map();
-
-      // Step 1: Extract data and store in a Map
-      similarClusters.forEach((cluster) => {
-        const imgElement = cluster.figureForCluster;
-        if (imgElement) {
-          const { src } = imgElement;
-          const { width } = imgElement;
-          const { height } = imgElement;
-
-          // Step 2: Store the src as the key and width/height as the value in the map
-          urlMap.set(src, { width, height });
-        }
-      });
-
-      // Step 3: Iterate over the Map to generate the HTML string
-      let htmlString = '';
-
-      urlMap.forEach((value, src) => {
-        htmlString += `<img src="${src}" width="${value.width}" height="${value.height}" />\n`;
-      });
-
-      data.similar = htmlString;
-    }
-    */
-
+    // format data for display
+    const data = window.audit.find((img) => src.includes(img.src.slice(2)));
+    if (!data) return;
     const formattedData = new RewrittenData(data);
     formattedData.rewrite(Object.keys(rows));
-
     Object.keys(rows).forEach((key) => {
       if (formattedData.data[key]) {
         const tr = document.createElement('tr');
@@ -437,221 +148,107 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-function sortImages(doc, targetSort, targetFilter, targetPagination) {
-  if ((targetSort && targetFilter && targetPagination)
-      || (!targetSort && !targetFilter && !targetPagination)) {
-    throw new Error('Exactly one of targetSort, targetFilter, or targetPagination must be provided.');
-  }
-
-  const sortTriggered = targetSort !== null;
-  let target = targetSort;
-  if (target) window.lastTarget = target;
-  else target = window.lastTarget;
-
-  const CANVAS = doc.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
-  const ACTION_BAR = CANVAS.querySelector('.action-bar');
-  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
-  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
-  const checkedFilters = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-
-  const sortKey = target.value;
-
-  let ascending = false;
-
-  if (target.dataset.order === undefined
-    || target.dataset.order === null
-    || target.dataset.order === '') {
-    // not previously set, set to descending.
-    ascending = false;
-  } else if (target.dataset.order === 'ascending') {
-    // eslint-disable-next-line no-unneeded-ternary
-    ascending = sortTriggered ? false : true; // if a click on sort triggered it, flip the order
-  } else if (target.dataset.order === 'descending') {
-    // eslint-disable-next-line no-unneeded-ternary
-    ascending = sortTriggered ? true : false; // if a click on sort triggered it, flip the order
-  }
-  target.dataset.order = ascending ? 'ascending' : 'descending';
-
-  const { sortRegistry } = window;
-  // Get the sort instance from the SortRegistry
-  const sorter = sortRegistry.getSortInstance(sortKey);
-
-  const { clusterManager } = window;
-
-  let pageValue = 1;
-  if (targetPagination) {
-    pageValue = parseInt(targetPagination.value, 10);
-  }
-
-  // Perform sorting using the sort class
-  const {
-    clusters,
-    pageCount,
-  } = sorter.sort(clusterManager, checkedFilters, pageValue, PAGE_SIZE, ascending);
-
-  // Clear the gallery and append sorted figures
-  GALLERY.innerHTML = ''; // Clear current gallery content
-  clusters.forEach((cluster) => {
-    if (cluster.figureForCluster) {
-      GALLERY.appendChild(cluster.figureForCluster);
-    }
-  });
-
-  if (sortTriggered) {
-    // Remove existing arrows from all sort options
-    SORT_ACTIONS.forEach((action) => {
-      const label = action.nextElementSibling;
-      label.innerHTML = label.innerHTML.replace(/[\u25B2\u25BC]/g, ''); // Remove arrows
-    });
-
-    const arrow = ascending ? ' \u25B2' : ' \u25BC'; // Up arrow or down arrow
-    target.nextElementSibling.innerHTML += arrow; // Append arrow to the label
-  }
-
-  const pagination = doc.getElementById('pagination-div');
-  // Update the pagination
-  if (pageCount > 1) {
-    const slider = doc.getElementById('pagination-slider');
-    slider.max = pageCount;
-    slider.value = pageValue;
-    const paginationCounter = doc.getElementById('pagination-counter');
-    paginationCounter.textContent = pageCount;
-    const currentPage = doc.getElementById('current-page');
-    currentPage.textContent = pageValue;
-    pagination.setAttribute('aria-hidden', 'false');
-    pagination.style.display = '';
-  } else {
-    pagination.setAttribute('aria-hidden', 'true');
-    pagination.style.display = 'none';
-  }
-}
-
-function changeFilters(triggerElement) {
-  const CANVAS = document.getElementById('canvas');
-  const ACTION_BAR = CANVAS.querySelector('.action-bar');
-  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
-
-  const checkedPreFilter = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-  const filter = FilterRegistry.get(triggerElement.value);
-  const uncheckSet = new Set(filter.changeCheckedFiltersOnCheck(checkedPreFilter));
-  // Uncheck all checkboxes in the uncheckSet
-  FILTER_ACTIONS.forEach((input) => {
-    if (uncheckSet.has(input.value)) {
-      input.checked = false;
-    }
-  });
-
-  sortImages(document, null, triggerElement);
+/* image processing and display */
+/**
+ * Validates that every image in an array has alt text.
+ * @param {string[]} alt - Array of alt text strings associated with the image.
+ * @param {number} count - Expected number of alt text entries (equal to the number of appearances).
+ * @returns {boolean} `true` if the alt text is valid, `false` otherwise.
+ */
+function validateAlt(alt, count) {
+  if (alt.length === 0 || alt.length !== count) return false;
+  if (alt.some((item) => item === '')) return false;
+  return true;
 }
 
 /**
- * Adds an event listener to the specified action element that filters images in a gallery
- * based on user selected criteria.
- *
- * @param {HTMLElement} action - The HTML element that is receiving the event listener.
- *
- * The function filters images in the gallery based on the following criteria:
- * - Shape: Filters images by their aspect ratio (square, portrait, landscape, widescreen).
- * - Color: Filters images by their top colors.
- * - Missing Alt Text: Filters images that are missing alt text.
- *
- * The function updates the `aria-hidden` attribute of each figure element
- * in the gallery to show or hide it based on the selected filters.
+ * Filters out duplicate images and compiles unique image data.
+ * @param {Object[]} data - Array of image data objects.
+ * @returns {Object[]} Array of unique image data objects.
  */
-function addFilterAction(action) {
-  action.addEventListener('change', (event) => changeFilters(event.target));
-}
-
-function addColorsToFilterList(sortedColorNames) {
-  const colorPaletteContainer = document.getElementById('color-pallette');
-  colorPaletteContainer.innerHTML = ''; // Clear the container
-
-  sortedColorNames.forEach((color) => {
-    // Create a list item (li) for each color
-    const listItem = document.createElement('li');
-    listItem.className = 'color-list-item'; // Corrected class name for styling
-
-    // Create a label for the color checkbox
-    const label = document.createElement('label');
-    label.className = 'color-label'; // Corrected class name for styling
-
-    // Create a checkbox input
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.name = 'filter';
-    checkbox.value = `color-${color}`;
-    checkbox.id = `filter-color-${color}`;
-    checkbox.className = 'color-checkbox'; // Corrected class name for styling
-    checkbox.style.display = 'none'; // Hide the default checkbox
-
-    // Create a square for the color representation
-    const colorSpan = getColorSpan(color, true);
-
-    // Add a click event to toggle the checkbox and change border on click
-    label.addEventListener('click', () => {
-      checkbox.checked = !checkbox.checked; // Toggle the checkbox state
-      if (checkbox.checked) colorSpan.classList.add('selected');
-      else colorSpan.classList.remove('selected');
-    });
-    addFilterAction(checkbox);
-
-    // Append the hidden checkbox and color square to the label
-    label.appendChild(checkbox);
-    label.appendChild(colorSpan);
-
-    // Append the label to the list item
-    listItem.appendChild(label);
-
-    // Append the list item to the main color palette container
-    colorPaletteContainer.appendChild(listItem);
+function findUniqueImages(data) {
+  // use a map to track unique images by their src attribute
+  const unique = new Map();
+  data.forEach((img) => {
+    const {
+      src, origin, site, alt, width, height, aspectRatio, fileType,
+    } = img;
+    // if the image src is not already in the map, init a new entry
+    if (!unique.has(src)) {
+      unique.set(src, {
+        src,
+        origin,
+        count: 0,
+        site: [],
+        alt: [],
+        width,
+        height,
+        aspectRatio,
+        fileType,
+      });
+    }
+    // update the existing entry with additional image data
+    const entry = unique.get(src);
+    entry.count += 1;
+    entry.site.push(site);
+    entry.alt.push(alt);
   });
+  // convert the map values to an array
+  return [...unique.values()];
 }
 
-async function executePreflightFunctions(identityValues, identityState) {
-  await IdentityRegistry.identityRegistry
-    .identifyPreflight(identityValues, identityState);
-}
-
-async function imageOnLoad(imgElement, identityValues, identityState) {
-  await IdentityRegistry.identityRegistry
-    .identifyPostflight(identityValues, identityState);
-
-  const { clusterManager } = window;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const { elementForCluster } = clusterManager.get(identityValues.originatingClusterId);
-
-  canvas.width = imgElement.width;
-  canvas.height = imgElement.height;
-
-  ctx.drawImage(elementForCluster, 0, 0, canvas.width, canvas.height);
-
-  identityValues.canvas = canvas;
-  identityValues.ctx = ctx;
-
-  await IdentityRegistry.identityRegistry
-    .identifyPostflightWithCanvas(identityValues, identityState);
-}
-
-async function imageOnError(identityValues, identityState, error) {
-  await IdentityRegistry.identityRegistry
-    .identifyPostError(identityValues, identityState);
-
-  // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${identityValues.href}`, error);
-  // TODO: Show broken file image?
-}
-
-function updateProgress() {
-  const pagesCounter = parseInt(document.getElementById('pages-counter').innerText, 10) || 0;
-  const totalCounter = parseInt(document.getElementById('total-counter').innerText, 10) || 1; // Avoid division by zero
-
-  // Calculate the percentage of completion
-  const percentage = (pagesCounter / (totalCounter * 1.1)) * 100;
-
-  // Update the progress bar width
-  document.getElementById('progress').style.width = `${percentage}%`;
+/**
+ * Displays a collection of images in the gallery.
+ * @param {Object[]} images - Array of image data objects to be displayed.
+ */
+function displayImages(images) {
+  const gallery = document.getElementById('image-gallery');
+  images.forEach((data) => {
+    // create a new figure to hold the image and its metadata
+    const figure = document.createElement('figure');
+    figure.dataset.alt = validateAlt(data.alt, data.count);
+    figure.dataset.aspect = data.aspectRatio;
+    figure.dataset.count = data.count;
+    // build image
+    const { href } = new URL(data.src, data.origin);
+    const img = document.createElement('img');
+    img.dataset.src = href;
+    img.width = data.width;
+    img.height = data.height;
+    img.loading = 'lazy';
+    figure.append(img);
+    // load the image when it comes into view
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.timeoutId = setTimeout(() => {
+            img.src = img.dataset.src;
+            observer.disconnect();
+          }, 500); // delay image loading
+        } else {
+          // cancel loading delay if image is scrolled out of view
+          clearTimeout(entry.target.timeoutId);
+        }
+      });
+    }, { threshold: 0 });
+    observer.observe(figure);
+    // build info button
+    const info = document.createElement('button');
+    info.setAttribute('aria-label', 'More information');
+    info.setAttribute('type', 'button');
+    info.innerHTML = '<span class="icon icon-info"></span>';
+    figure.append(info);
+    // check if image already exists in the gallery
+    const existingImg = gallery.querySelector(`figure img[src="${href}"], figure [data-src="${href}"]`);
+    if (existingImg) {
+      const existingFigure = existingImg.parentElement;
+      const existingCount = parseInt(existingFigure.dataset.count, 10);
+      if (existingCount !== data.count) {
+        // if count has changed, replace existing figure with the new one
+        gallery.replaceChild(figure, existingFigure);
+      }
+    } else gallery.append(figure);
+  });
 }
 
 /**
@@ -665,229 +262,111 @@ function updateCounter(counter, increment, float = false) {
   // calculate the new value (or reset to 0 if no increment is provided)
   const targetValue = increment ? value + increment : 0;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
-  if (counter.id === 'images-counter' || counter.id === 'total-counter') updateProgress();
+}
+
+/* fetching data */
+/**
+ * Fetches the HTML content of a page.
+ * @param {string} url - URL of the page to fetch.
+ * @returns {Promise<HTMLElement|null>} - Promise that resolves to HTML (or `null` if fetch fails).
+ */
+async function fetchPage(url) {
+  const req = await fetch(url, { redirect: 'manual' });
+  if (req.ok) {
+    const temp = document.createElement('div');
+    temp.innerHTML = await req.text();
+    return temp;
+  }
+  return null;
 }
 
 /**
- * Displays an cluster in the gallery.
+ * Fetches image data from a page URL.
+ * @param {Object} url - URL object.
+ * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-function displayImage(clusterId) {
-  const { clusterManager } = window;
-  const cluster = clusterManager.get(clusterId);
-  if (cluster.id !== clusterId || cluster.figureForCluster.parentElement !== null) {
-    // This cluster was re-clustered and displayed or it's already displayed.
-    updateCounter(document.getElementById('duplicate-images-counter'), 1);
-    return;
-  }
-  const gallery = document.getElementById('image-gallery');
-  // append the figure to the gallery if needed
-  if (gallery.children.length < PAGE_SIZE) {
-    gallery.append(cluster.figureForCluster);
-  }
-  updateCounter(document.getElementById('images-counter'), 1);
-}
-
-async function loadImage(
-  identityValues,
-  identityState,
-  clusterManager,
-  originatingClusterId,
-  loadedImg,
-  href,
-) {
-  // preflight checks are lightweight and must be done to prevent other
-  // heavywieght operations from running on meaningless items.
-  // eslint-disable-next-line no-await-in-loop
-  await executePreflightFunctions(identityValues, identityState);
-  if (clusterManager.get(originatingClusterId).id === originatingClusterId) {
-    // This cluster was NOT re-clustered. Run more expensive functions.
-    const imageLoaded = new Promise((resolve) => {
-      loadedImg.onload = async () => {
-        await imageOnLoad(loadedImg, identityValues, identityState)
-          .then(() => {
-            displayImage(originatingClusterId);
-            resolve(true);
-            return true;
-          });
-      };
-      // eslint-disable-next-line no-unused-vars
-      loadedImg.onerror = async (error) => {
-        await imageOnError(identityValues, identityState, error);
-        resolve(true);
-      };
-    });
-
-    // dont start loading the image until here.
-    loadedImg.src = href;
-    return imageLoaded;
-  } // else
-  updateCounter(document.getElementById('duplicate-images-counter'), 1);
-  return Promise.resolve(true);
-}
-
-async function loadImages(
-  individualBatch,
-  concurrency,
-  selectedIdentifiers,
-  domainKey,
-  replacementDomain,
-  submissionValues,
-) {
-  const { clusterManager, identityState } = window;
-
-  // use a map to track unique images by their src attribute
-  const promisePool = new PromisePool(concurrency, 'Load Images', false);
-  const batchEntries = [];
-
-  for (let i = 0; !window.stopProcessing && i < individualBatch.length; i += 1) {
-    const img = individualBatch[i];
-
-    const {
-      src, origin, site, alt, aspectRatio, instance, fileType, width, height,
-      cardSrc, detailSrc, cardWidth, cardHeight, invalidDimensions,
-    } = img;
-
-    window.imageCount += 1;
-    const { imageCount } = window;
-    const cardHref = new URL(cardSrc, origin).href;
-    const detailHref = new URL(detailSrc, origin).href;
-    const { href } = new URL(src, origin);
-    const loadedImg = new Image(cardWidth, cardHeight);
-    const { identityCache } = window;
-    if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
-    const figure = document.createElement('figure');
-    figure.append(loadedImg);
-
-    // build info button
-    const info = document.createElement('button');
-    info.setAttribute('aria-label', 'More information');
-    info.setAttribute('type', 'button');
-    info.innerHTML = '<span class="icon icon-info"></span>';
-    figure.append(info);
-
-    const originatingClusterId = clusterManager.newCluster(
-      new SitemapLoadOrderIdentity(imageCount),
-      loadedImg,
-      figure,
-      'image',
-      detailHref,
-    );
-
-    const identityValues = new IdentityValues({
-      originatingClusterId,
-      clusterManager,
-      selectedIdentifiers,
-      submissionValues,
-      identityCache,
-      href,
-      detailHref,
-      site,
-      alt,
-      width,
-      height,
-      aspectRatio,
-      instance,
-      fileType,
-      domainKey,
-      replacementDomain,
-      invalidDimensions,
-    });
-
-    batchEntries.push(originatingClusterId);
-
-    promisePool.run(async () => {
-      await identityValues.initializeIdentityHash();
-      return loadImage(
-        identityValues,
-        identityState,
-        clusterManager,
-        originatingClusterId,
-        loadedImg,
-        cardHref,
-      );
-    });
-  }
-
-  await promisePool.allSettled();
-
-  // similarity computed per batch
-  await clusterManager.detectSimilarity(batchEntries, identityState, concurrency);
-
-  // colors updated per batch
-  if (identityState[ColorIdentity.type]?.usedColors) {
-    addColorsToFilterList(identityState[ColorIdentity.type].usedColorsSorted);
-  }
-
-  return batchEntries;
-}
-
-async function handleBatch(
-  crawler,
-  batch,
-  concurrency,
-  pagesCounter,
-  data,
-  main,
-  results,
-  imagesCounter,
-  gallery,
-  identifiers,
-  domainKey,
-  replacementDomain,
-  submissionValues,
-) {
+async function fetchImageDataFromPage(url) {
   try {
-    const batchData = await crawler
-      .fetchBatch(batch, concurrency, () => updateCounter(pagesCounter, 1));
-
-    data.push(...batchData);
-
-    // Display images as they are fetched
-    main.dataset.canvas = true;
-    results.removeAttribute('aria-hidden');
-    await loadImages(
-      batchData,
-      concurrency,
-      identifiers,
-      domainKey,
-      replacementDomain,
-      submissionValues,
-    );
-    decorateIcons(gallery);
+    const html = await fetchPage(url.plain);
+    if (html) {
+      const images = html.querySelectorAll('img[src]');
+      const imgData = [...images].map((img) => {
+        const src = img.getAttribute('src').split('?')[0];
+        const alt = img.getAttribute('alt') || '';
+        const width = img.getAttribute('width') || img.naturalWidth;
+        const height = img.getAttribute('height') || img.naturalHeight;
+        const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
+        const fileType = src.split('.').pop();
+        return {
+          site: url.href,
+          origin: new URL(url.href).origin,
+          src,
+          alt,
+          width,
+          height,
+          aspectRatio,
+          fileType,
+        };
+      });
+      html.innerHTML = '';
+      return imgData;
+    }
+    return [];
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error fetching batch:', error);
+    console.error(`unable to fetch ${url.href}:`, error);
+    return [];
   }
+}
+
+/**
+ * Fetches data from a batch of URLs.
+ * @param {Object[]} batch - Array of URL objects to process in the current batch.
+ * @param {number} concurrency - Number of concurrent fetches within the batch.
+ * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
+ */
+async function fetchBatch(batch, concurrency, counter) {
+  const results = [];
+  const tasks = [];
+
+  for (let i = 0; i < concurrency; i += 1) {
+    tasks.push((async () => {
+      while (batch.length > 0) {
+        // get the next URL from the batch
+        const url = batch.shift();
+        updateCounter(counter, 1);
+        // eslint-disable-next-line no-await-in-loop
+        const imgData = await fetchImageDataFromPage(url);
+        results.push(...imgData);
+      }
+    })());
+  }
+
+  await Promise.all(tasks); // wait for all concurrent tasks to complete
+  return results;
 }
 
 /**
  * Fetches and display image data in batches.
  * @param {Object[]} urls - Array of URL objects.
  * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
+ * @param {number} [delay = 2000] - Delay (in milliseconds) between each batch.
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(
-  crawler,
-  urls,
-  identifiers,
-  domainKey,
-  replacementDomain,
-  submissionValues,
-  batchSize = 50,
-  concurrency = 5,
-) {
+async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concurrency = 5) {
+  window.audit = [];
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
+  const download = results.querySelector('button');
+  download.disabled = true;
   const gallery = document.getElementById('image-gallery');
   gallery.innerHTML = '';
 
-  // Reset counters
+  // reset counters
   const imagesCounter = document.getElementById('images-counter');
   updateCounter(imagesCounter);
-  const duplicatesCounter = document.getElementById('duplicate-images-counter');
-  updateCounter(duplicatesCounter);
   const pagesCounter = document.getElementById('pages-counter');
   updateCounter(pagesCounter);
   const totalCounter = document.getElementById('total-counter');
@@ -895,225 +374,138 @@ async function fetchAndDisplayBatches(
   updateCounter(totalCounter, urls.length);
   const elapsed = document.getElementById('elapsed');
   updateCounter(elapsed);
-  const timer = setInterval(() => {
-    const now = Date.now();
-    const timeSinceLastRun = Math.round((now - window.lastExecutionTime) / 1000);
-    if (timeSinceLastRun > 0) {
-      updateCounter(elapsed, timeSinceLastRun, false);
-      window.lastExecutionTime = now;
-    }
-  }, 1000);
+  const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
 
-  // Collect promises for all batches
-  const promisePool = new PromisePool(concurrency, 'Handle Batches', false);
-  for (let i = 0; !window.stopProcessing && i < urls.length; i += batchSize) {
+  // initialize concurrent tasks
+  for (let i = 0; i < urls.length; i += batchSize) {
+    // get the next batch of URLs
     const batch = urls.slice(i, i + batchSize);
+    // eslint-disable-next-line no-await-in-loop
+    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
+    data.push(...batchData);
 
-    // Process each batch and handle the delay between batches asynchronously
-    promisePool.run(async () => handleBatch(
-      crawler,
-      batch,
-      concurrency, // this means each concurrent batch also gets concurrent tasks = 25.
-      pagesCounter,
-      data,
-      main,
-      results,
-      imagesCounter,
-      gallery,
-      identifiers,
-      domainKey,
-      replacementDomain,
-      submissionValues,
-    ));
+    // display images as they are fetched
+    main.dataset.canvas = true;
+    results.removeAttribute('aria-hidden');
+
+    const uniqueBatchData = findUniqueImages(data);
+    window.audit = uniqueBatchData;
+    updateCounter(imagesCounter, uniqueBatchData.length);
+    displayImages(uniqueBatchData);
+    decorateIcons(gallery);
+
+    if (i + batchSize < urls.length) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { // wait before continuing to the next batch
+        setTimeout(resolve, delay);
+      });
+    }
+
+    batchData.length = 0;
   }
-
-  await promisePool.allSettled();
-
-  // After all batches are done
   data.length = 0;
-  // eslint-disable-next-line no-console
-  console.debug('Batches complete.');
 
+  download.disabled = false;
   clearInterval(timer);
-
   return data;
 }
 
-function addSortAction(doc, action) {
-  action.addEventListener('click', (e) => {
-    const { target } = e;
-    sortImages(doc, target, null);
-  });
+/* url and sitemap utility */
+const AEM_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
+
+/**
+ * Determines the type of a URL based on its hostname and pathname.
+ * @param {string} url - URL to evaluate.
+ * @returns {string|boolean} Type of URL.
+ */
+function extractUrlType(url) {
+  const { hostname, pathname } = new URL(url);
+  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
+  if (pathname.endsWith('.xml')) return 'sitemap';
+  if (pathname.includes('robots.txt')) return 'robots';
+  if (aemSite || hostname.includes('github')) return 'write sitemap';
+  return null;
 }
 
-function addSortActionsToActionBar(sitemapFormData, identifiers) {
-  const sortsList = document.getElementById('sorts');
-
-  // Clear existing list items
-  sortsList.innerHTML = '';
-
-  // Generate and append new list items
-  SortRegistry.getSorts(sitemapFormData, identifiers).forEach((sort) => {
-    const existingElement = document.getElementById(`sort-${sort.key}`);
-    if (existingElement) {
-      addSortAction(document, existingElement);
-    } else {
-      const li = document.createElement('li');
-      const label = document.createElement('label');
-      const input = document.createElement('input');
-      const span = document.createElement('span');
-
-      // Configure the input element
-      input.type = 'radio';
-      input.name = 'sort';
-      input.value = sort.key;
-      input.id = `sort-${sort.key}`;
-      input.setAttribute('data-order', '-1'); // Default order
-
-      addSortAction(document, input);
-
-      // Configure the span element
-      span.textContent = sort.description;
-
-      // Assemble the elements
-      label.appendChild(input);
-      label.appendChild(span);
-      li.appendChild(label);
-      sortsList.appendChild(li);
-    }
-  });
+/**
+ * Constructs a sitemap URL.
+ * @param {string} url - URL to use for constructing the sitemap.
+ * @returns {string|null} Sitemap URL.
+ */
+function writeSitemapUrl(url) {
+  const { hostname, pathname } = new URL(url);
+  const aemSite = AEM_HOSTS.find((h) => hostname.endsWith(h));
+  // construct sitemap URL for an AEM site
+  if (aemSite) {
+    const [ref, repo, owner] = hostname.replace(`.${aemSite}`, '').split('--');
+    return `https://${ref}--${repo}--${owner}.${aemSite.split('.')[0]}.live/sitemap.xml`;
+  }
+  // construct a sitemap URL for a GitHub repository
+  if (hostname.includes('github')) {
+    const [owner, repo] = pathname.split('/').filter((p) => p);
+    return `https://main--${repo}--${owner}.hlx.live/sitemap.xml`;
+  }
+  return null;
 }
 
-function addFilterActionsToActionBar(sitemapFormData, identifiers) {
-  const filterList = document.getElementById('filters');
+/**
+ * Attempts to find a sitemap URL within a robots.txt file.
+ * @param {string} url - URL of the robots.txt file.
+ * @returns {Promise<string|null>} Sitemap URL.
+ */
+// async function findSitemapUrl(url) {
+//   const req = await fetch(url);
+//   if (req.ok) {
+//     const text = await req.text();
+//     const lines = text.split('\n');
+//     const sitemapLine = lines.find((line) => line.startsWith('Sitemap'));
+//     return sitemapLine ? sitemapLine.split(' ')[1] : null;
+//   }
+//   return null;
+// }
 
-  // Clear existing list items
-  filterList.innerHTML = '';
-
-  // Generate and append new list items
-  FilterRegistry.getFilters(sitemapFormData, identifiers).forEach((filter) => {
-    // wildcards manage their own listeners and elements.
-    if (!filter.key.endsWith(AbstractFilter.WILDCARD)) {
-      const existingElement = document.getElementById(`filter-${filter.key}`);
-      if (existingElement) {
-        addFilterAction(existingElement);
-      } else {
-        const li = document.createElement('li');
-        const label = document.createElement('label');
-        const input = document.createElement('input');
-        const span = document.createElement('span');
-
-        // Configure the input element
-        input.type = 'checkbox';
-        input.name = 'filter';
-        input.value = filter.key;
-        input.id = `filter-${filter.key}`;
-
-        addFilterAction(input);
-
-        // Configure the span element
-        span.textContent = filter.description;
-
-        // Assemble the elements
-        label.appendChild(input);
-        label.appendChild(span);
-        li.appendChild(label);
-        filterList.appendChild(li);
+/**
+ * Fetches URLs from a sitemap.
+ * @param {string} sitemap - URL of the sitemap to fetch.
+ * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
+ */
+async function fetchSitemap(sitemap) {
+  const req = await fetch(sitemap);
+  if (req.ok) {
+    const text = await req.text();
+    const xml = new DOMParser().parseFromString(text, 'text/xml');
+    // check for nested sitemaps and recursively fetch them
+    if (xml.querySelector('sitemap')) {
+      const sitemaps = [...xml.querySelectorAll('sitemap loc')];
+      const allUrls = [];
+      // eslint-disable-next-line no-restricted-syntax
+      for (const loc of sitemaps) {
+        const { href, origin } = new URL(loc.textContent.trim());
+        const originSwapped = href.replace(origin, sitemap.origin);
+        // eslint-disable-next-line no-await-in-loop
+        const nestedUrls = await fetchSitemap(originSwapped);
+        allUrls.push(...nestedUrls);
       }
+      return allUrls;
     }
-  });
+    if (xml.querySelector('url')) {
+      const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
+        const { href, origin } = new URL(loc.textContent.trim());
+        const originSwapped = href.replace(origin, new URL(sitemap).origin);
+        const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
+        return { href: originSwapped, plain };
+      });
+      return urls;
+    }
+  }
+  return [];
 }
 
 /* setup */
-
-function setupWindowVariables() {
-  window.enableModals = false;
-  window.lastTarget = null;
-  window.imageCount = 0;
-  window.clusterManager = new ClusterManager();
-  window.identityState = {};
-  window.duplicateFilter = new Set();
-  window.lastExecutionTime = Date.now();
-  window.identityCache = IdentityRegistry.identityRegistry.identityCache;
-  window.stopProcessing = false;
-  window.sortRegistry = new SortRegistry();
-}
-
-function prepareLoading() {
-  setupWindowVariables();
-  const results = document.getElementById('audit-results');
-  const progressBar = document.getElementById('progress-bar');
-  const actionForm = document.getElementById('action-form');
-  const download = results.querySelector('select');
-
-  progressBar.setAttribute('aria-hidden', false);
-  actionForm.setAttribute('aria-hidden', true);
-
-  download.disabled = true;
-  document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
-  window.enableModals = false;
-}
-
-function finishedLoading() {
-  const results = document.getElementById('audit-results');
-  const progressBar = document.getElementById('progress-bar');
-  const actionForm = document.getElementById('action-form');
-  const download = results.querySelector('select');
-
-  document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
-  document.getElementById('progress').style.width = '0%'; // Reset progress
-
-  download.disabled = false;
-
-  progressBar.setAttribute('aria-hidden', true);
-  actionForm.setAttribute('aria-hidden', false);
-
-  if (window.collectingRum) {
-    sortImages(document, document.getElementById('sort-performance'), null);
-  } else {
-    sortImages(document, document.getElementById('sort-count'), null);
-  }
-
-  window.enableModals = true;
-
-  const stopButton = document.getElementById('stop-button');
-  stopButton.classList.remove('stop-pulsing');
-  window.stopProcessing = false;
-  window.stopCallback = undefined;
-}
-
-async function processForm(
-  sitemapFormData,
-  identifiers,
-  domainKey,
-  replacementDomain,
-  submissionValues,
-) {
-  prepareLoading();
-  const colorPaletteContainer = document.getElementById('color-pallette');
-  colorPaletteContainer.innerHTML = ''; // Clear the container
-
-  document.querySelectorAll('dialog').forEach((dialog) => { dialog.remove(); });
-
-  const crawler = CrawlerRegistry.getCrawlerInstance(sitemapFormData);
-
-  window.stopCallback = () => crawler.stop();
-
-  const urls = await crawler.fetchSitemap(sitemapFormData);
+async function processForm(sitemap) {
+  const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(
-    crawler,
-    urls,
-    identifiers,
-    domainKey,
-    replacementDomain,
-    submissionValues,
-  );
-
-  addSortActionsToActionBar(sitemapFormData, identifiers);
-  addFilterActionsToActionBar(sitemapFormData, identifiers);
-
-  finishedLoading();
+  await fetchAndDisplayBatches(urls);
 }
 
 function getFormData(form) {
@@ -1153,106 +545,6 @@ function getFormData(form) {
   return data;
 }
 
-function overrideCreateCanvas(doc) {
-  document.originalCreateElement = doc.createElement;
-  document.createElement = function createElement(tagName, options) {
-    if (tagName === 'canvas') {
-      const canvas = document.originalCreateElement(tagName, options);
-      canvas.originalGetContext = canvas.getContext;
-      canvas.getContext = function getContext(contextId, contextAttributes) {
-        if (contextId === '2d' && !contextAttributes?.willReadFrequently) {
-          if (!contextAttributes) {
-            return canvas.originalGetContext(contextId, { willReadFrequently: true });
-          }
-          contextAttributes.willReadFrequently = true;
-        }
-        return canvas.originalGetContext(contextId, contextAttributes);
-      };
-      return canvas;
-    }
-    return document.originalCreateElement(tagName, options);
-  };
-}
-
-function populateSiteUrlDropdown(urls) {
-  const datalist = document.getElementById('site-url-history');
-  datalist.innerHTML = ''; // Clear existing options
-
-  // Add each URL as an option in the datalist
-  urls.forEach((url) => {
-    const option = document.createElement('option');
-    option.value = url;
-    datalist.appendChild(option);
-  });
-}
-
-async function handleSiteUrlChange(event) {
-  const enteredUrl = event.target.value; // The URL entered by the user
-  await populateFormFromUrl(enteredUrl); // Use the new shared function to populate the form
-}
-
-async function handleSiteUrlFocus() {
-  // Placeholder for any focus-related logic. You can still use `populateSiteUrlDropdown` if needed.
-  // In this case, we'll just populate the dropdown with previously entered URLs
-  try {
-    const db = await openDB();
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-
-    const urls = []; // Array to store previous URLs
-
-    // Open a cursor to iterate through all records in the store
-    const cursorRequest = store.openCursor();
-    cursorRequest.onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor) {
-        urls.push(cursor.key); // Collect URLs from the DB
-        cursor.continue(); // Continue iterating
-      } else {
-        // Populate the dropdown with the URLs once the cursor finishes
-        populateSiteUrlDropdown(urls);
-      }
-    };
-
-    cursorRequest.onerror = (event) => {
-      // eslint-disable-next-line no-console
-      console.warn('Error fetching site URLs:', event.target.error);
-    };
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Error during site-url focus handler:', error);
-  }
-}
-
-async function domContentLoaded() {
-  try {
-    // Retrieve the last executed URL from localStorage
-    const lastURL = localStorage.getItem('lastExecutedURL');
-
-    if (!lastURL) {
-      return;
-    }
-
-    const db = await openDB(); // Open DB
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-
-    // Get the form data associated with the last URL
-    const request = store.get(lastURL);
-
-    request.onsuccess = (event) => {
-      const data = event.target.result;
-      if (data) {
-        const parsedData = JSON.parse(data); // Parse the stringified form data
-        populateFormFromData(parsedData); // Populate the form with the retrieved data
-      }
-    };
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.debug('Error during domContentLoaded:', error);
-  }
-}
-
 function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
@@ -1261,83 +553,6 @@ function registerListeners(doc) {
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
-  // Function to populate the dropdown with reports
-
-  document.querySelectorAll('input[name="sitemap-option"]').forEach((option) => {
-    option.addEventListener('change', (event) => {
-      const fileInputContainer = document.getElementById('file-input-container');
-      const urlInputContainer = document.getElementById('url-input-container');
-      const fileInput = document.getElementById('embedded-sitemap-file');
-      const urlInput = document.getElementById('embedded-sitemap-url');
-
-      if (event.target.value === 'file') {
-        fileInputContainer.setAttribute('aria-hidden', 'false');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.setAttribute('required', 'required');
-        urlInput.removeAttribute('required');
-      } else if (event.target.value === 'url') {
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'false');
-        urlInput.setAttribute('required', 'required');
-        fileInput.removeAttribute('required');
-      } else {
-        // "None" selected: hide both fields and remove requirements
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.removeAttribute('required');
-        urlInput.removeAttribute('required');
-      }
-    });
-  });
-
-  const siteUrlInput = document.querySelector('[name="site-url"]');
-  if (siteUrlInput) {
-    siteUrlInput.addEventListener('input', handleSiteUrlChange);
-    siteUrlInput.addEventListener('focus', handleSiteUrlFocus);
-  }
-
-  doc.getElementById('embedded-sitemap-file').addEventListener('change', (event) => {
-    const fileInput = event.target;
-    const label = document.getElementById('embedded-sitemap-file-label');
-
-    if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-
-      label.textContent = `File: ${file.name}`;
-    } else {
-      label.textContent = 'Click to select sitemap';
-    }
-  });
-
-  window.addEventListener('DOMContentLoaded', () => domContentLoaded());
-
-  const stopButton = doc.getElementById('stop-button');
-  stopButton.addEventListener('click', () => {
-    stopButton.classList.add('stop-pulsing');
-    window.stopProcessing = true;
-    window.stopCallback();
-  });
-
-  doc.getElementById('decrease-slider').addEventListener('click', () => {
-    const slider = doc.getElementById('pagination-slider');
-    const value = parseInt(slider.value, 10) - 1;
-    if (value < 1) return;
-    slider.value = value;
-    slider.dispatchEvent(new Event('change'));
-  });
-
-  doc.getElementById('increase-slider').addEventListener('click', () => {
-    const slider = doc.getElementById('pagination-slider');
-    const value = parseInt(slider.value, 10) + 1;
-    const max = parseInt(slider.max, 10);
-    if (value > max) return;
-    slider.value = value;
-    slider.dispatchEvent(new Event('change'));
-  });
-
-  doc.getElementById('pagination-slider').addEventListener('change', (e) => {
-    sortImages(doc, null, null, e.target);
-  });
 
   // handle form submission
   URL_FORM.addEventListener('submit', async (e) => {
@@ -1346,219 +561,92 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
     const data = getFormData(e.srcElement);
-
-    const sitemapForm = doc.getElementById('identity-selectors');
-    const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
-
-    const domainKey = data['domain-key'];
-    if (domainKey) {
-      window.collectingRum = true;
-    } else {
-      window.collectingRum = false;
-    }
-
-    const replacementDomain = data['replacement-domain'];
-    const identifiers = new Set([...identificationActions]
-      .filter((a) => a.checked)
-      .map((a) => a.value));
-
-    if (identifiers.has(ColorIdentity.type)) {
-      doc.getElementById('color-pallette-container').removeAttribute('aria-hidden');
-    } else {
-      doc.getElementById('color-pallette-container').setAttribute('aria-hidden', true);
-    }
-
-    if (data['site-url']) {
-      try {
-        // Save form data into IndexedDB
-        await saveFormData(data['site-url'], data);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn('Error saving form data to IndexedDB:', err);
-      }
-      processForm(data, identifiers, domainKey, replacementDomain, data);
+    const url = data['site-url'];
+    const urlType = extractUrlType(url);
+    if (urlType.includes('sitemap')) {
+      // fetch sitemap
+      const sitemap = urlType === 'sitemap' ? url : writeSitemapUrl(url);
+      processForm(sitemap);
     }
   });
 
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
-
-    if (figure && window.enableModals) displayModal(figure);
+    if (figure) displayModal(figure);
   });
 
   // handle csv report download
-  DOWNLOAD.addEventListener('change', async () => {
-    const selectedReport = DOWNLOAD.value;
-    if (!selectedReport) return;
-
-    // eslint-disable-next-line new-cap
-    const report = ReportRegistry.getReport(selectedReport);
-    if (!report) return;
-
-    // Start the pulse animation before running the report
-    DOWNLOAD.classList.add('download-pulse');
-
-    // Generate the report asynchronously
-    const reportData = await report.generateReport(window.clusterManager);
-
-    if (reportData.size > 0) {
-      // Get site from the sitemap.
-      const csv = reportData.blob;
+  DOWNLOAD.addEventListener('click', () => {
+    const rows = writeReportRows();
+    if (rows[0]) {
+      const site = new URL(rows[0].Site).hostname.split('.')[0];
+      const csv = generateCSV(rows);
       const link = document.createElement('a');
-      const data = getFormData(URL_FORM);
-      const site = data['site-url']?.hostname;
       const url = URL.createObjectURL(csv);
-
-      // Insert the link to enable the download
+      // insert link to enable download
       link.setAttribute('href', url);
-      link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
+      link.setAttribute('download', `${site}_image_audit_report.csv`);
       link.style.display = 'none';
       DOWNLOAD.insertAdjacentElement('afterend', link);
-
-      // Trigger the download and remove pulse class once download starts
-      setTimeout(() => {
-        link.click(); // Start the download
-        link.remove(); // Clean up the link after download starts
-        DOWNLOAD.classList.remove('download-pulse'); // Stop the pulsing effect
-        DOWNLOAD.value = ''; // Reset the dropdown value
-      }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
+      link.click();
+      link.remove();
     }
   });
 
-  doc
-    .getElementById('import-sitemap-form-button')
-    .addEventListener('click', () => {
-      const fileInput = document.getElementById('import-sitemap-form-file');
-      fileInput.value = '';
-      document.getElementById('import-sitemap-form-file').click();
-    });
-
-  doc
-    .getElementById('import-sitemap-form-file')
-    .addEventListener('change', (event) => {
-      const file = event.target.files[0];
-
-      if (file) {
-        const reader = new FileReader();
-
-        reader.onload = (e) => {
-          try {
-            // Assuming .smf is JSON formatted
-            const jsonData = JSON.parse(e.target.result);
-
-            // Populate form fields with imported data
-            populateFormFromData(jsonData);
-            const formData = getFormData(URL_FORM);
-            saveFormData(formData['site-url'], formData);
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.warn('Error parsing imported .smf file:', error);
-          }
-        };
-
-        reader.onerror = () => {
-          // eslint-disable-next-line no-console
-          console.warn('Error reading the file.');
-        };
-
-        reader.readAsText(file);
-      }
-    });
-
-  doc
-    .getElementById('export-sitemap-form-button')
-    .addEventListener('click', () => {
-    // Replace with your method to gather form data
-      const formData = getFormData(URL_FORM);
-      const json = JSON.stringify(formData);
-
-      const jsonBlob = new Blob([json], {
-        type: 'application/json',
+  SORT_ACTIONS.forEach((action) => {
+    action.addEventListener('click', (e) => {
+      const { target } = e;
+      const type = target.value;
+      // get the current sort order (1 for ascending, -1 for descending)
+      const sortOrder = parseInt(target.dataset.order, 10);
+      const figures = [...GALLERY.querySelectorAll('figure')];
+      // sort figures based on selected type and order
+      const sorted = figures.sort((a, b) => {
+        const aVal = parseFloat(a.dataset[type], 10);
+        const bVal = parseFloat(b.dataset[type], 10);
+        return sortOrder > 0 ? aVal - bVal : bVal - aVal;
       });
-      const downloadUrl = URL.createObjectURL(jsonBlob);
-
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      const name = formData['site-url']?.hostname?.replace(/\./g, '-') || 'sitemap-form';
-      a.download = `${name}.smf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      GALLERY.append(...sorted);
+      // toggle the sort order for the next click
+      target.dataset.order = sortOrder * -1;
     });
-}
+  });
 
-function addReportsToDropdown(doc) {
-  const dropdown = doc.getElementById('download-report');
+  FILTER_ACTIONS.forEach((action) => {
+    action.addEventListener('change', () => {
+      const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
+      const figures = [...GALLERY.querySelectorAll('figure')];
 
-  // Clear any existing options
-  dropdown.innerHTML = '';
+      figures.forEach((figure) => {
+        const hasAlt = figure.dataset.alt === 'true';
+        const aspect = parseFloat(figure.dataset.aspect, 10);
+        // eslint-disable-next-line no-nested-ternary
+        const shape = aspect === 1 ? 'square'
+          // eslint-disable-next-line no-nested-ternary
+          : aspect < 1 ? 'portrait'
+            : aspect > 1.7 ? 'widescreen' : 'landscape';
 
-  // Add the default placeholder option
-  const defaultOption = doc.createElement('option');
-  defaultOption.value = '';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  defaultOption.textContent = 'Select a report to download';
-  dropdown.appendChild(defaultOption);
+        let hide = true; // hide figures by default
 
-  // Get the reports (assuming ReportRegistry.getReports() returns an array of report classes)
-  const reports = ReportRegistry.getReports();
-
-  // Add the report options
-  reports.forEach((report) => {
-    const option = doc.createElement('option');
-    option.value = report.id;
-    option.textContent = report.uiName;
-    dropdown.appendChild(option);
+        // check images against filter critera
+        if (checked.includes('missing-alt') && !checked.some((f) => f !== 'missing-alt')) { // only 'missing-alt' is selected
+          // only show figures without alt text
+          hide = hasAlt;
+        } else if (checked.includes('missing-alt') && checked.some((f) => f !== 'missing-alt')) { // 'missing-alt' is selected along with shape(s)
+          // show figures without alt text that match any selected shape(s)
+          hide = !(checked.includes(shape) && !hasAlt);
+        } else if (!checked.includes('missing-alt') && checked.includes(shape)) { // only shapes are selected
+          // show figures that match the selected shape(s)
+          hide = false;
+        } else if (checked.length === 0) { // no filters are selected
+          // show all figures
+          hide = false;
+        }
+        figure.setAttribute('aria-hidden', hide);
+      });
+    });
   });
 }
 
-function addIdentitySelectorsToForm(doc) {
-  const identitySelectors = document.getElementById('identity-selectors');
-
-  IdentityRegistry.registeredIdentityClasses.forEach((clazz) => {
-    const {
-      identity,
-      display,
-      checked,
-      hidden,
-    } = clazz.uiSelectorProperties;
-
-    // Create a list item
-    const li = doc.createElement('li');
-    if (hidden) li.setAttribute('aria-hidden', true);
-
-    // Create a label element
-    const label = doc.createElement('label');
-    label.setAttribute('for', `identity-${identity}`);
-    label.textContent = display;
-
-    // Create the checkbox input
-    const checkbox = doc.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = `identity-${identity}`;
-    checkbox.name = `identity-${identity}`;
-    checkbox.value = identity;
-    checkbox.checked = checked;
-
-    // Append the checkbox and label to the list item
-    li.appendChild(checkbox);
-    li.appendChild(label);
-
-    // Append the list item to the identitySelectors element
-    identitySelectors.appendChild(li);
-  });
-}
-
-setupWindowVariables();
 registerListeners(document);
-overrideCreateCanvas(document);
-addIdentitySelectorsToForm(document);
-addReportsToDropdown(document);
-
-window.addEventListener('unhandledrejection', (event) => {
-  // eslint-disable-next-line no-console
-  console.error('Unhandled Rejection:', event.reason);
-  // Custom error handling here
-});
