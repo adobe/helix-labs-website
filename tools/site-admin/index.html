@@ -31,15 +31,23 @@
     <!-- ADMIN FORM -->
     <div>
       <form id="site-admin-form">
-        <div class="form-field url-field">
-          <label for="org">AEM Org</label>
-          <input name="org" id="org" required />
-          <div class="field-help-text">
-            <p>
-              Make sure you are logged into sidekick on a project of the org selected
-            </p>
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" required />
+            <datalist id="org-list"></datalist>
+            <div class="field-help-text">
+              <p>
+                Make sure you are logged into sidekick on a project of the org selected
+              </p>
+            </div>
           </div>
-        </div>
+<div class="form-field site-field" style="display: none;">
+  <label for="site">Site</label>
+  <input name="site" id="site" list="site-list" disabled />
+  <datalist id="site-list"></datalist>
+</div>
+</section>
         <p class="button-wrapper">
           <button type="submit" id="list" class="button">List</button>
           <button type="reset" id="reset" class="button outline">Reset</button>
