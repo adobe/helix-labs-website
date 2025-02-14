@@ -95,7 +95,7 @@
 .site-admin-oinw::after {
   width: 10px;
   height: 2px;
-  background: currentColor;
+  background: currentcolor;
   transform: rotate(-45deg);
   bottom: 8px;
 }
