@@ -24,23 +24,18 @@
 
     <div>
       <form id="site-form">
-        <!--<div class="form-field url-field">
-          <label for="site-url">Site URL</label>
-          <input name="site-url" id="site-url" type="url"  />
-          <div class="field-help-text">
-            <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" required="">
+            <datalist id="org-list"></datalist>
           </div>
-        </div>-->
-        <div class="form-field org-field">
-          <label for="org">Organization</label>
-          <input name="org" id="org" list="org-list" required />
-          <datalist id="org-list"></datalist>
-        </div>
-        <div class="form-field site-field">
-          <label for="site">Site</label>
-          <input name="site" id="site" list="site-list" required />
-          <datalist id="site-list"></datalist>
-        </div>
+          <div class="form-field site-field">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" disabled="">
+            <datalist id="site-list"></datalist>
+          </div>
+        </section>
         <p class="button-wrapper">
           <button type="submit" id="audit" class="button">Audit</button>
           <button type="reset" id="config-reset" class="button outline">Reset</button>

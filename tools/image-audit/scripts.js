@@ -1,7 +1,7 @@
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
-
+import { initConfigField, updateConfig } from '../../utils/config/config.js';
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
@@ -411,22 +411,6 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
 }
 
 /**
- * Attempts to find a sitemap URL within a robots.txt file.
- * @param {string} url - URL of the robots.txt file.
- * @returns {Promise<string|null>} Sitemap URL.
- */
-// async function findSitemapUrl(url) {
-//   const req = await fetch(url);
-//   if (req.ok) {
-//     const text = await req.text();
-//     const lines = text.split('\n');
-//     const sitemapLine = lines.find((line) => line.startsWith('Sitemap'));
-//     return sitemapLine ? sitemapLine.split(' ')[1] : null;
-//   }
-//   return null;
-// }
-
-/**
  * Fetches URLs from a sitemap.
  * @param {string} sitemap - URL of the sitemap to fetch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
@@ -490,12 +474,10 @@ function registerListeners(doc) {
     // clear all sorting and filters
     // eslint-disable-next-line no-return-assign
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
-    // const data = getFormData(e.srcElement);
-    // const url = data['site-url'];
     const org = document.getElementById('org');
     const site = document.getElementById('site');
     const url = `https://main--${site.value}--${org.value}.aem.live/sitemap.xml`;
-
+    updateConfig();
     processForm(url);
   });
 
@@ -578,4 +560,9 @@ function registerListeners(doc) {
   });
 }
 
-registerListeners(document);
+function init() {
+  initConfigField();
+  registerListeners(document);
+}
+
+init();
