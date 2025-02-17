@@ -184,7 +184,7 @@ function populateFromSidekick(org, orgList) {
     const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
     // eslint-disable-next-line no-undef
     chrome.runtime.sendMessage(id, { action: 'getAuthInfo' }, (orgs) => {
-      if (orgs[0]) {
+      if (orgs && orgs[0]) {
         // populate org list
         populateList(orgList, orgs);
         // populate org field
