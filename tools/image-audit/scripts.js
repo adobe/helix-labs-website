@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
@@ -287,7 +288,7 @@ async function fetchPage(url) {
  */
 async function fetchImageDataFromPage(url) {
   try {
-    const html = await fetchPage(url.plain);
+    const html = await fetchPage(url);
     if (html) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
@@ -354,7 +355,12 @@ async function fetchBatch(batch, concurrency, counter) {
  * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
  */
-async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concurrency = 5) {
+async function fetchAndDisplayBatches(
+  urls,
+  batchSize = 50,
+  delay = 2000,
+  concurrency = 5,
+) {
   window.audit = [];
   const data = [];
   const main = document.querySelector('main');
@@ -376,10 +382,9 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
   updateCounter(elapsed);
   const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
 
-  // initialize concurrent tasks
   for (let i = 0; i < urls.length; i += batchSize) {
-    // get the next batch of URLs
     const batch = urls.slice(i, i + batchSize);
+
     // eslint-disable-next-line no-await-in-loop
     const batchData = await fetchBatch(batch, concurrency, pagesCounter);
     data.push(...batchData);
@@ -400,9 +405,9 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
         setTimeout(resolve, delay);
       });
     }
-
     batchData.length = 0;
   }
+
   data.length = 0;
 
   download.disabled = false;
@@ -415,53 +420,170 @@ async function fetchAndDisplayBatches(urls, batchSize = 50, delay = 2000, concur
  * @param {string} sitemap - URL of the sitemap to fetch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
  */
-async function fetchSitemap(sitemap) {
-  const req = await fetch(sitemap);
-  if (req.ok) {
-    const text = await req.text();
-    const xml = new DOMParser().parseFromString(text, 'text/xml');
-    // check for nested sitemaps and recursively fetch them
-    if (xml.querySelector('sitemap')) {
-      const sitemaps = [...xml.querySelectorAll('sitemap loc')];
-      const allUrls = [];
-      // eslint-disable-next-line no-restricted-syntax
-      for (const loc of sitemaps) {
-        const { href, origin } = new URL(loc.textContent.trim());
-        const originSwapped = href.replace(origin, sitemap.origin);
-        // eslint-disable-next-line no-await-in-loop
-        const nestedUrls = await fetchSitemap(originSwapped);
-        allUrls.push(...nestedUrls);
-      }
-      return allUrls;
+async function* fetchSitemap(sitemapPath, liveHost) {
+  let res;
+  try {
+    res = await fetch(`https://${liveHost}${sitemapPath}`);
+    if (!res.ok) {
+      throw new Error(`Not found: ${sitemapPath}`);
     }
-    if (xml.querySelector('url')) {
-      const urls = [...xml.querySelectorAll('url loc')].map((loc) => {
-        const { href, origin } = new URL(loc.textContent.trim());
-        const originSwapped = href.replace(origin, new URL(sitemap).origin);
-        const plain = `${originSwapped.endsWith('/') ? `${originSwapped}index` : originSwapped}.plain.html`;
-        return { href: originSwapped, plain };
-      });
-      return urls;
+  } catch (err) {
+    throw new Error('Failed on initial fetch of sitemap.', err);
+  }
+
+  const xml = await res.text();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+
+  const sitemapLocs = doc.querySelectorAll('sitemap > loc');
+  for (let i = 0; i < sitemapLocs.length; i += 1) {
+    const loc = sitemapLocs[i];
+    const liveUrl = new URL(loc.textContent);
+    const resucrsiveResults = fetchSitemap(liveUrl.pathname, liveHost);
+    // eslint-disable-next-line no-restricted-syntax, no-await-in-loop
+    for await (const url of resucrsiveResults) {
+      yield url;
     }
   }
-  return [];
+
+  const urlLocs = doc.querySelectorAll('url > loc');
+  for (let i = 0; i < urlLocs.length; i += 1) {
+    const loc = urlLocs[i];
+    const url = new URL(loc.textContent, `https://${liveHost}`);
+    url.host = liveHost;
+    yield url;
+  }
+}
+
+/**
+ * Fetches form data from a form element.
+ * @param {HTMLFormElement} form - Form element to fetch data from.
+ * @returns {Object} Object with form data.
+ */
+function getFormData(form) {
+  const data = {};
+  [...form.elements].forEach((field) => {
+    const { name, type } = field;
+    const value = !field.value && field.dataset.defaultValue
+      ? field.dataset.defaultValue : field.value;
+    if (name && type && value) {
+      switch (type) {
+        // parse number and range as floats
+        case 'number':
+        case 'range':
+          data[name] = parseFloat(value, 10);
+          break;
+        // convert date and datetime-local to date objects
+        case 'date':
+        case 'datetime-local':
+          data[name] = new Date(value);
+          break;
+        // store checked checkbox values in array
+        case 'checkbox':
+          if (field.checked) {
+            if (data[name]) data[name].push(value);
+            else data[name] = [value];
+          }
+          break;
+        // only store checked radio
+        case 'radio':
+          if (field.checked) data[name] = value;
+          break;
+        // convert url to url object
+        case 'url':
+          data[name] = new URL(value);
+          break;
+        // store file filelist objects
+        case 'file':
+          data[name] = field.files;
+          break;
+        default:
+          data[name] = value;
+      }
+    }
+  });
+  return data;
+}
+
+/**
+ * Fetches URLs from a query index.
+ * @param {string} queryIndexPath - Path to the query index.
+ * @param {string} liveHost - Live hostname.
+ * @returns {AsyncGenerator<URL>} - Async generator of URLs.
+ */
+async function* fetchQueryIndex(queryIndexPath, liveHost) {
+  const limit = 512;
+  let offset = 0;
+  let more = true;
+
+  do {
+    let res;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+    } catch (err) {
+      throw new Error('Failed on initial fetch of index.', err);
+    }
+
+    if (!res.ok) {
+      throw new Error(`Not found: ${queryIndexPath}`);
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const json = await res.json();
+    offset += limit;
+    more = json.data.length > 0;
+    for (let i = 0; i < json.data.length; i += 1) {
+      const item = json.data[i];
+      const url = new URL(item.path, `https://${liveHost}`);
+      url.host = liveHost;
+      yield url;
+    }
+  } while (more);
+}
+
+/**
+ * Fetches the live and preview host URLs for org/site.
+ * @param {string} org - Organization name.
+ * @param {string} site - Site name within org.
+ * @returns {Promise<>} Object with `live` and `preview` hostnames.
+ */
+async function fetchHosts(org, site) {
+  let status;
+  try {
+    const url = `https://admin.hlx.page/status/${org}/${site}/main`;
+    const res = await fetch(url);
+    status = res.status;
+    const json = await res.json();
+    return {
+      status,
+      live: new URL(json.live.url).host,
+      preview: new URL(json.preview.url).host,
+    };
+  } catch (error) {
+    return {
+      status,
+      live: null,
+      preview: null,
+    };
+  }
 }
 
 /* setup */
-async function processForm(sitemap) {
-  const urls = await fetchSitemap(sitemap);
+async function processForm(sitemapUrls) {
+  // const urls = await fetchSitemap(sitemap);
   // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(urls);
+  await fetchAndDisplayBatches(sitemapUrls);
 }
 
 function registerListeners(doc) {
-  const URL_FORM = doc.getElementById('site-form');
-  const CANVAS = doc.getElementById('canvas');
-  const GALLERY = CANVAS.querySelector('.gallery');
-  const DOWNLOAD = doc.getElementById('download-report');
-  const ACTION_BAR = CANVAS.querySelector('.action-bar');
-  const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
-  const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
+  const form = doc.getElementById('search-form');
+  const canvas = doc.getElementById('canvas');
+  const gallery = canvas.querySelector('.gallery');
+  const downloadReport = doc.getElementById('download-report');
+  const actionbar = canvas.querySelector('.action-bar');
+  const sortActions = actionbar.querySelectorAll('input[name="sort"]');
+  const filterActions = actionbar.querySelectorAll('input[name="filter"]');
 
   /**
    * Handles admin form submission.
@@ -469,65 +591,83 @@ function registerListeners(doc) {
    */
 
   // handle form submission
-  URL_FORM.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    updateConfig();
     // clear all sorting and filters
     // eslint-disable-next-line no-return-assign
-    [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
-    const org = document.getElementById('org');
-    const site = document.getElementById('site');
-    const url = `https://main--${site.value}--${org.value}.aem.live/sitemap.xml`;
-    updateConfig();
-    processForm(url);
+    [...sortActions, ...filterActions].forEach((action) => action.checked = false);
+    const {
+      org, site, sitemap, path,
+    } = getFormData(form);
+    // fetch host config
+    const { status, live } = await fetchHosts(org, site);
+    if (!live || status !== 200) {
+      return;
+    }
+
+    try {
+      const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
+      const urls = [];
+      for await (const sitemapUrl of sitemapUrls) {
+        if (sitemapUrl.pathname.startsWith(path)) {
+          urls.push(sitemapUrl);
+        }
+      }
+      await processForm(urls);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error processing sitemap or query index:', error);
+    }
   });
 
   // handle gallery clicks to display modals
-  GALLERY.addEventListener('click', (e) => {
+  gallery.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
     if (figure) displayModal(figure);
   });
 
   // handle csv report download
-  DOWNLOAD.addEventListener('click', () => {
+  downloadReport.addEventListener('click', () => {
     const rows = writeReportRows();
     if (rows[0]) {
-      const site = new URL(rows[0].Site).hostname.split('.')[0];
+      const siteName = new URL(rows[0].Site).hostname.split('.')[0];
       const csv = generateCSV(rows);
       const link = document.createElement('a');
       const url = URL.createObjectURL(csv);
       // insert link to enable download
       link.setAttribute('href', url);
-      link.setAttribute('download', `${site}_image_audit_report.csv`);
+      link.setAttribute('download', `${siteName}_image_audit_report.csv`);
       link.style.display = 'none';
-      DOWNLOAD.insertAdjacentElement('afterend', link);
+      downloadReport.insertAdjacentElement('afterend', link);
       link.click();
       link.remove();
     }
   });
 
-  SORT_ACTIONS.forEach((action) => {
+  sortActions.forEach((action) => {
     action.addEventListener('click', (e) => {
       const { target } = e;
       const type = target.value;
       // get the current sort order (1 for ascending, -1 for descending)
       const sortOrder = parseInt(target.dataset.order, 10);
-      const figures = [...GALLERY.querySelectorAll('figure')];
+      const figures = [...gallery.querySelectorAll('figure')];
       // sort figures based on selected type and order
       const sorted = figures.sort((a, b) => {
         const aVal = parseFloat(a.dataset[type], 10);
         const bVal = parseFloat(b.dataset[type], 10);
         return sortOrder > 0 ? aVal - bVal : bVal - aVal;
       });
-      GALLERY.append(...sorted);
+      gallery.append(...sorted);
       // toggle the sort order for the next click
       target.dataset.order = sortOrder * -1;
     });
   });
 
-  FILTER_ACTIONS.forEach((action) => {
+  filterActions.forEach((action) => {
     action.addEventListener('change', () => {
-      const checked = [...FILTER_ACTIONS].filter((a) => a.checked).map((a) => a.value);
-      const figures = [...GALLERY.querySelectorAll('figure')];
+      const checked = [...filterActions].filter((a) => a.checked).map((a) => a.value);
+      const figures = [...gallery.querySelectorAll('figure')];
 
       figures.forEach((figure) => {
         const hasAlt = figure.dataset.alt === 'true';
