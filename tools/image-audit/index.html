@@ -28,22 +28,38 @@
     </div>
 
     <div>
-      <form id="site-form">
+      <form id="search-form" aria-hidden="false">
         <section class="form-field config-field">
           <div class="form-field org-field">
             <label for="org">Organization</label>
-            <input name="org" id="org" list="org-list" required="">
+            <input name="org" id="org" list="org-list" required />
             <datalist id="org-list"></datalist>
           </div>
           <div class="form-field site-field">
             <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" disabled="">
+            <input name="site" id="site" list="site-list" disabled required />
             <datalist id="site-list"></datalist>
           </div>
         </section>
+
+        <div class="field-group">
+          <div class="form-field text-field">
+            <label for="sitemap">Sitemap or Query Index</label>
+            <input name="sitemap" id="sitemap" data-default-value="/sitemap.xml" placeholder="/sitemap.xml" />
+            <div class="field-help-text">
+              <p>Path to sitemap or query index</p>
+            </div>
+          </div>
+          
+          <div class="form-field text-field">
+            <label for="path">Path Filter</label>
+            <input name="path" id="path" data-default-value="/" placeholder="/" />
+          </div>
+        </div>
+
         <p class="button-wrapper">
-          <button type="submit" id="audit" class="button">Audit</button>
-          <button type="reset" id="config-reset" class="button outline">Reset</button>
+          <button type="submit" class="button">Submit</button>
+          <button type="reset" id="form-reset" class="button outline">Reset</button>
         </p>
       </form>
     </div>
