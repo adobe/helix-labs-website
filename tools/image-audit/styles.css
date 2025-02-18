@@ -18,12 +18,18 @@
  margin-top: 0;
 }
 
+.image-audit .button-wrapper {
+  margin-top: 2rem;
+}
+
 .error {
   margin-top: 1rem;
   display: flex;
   align-items: center;
   gap: var(--spacing-m);
   padding: var(--spacing-xxl) var(--spacing-l);
+  border-radius: var(--rounding-m); 
+  border: var(--border-s) solid var(--gray-300);
 }
 
 
