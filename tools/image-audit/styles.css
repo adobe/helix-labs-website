@@ -2,6 +2,67 @@
   display: none;
 }
 
+.image-audit .field-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.image-audit .field-group .form-field {
+  flex-grow: 1;
+}
+
+.image-audit .path-filter-field {
+ margin-top: 0;
+}
+
+.error {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-m);
+  padding: var(--spacing-xxl) var(--spacing-l);
+}
+
+
+.error .icon svg {
+  width: .8em;
+  height: .8em;
+  fill: var(--red-900);
+  color: var(--red-900);
+}
+
+.error .error-icon {
+  font-size: var(--heading-size-xxxxl);
+  display: flex;
+  flex-flow: column wrap;
+  flex-basis: 20%;
+  place-content: flex-end;
+}
+
+.error .error-content {
+  display: flex;
+  flex-flow: column wrap;
+  flex-basis: 100%;
+  place-content: flex-start;
+}
+
+.error .error-content .error-title {
+  line-height: 0;
+  color: var(--red-900);
+}
+
+.field-help-text {
+  margin-top: 0.5em;
+}
+
+label, legend, .field-help-text, .form-error {
+  color: var(--gray-700);
+  font-size: var(--body-size-m);
+}
+
 .image-audit .gallery button {
   display: flex;
   align-items: center;

@@ -428,7 +428,7 @@ async function* fetchSitemap(sitemapPath, liveHost) {
       throw new Error(`Not found: ${sitemapPath}`);
     }
   } catch (err) {
-    throw new Error('Failed on initial fetch of sitemap.', err);
+    throw new Error(`Failed to fetch ${sitemapPath}. Please provide a valid sitemap or query index path.`, err);
   }
 
   const xml = await res.text();
@@ -578,6 +578,9 @@ async function processForm(sitemapUrls) {
 
 function registerListeners(doc) {
   const form = doc.getElementById('search-form');
+  const error = doc.querySelector('.error');
+  const errorTitle = error.querySelector('.error-title');
+  const errorMsg = error.querySelector('.error-msg');
   const canvas = doc.getElementById('canvas');
   const gallery = canvas.querySelector('.gallery');
   const downloadReport = doc.getElementById('download-report');
@@ -594,6 +597,9 @@ function registerListeners(doc) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     updateConfig();
+    error.setAttribute('aria-hidden', 'true');
+    errorTitle.textContent = 'Error';
+    errorMsg.textContent = '';
     // clear all sorting and filters
     // eslint-disable-next-line no-return-assign
     [...sortActions, ...filterActions].forEach((action) => action.checked = false);
@@ -615,12 +621,18 @@ function registerListeners(doc) {
         }
       }
       await processForm(urls);
-    } catch (error) {
+    } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('Error processing sitemap or query index:', error);
+      console.error('Error processing sitemap or query index:', err);
+      error.setAttribute('aria-hidden', 'false');
+      errorTitle.textContent = 'Error Fetching Sitemap or Query Index';
+      errorMsg.textContent = err.message;
     }
   });
 
+  form.addEventListener('reset', () => {
+    error.setAttribute('aria-hidden', 'true');
+  });
   // handle gallery clicks to display modals
   gallery.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');

@@ -45,16 +45,27 @@
         <div class="field-group">
           <div class="form-field text-field">
             <label for="sitemap">Sitemap or Query Index</label>
-            <input name="sitemap" id="sitemap" data-default-value="/sitemap.xml" placeholder="/sitemap.xml" />
+            <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
             <div class="field-help-text">
               <p>Path to sitemap or query index</p>
             </div>
           </div>
           
-          <div class="form-field text-field">
+          <div class="form-field text-field path-filter-field">
             <label for="path">Path Filter</label>
             <input name="path" id="path" data-default-value="/" placeholder="/" />
           </div>
+        </div>
+
+        <div class="error" aria-hidden="true">
+              <div class="error-icon">
+                <span class="icon icon-notice"></span>
+              </div>
+              <div class="error-content">
+                  <p><strong class="error-title">Error</strong></p>
+                  <p class="error-msg">Unable to display the page status.</p>
+                </div>
+ 
         </div>
 
         <p class="button-wrapper">
@@ -64,6 +75,7 @@
       </form>
     </div>
 
+    
     <div id="audit-results" aria-hidden="true">
       <p id="info" >
         <span id="images-counter">0</span> images found on <span id="pages-counter">0</span> (out of <span id="total-counter">0</span>) pages in <span id="elapsed">0</span> s.
