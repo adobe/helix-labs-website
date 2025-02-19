@@ -18,10 +18,12 @@ const UPDATE = document.getElementById('update');
 const PAGE_STATUS = document.getElementById('page-status');
 const REVIEWS_LINK = document.getElementById('go-to-review');
 const ADMIN_LINK = document.getElementById('go-to-admin');
+const SPINNER = document.getElementById('spinner');
 
 async function init() {
   const status = await fetchStatus(OWNER, REPO, SNAPSHOT, PATHNAME);
   const manifest = await fetchSnapshotManifest(OWNER, REPO, SNAPSHOT);
+  SPINNER.setAttribute('aria-hidden', 'true');
   const { locked } = manifest;
 
   const previewDate = status.preview.preview.lastModified;
@@ -54,16 +56,19 @@ async function init() {
 }
 
 ADD.addEventListener('click', async () => {
+  SPINNER.setAttribute('aria-hidden', 'false');
   await addToSnapshot(OWNER, REPO, SNAPSHOT, [PATHNAME]);
   init();
 });
 
 REMOVE.addEventListener('click', async () => {
+  SPINNER.setAttribute('aria-hidden', 'false');
   await deleteFromSnapshot(OWNER, REPO, SNAPSHOT, PATHNAME);
   init();
 });
 
 UPDATE.addEventListener('click', async () => {
+  SPINNER.setAttribute('aria-hidden', 'false');
   await addToSnapshot(OWNER, REPO, SNAPSHOT, [PATHNAME]);
   init();
 });
