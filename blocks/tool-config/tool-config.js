@@ -1,5 +1,3 @@
-import { loadCSS } from '../../scripts/aem.js';
-
 /**
  * Validates the existence and type of config elements.
  * @returns {Object|boolean} - Object containing config elements, or `false` if any are invalid.
@@ -25,6 +23,16 @@ function validDOM() {
   });
 
   return Object.keys(els).length === Object.keys(params).length ? els : false;
+}
+
+async function initDOM(block) {
+  const resp = await fetch(`${import.meta.url.replace(/tool-config.js$/, '')}tool-config.html`);
+  if (resp.ok) {
+    const text = await resp.text();
+    block.innerHTML = text;
+  }
+
+  return validDOM();
 }
 
 /**
@@ -121,19 +129,6 @@ function updateStorage(org, site) {
 }
 
 /**
- * Updates URL parameters, local storage, and datalists based on org/site values.
- */
-export function updateConfig() {
-  const cfg = validDOM();
-  if (cfg) {
-    updateParams([cfg.org, cfg.site]);
-    updateStorage(cfg.org.value, cfg.site.value);
-    populateList(cfg.orgList, [cfg.org.value]);
-    populateList(cfg.siteList, [cfg.site.value]);
-  }
-}
-
-/**
  * Populates org/site fields with values from URL params.
  * @param {Array.<HTMLInputElement>} fields - Array of input elements.
  * @param {string} search - URL search string.
@@ -178,52 +173,81 @@ function populateFromStorage(org, orgList, site, siteList) {
 /**
  * Populates org field from sidekick.
  */
-function populateFromSidekick(org, orgList) {
-  // eslint-disable-next-line no-undef
-  if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-    const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
+async function populateFromSidekick(org, orgList) {
+  return new Promise((resolve) => {
+    let resolved = false;
+
     // eslint-disable-next-line no-undef
-    chrome.runtime.sendMessage(id, { action: 'getAuthInfo' }, (orgs) => {
-      if (orgs[0]) {
-        // populate org list
-        populateList(orgList, orgs);
-        // populate org field
-        const lastOrg = orgs[0];
-        setFieldValue(org, lastOrg, 'sidekick');
-      }
-    });
-  }
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
+      // eslint-disable-next-line no-undef
+      chrome.runtime.sendMessage(id, { action: 'getAuthInfo' }, (orgs) => {
+        if (orgs[0]) {
+          // populate org list
+          populateList(orgList, orgs);
+          // populate org field
+          const lastOrg = orgs[0];
+          setFieldValue(org, lastOrg, 'sidekick');
+        }
+
+        resolved = true;
+        resolve();
+      });
+
+      setTimeout(() => {
+        if (!resolved) {
+          // eslint-disable-next-line no-console
+          console.warn('Sidekick info request timed out.');
+          resolved = true;
+          resolve();
+        }
+      }, 1000);
+    } else {
+      resolved = true;
+      resolve();
+    }
+  });
 }
 
-function populateConfig(config) {
+async function populateConfig(config) {
   const {
     org, orgList, site, siteList,
   } = config;
   populateFromParams([org, site], window.location.search);
   populateFromStorage(org, orgList, site, siteList);
-  populateFromSidekick(org, orgList);
+  await populateFromSidekick(org, orgList);
 }
 
 /**
- * Loads org/site config CSS.
- * @param {Event} e - Event object containing target element to highlight, if available.
+ * Updates URL parameters, local storage, and datalists based on org/site values.
  */
-export function initConfigField() {
+export function updateConfig() {
   const cfg = validDOM();
-
   if (cfg) {
-    loadCSS('../../utils/config/config.css').then(() => {
-      // enable site when org has value
-      cfg.org.addEventListener('input', () => {
-        cfg.site.disabled = !cfg.org.value;
-      }, { once: true });
-
-      // refresh site datalist to match org
-      cfg.org.addEventListener('change', (e) => {
-        resetSiteListForOrg(e.target.value, cfg.site, cfg.siteList);
-      });
-
-      populateConfig(cfg);
-    });
+    updateParams([cfg.org, cfg.site]);
+    updateStorage(cfg.org.value, cfg.site.value);
+    populateList(cfg.orgList, [cfg.org.value]);
+    populateList(cfg.siteList, [cfg.site.value]);
   }
+}
+
+export default async function decorate(block) {
+  const cfg = await initDOM(block);
+
+  // enable site when org has value
+  cfg.org.addEventListener('input', () => {
+    cfg.site.disabled = !cfg.org.value;
+  }, { once: true });
+
+  // refresh site datalist to match org
+  cfg.org.addEventListener('change', (e) => {
+    resetSiteListForOrg(e.target.value, cfg.site, cfg.siteList);
+  });
+
+  const parentForm = block.closest('form');
+  if (parentForm) {
+    parentForm.addEventListener('submit', updateConfig);
+  }
+
+  await populateConfig(cfg);
 }
