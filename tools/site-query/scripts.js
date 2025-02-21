@@ -1,5 +1,3 @@
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
-
 function getFormData(form) {
   const data = {};
   [...form.elements].forEach((field) => {
@@ -271,9 +269,8 @@ async function fetchHosts(org, site) {
   }
 }
 
-async function init(doc) {
+export default async function init(doc) {
   doc.querySelector('.site-query').dataset.status = 'loading';
-  initConfigField();
 
   const form = doc.querySelector('#search-form');
   const table = doc.querySelector('.table table');
@@ -302,8 +299,6 @@ async function init(doc) {
         updateTableError(table, status, org, site);
         return;
       }
-
-      updateConfig();
 
       const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
 
@@ -352,9 +347,5 @@ async function init(doc) {
     clearResults(table);
   });
 
-  // (doc);
-
   doc.querySelector('.site-query').dataset.status = 'loaded';
 }
-
-init(document);

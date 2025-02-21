@@ -1,5 +1,4 @@
 import {
-  // buildBlock,
   loadHeader,
   loadFooter,
   decorateIcons,
@@ -12,6 +11,7 @@ import {
   loadCSS,
   sampleRUM,
   getMetadata,
+  buildBlock,
 } from './aem.js';
 
 /**
@@ -81,18 +81,28 @@ export function swapIcons() {
   });
 }
 
+function buildToolBox(main) {
+  if (!main.querySelector('.tool-box') && document.body.contains(main) && document.body.classList.contains('tool-page')) {
+    const section = document.createElement('div');
+    main.append(section);
+
+    const toolBox = buildBlock('tool-box', '');
+    section.append(toolBox);
+  }
+}
+
 /**
  * Builds all synthetic blocks in a container element.
  * @param {Element} main The container element
  */
-// function buildAutoBlocks(main) {
-//   try {
-//     // build auto blocks
-//   } catch (error) {
-//     // eslint-disable-next-line no-console
-//     console.error('Auto Blocking failed', error);
-//   }
-// }
+function buildAutoBlocks(main) {
+  try {
+    buildToolBox(main);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Auto Blocking failed', error);
+  }
+}
 
 /**
  * Builds a modal dialog element with a close button and body.
@@ -168,7 +178,7 @@ function decorateImages(main) {
 export function decorateMain(main) {
   decorateIcons(main);
   decorateImages(main);
-  // buildAutoBlocks(main);
+  buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);
   decorateButtons(main);
