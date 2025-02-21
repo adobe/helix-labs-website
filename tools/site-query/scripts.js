@@ -1,5 +1,3 @@
-import { buildBlock, decorateBlock, loadBlock } from '../../scripts/aem.js';
-
 function getFormData(form) {
   const data = {};
   [...form.elements].forEach((field) => {
@@ -275,11 +273,6 @@ export default async function init(doc) {
   doc.querySelector('.site-query').dataset.status = 'loading';
 
   const form = doc.querySelector('#search-form');
-  const cfgBlock = buildBlock('tool-config', '');
-  form.prepend(cfgBlock);
-  decorateBlock(cfgBlock);
-  await loadBlock(cfgBlock);
-
   const table = doc.querySelector('.table table');
   const results = table.querySelector('tbody.results');
   const error = table.querySelector('tbody.error');
