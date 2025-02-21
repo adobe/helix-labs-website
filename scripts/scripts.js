@@ -1,5 +1,4 @@
 import {
-  // buildBlock,
   loadHeader,
   loadFooter,
   decorateIcons,
@@ -83,11 +82,13 @@ export function swapIcons() {
 }
 
 function buildToolBox(main) {
-  const section = document.createElement('div');
-  main.append(section);
+  if (!main.querySelector('.tool-box') && document.body.contains(main) && document.body.classList.contains('tool-page')) {
+    const section = document.createElement('div');
+    main.append(section);
 
-  const toolBox = buildBlock('tool-box', '');
-  section.append(toolBox);
+    const toolBox = buildBlock('tool-box', '');
+    section.append(toolBox);
+  }
 }
 
 /**
@@ -96,9 +97,7 @@ function buildToolBox(main) {
  */
 function buildAutoBlocks(main) {
   try {
-    if (document.body.contains(main) && document.body.classList.contains('tool-page')) {
-      buildToolBox(main);
-    }
+    buildToolBox(main);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Auto Blocking failed', error);
