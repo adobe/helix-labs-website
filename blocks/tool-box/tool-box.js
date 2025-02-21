@@ -43,6 +43,7 @@ export default async function decorate(block) {
     }
   }
   toolName = toClassName(toolName);
+  block.classList.add(toolName);
 
   await loadTool(toolName, block);
 }
