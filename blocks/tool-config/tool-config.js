@@ -177,8 +177,7 @@ async function populateFromSidekick(org, orgList) {
   return new Promise((resolve) => {
     let resolved = false;
 
-    // eslint-disable-next-line no-undef
-    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+    if (window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage) {
       const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
       // eslint-disable-next-line no-undef
       chrome.runtime.sendMessage(id, { action: 'getAuthInfo' }, (orgs) => {

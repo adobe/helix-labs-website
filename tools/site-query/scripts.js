@@ -1,4 +1,4 @@
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { buildBlock, decorateBlock, loadBlock } from '../../scripts/aem.js';
 
 function getFormData(form) {
   const data = {};
@@ -271,11 +271,15 @@ async function fetchHosts(org, site) {
   }
 }
 
-async function init(doc) {
+export default async function init(doc) {
   doc.querySelector('.site-query').dataset.status = 'loading';
-  initConfigField();
 
   const form = doc.querySelector('#search-form');
+  const cfgBlock = buildBlock('tool-config', '');
+  form.prepend(cfgBlock);
+  decorateBlock(cfgBlock);
+  await loadBlock(cfgBlock);
+
   const table = doc.querySelector('.table table');
   const results = table.querySelector('tbody.results');
   const error = table.querySelector('tbody.error');
@@ -302,8 +306,6 @@ async function init(doc) {
         updateTableError(table, status, org, site);
         return;
       }
-
-      updateConfig();
 
       const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
 
@@ -352,9 +354,5 @@ async function init(doc) {
     clearResults(table);
   });
 
-  // (doc);
-
   doc.querySelector('.site-query').dataset.status = 'loaded';
 }
-
-init(document);

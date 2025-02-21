@@ -11,7 +11,7 @@ async function loadTool(toolName, block) {
       block.replaceChildren(...fragment.childNodes);
       const mod = await import(`${toolPath}/scripts.js`);
       if (mod.default) {
-        await mod.default();
+        await mod.default(document);
       }
     })();
 
@@ -23,7 +23,15 @@ async function loadTool(toolName, block) {
 }
 
 export default async function decorate(block) {
-  const toolName = toClassName(block.textContent.trim() || window.location.pathname.split('/').pop());
+  let toolName = block.textContent.trim();
+  if (!toolName) {
+    const pathSegs = window.location.pathname.split('/');
+    toolName = pathSegs.pop();
+    if (toolName === '' || toolName === 'index.html') {
+      toolName = pathSegs.pop();
+    }
+  }
+  toolName = toClassName(toolName);
 
   await loadTool(toolName, block);
 }
