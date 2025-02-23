@@ -46,17 +46,6 @@ function generateCSV(rows) {
   return blob;
 }
 
-/* modal utilities */
-/**
- * Generates a unique ID for a modal based on the image source URL.
- * @param {string} src - Source URL of the image.
- * @returns {string} Generated or extracted modal ID.
- */
-function getModalId(src) {
-  if (src.includes('_')) return src.split('_')[1].split('.')[0];
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
-}
-
 class RewrittenData {
   constructor(data) {
     this.data = data;
@@ -105,6 +94,16 @@ class RewrittenData {
     });
   }
 }
+/* modal utilities */
+/**
+ * Generates a unique ID for a modal based on the image source URL.
+ * @param {string} src - Source URL of the image.
+ * @returns {string} Generated or extracted modal ID.
+ */
+function getModalId(src) {
+  if (src.includes('_')) return src.split('_')[1].split('.')[0];
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 15);
+}
 
 /**
  * Displays (and creates) a modal with image information.
@@ -148,7 +147,6 @@ function displayModal(figure) {
   }
   modal.showModal();
 }
-
 /* image processing and display */
 /**
  * Validates that every image in an array has alt text.
@@ -251,21 +249,6 @@ function displayImages(images) {
     } else gallery.append(figure);
   });
 }
-
-/**
- * Updates the numeric content of an HTML element by a specified increment.
- * @param {HTMLElement} counter - Counter whose text content will be updated.
- * @param {number} increment - Amount to increment the current value by.
- * @param {boolean} [float=false] - Check if counter will be updated by a float or an integer.
- */
-function updateCounter(counter, increment, float = false) {
-  const value = parseFloat(counter.textContent, 10);
-  // calculate the new value (or reset to 0 if no increment is provided)
-  const targetValue = increment ? value + increment : 0;
-  counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
-}
-
-/* fetching data */
 /**
  * Fetches the HTML content of a page.
  * @param {string} url - URL of the page to fetch.
@@ -280,7 +263,6 @@ async function fetchPage(url) {
   }
   return null;
 }
-
 /**
  * Fetches image data from a page URL.
  * @param {Object} url - URL object.
@@ -288,7 +270,8 @@ async function fetchPage(url) {
  */
 async function fetchImageDataFromPage(url) {
   try {
-    const html = await fetchPage(url);
+    const pageUrl = url.href;
+    const html = await fetchPage(pageUrl);
     if (html) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
@@ -299,8 +282,8 @@ async function fetchImageDataFromPage(url) {
         const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
         const fileType = src.split('.').pop();
         return {
-          site: url.href,
-          origin: new URL(url.href).origin,
+          site: pageUrl,
+          origin: new URL(pageUrl).origin,
           src,
           alt,
           width,
@@ -321,141 +304,49 @@ async function fetchImageDataFromPage(url) {
 }
 
 /**
- * Fetches data from a batch of URLs.
- * @param {Object[]} batch - Array of URL objects to process in the current batch.
- * @param {number} concurrency - Number of concurrent fetches within the batch.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
+ * Updates the numeric content of an HTML element by a specified increment.
+ * @param {HTMLElement} counter - Counter whose text content will be updated.
+ * @param {number} increment - Amount to increment the current value by.
+ * @param {boolean} [float=false] - Check if counter will be updated by a float or an integer.
  */
-async function fetchBatch(batch, concurrency, counter) {
-  const results = [];
-  const tasks = [];
-
-  for (let i = 0; i < concurrency; i += 1) {
-    tasks.push((async () => {
-      while (batch.length > 0) {
-        // get the next URL from the batch
-        const url = batch.shift();
-        updateCounter(counter, 1);
-        // eslint-disable-next-line no-await-in-loop
-        const imgData = await fetchImageDataFromPage(url);
-        results.push(...imgData);
-      }
-    })());
-  }
-
-  await Promise.all(tasks); // wait for all concurrent tasks to complete
-  return results;
+function updateCounter(counter, increment, float = false) {
+  const value = parseFloat(counter.textContent, 10);
+  // calculate the new value (or reset to 0 if no increment is provided)
+  const targetValue = increment ? value + increment : 0;
+  counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
 }
-
-/**
- * Fetches and display image data in batches.
- * @param {Object[]} urls - Array of URL objects.
- * @param {number} [batchSize = 50] - Number of URLs to fetch per batch.
- * @param {number} [delay = 2000] - Delay (in milliseconds) between each batch.
- * @param {number} [concurrency = 5] - Number of concurrent fetches within each batch.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of image data objects.
- */
-async function fetchAndDisplayBatches(
-  urls,
-  batchSize = 50,
-  delay = 2000,
-  concurrency = 5,
-) {
-  window.audit = [];
+async function fetchAndDisplayImages(url) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
   const download = results.querySelector('button');
   download.disabled = true;
   const gallery = document.getElementById('image-gallery');
-  gallery.innerHTML = '';
 
   // reset counters
-  const imagesCounter = document.getElementById('images-counter');
-  updateCounter(imagesCounter);
+
   const pagesCounter = document.getElementById('pages-counter');
-  updateCounter(pagesCounter);
-  const totalCounter = document.getElementById('total-counter');
-  updateCounter(totalCounter);
-  updateCounter(totalCounter, urls.length);
-  const elapsed = document.getElementById('elapsed');
-  updateCounter(elapsed);
-  const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
+  updateCounter(pagesCounter, 1);
 
-  for (let i = 0; i < urls.length; i += batchSize) {
-    const batch = urls.slice(i, i + batchSize);
+  const imgData = await fetchImageDataFromPage(url);
+  data.push(...imgData);
 
-    // eslint-disable-next-line no-await-in-loop
-    const batchData = await fetchBatch(batch, concurrency, pagesCounter);
-    data.push(...batchData);
+  // display images as they are fetched
+  main.dataset.canvas = true;
+  results.removeAttribute('aria-hidden');
 
-    // display images as they are fetched
-    main.dataset.canvas = true;
-    results.removeAttribute('aria-hidden');
-
-    const uniqueBatchData = findUniqueImages(data);
-    window.audit = uniqueBatchData;
-    updateCounter(imagesCounter, uniqueBatchData.length);
-    displayImages(uniqueBatchData);
-    decorateIcons(gallery);
-
-    if (i + batchSize < urls.length) {
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => { // wait before continuing to the next batch
-        setTimeout(resolve, delay);
-      });
-    }
-    batchData.length = 0;
-  }
-
+  const uniqueBatchData = findUniqueImages(data);
+  window.audit.push(...uniqueBatchData);
+  const imagesCounter = document.getElementById('images-counter');
+  imagesCounter.textContent = parseInt(imagesCounter.textContent, 10) + uniqueBatchData.length;
+  displayImages(uniqueBatchData);
+  decorateIcons(gallery);
   data.length = 0;
-
   download.disabled = false;
-  clearInterval(timer);
   return data;
 }
 
-/**
- * Fetches URLs from a sitemap.
- * @param {string} sitemap - URL of the sitemap to fetch.
- * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
- */
-async function* fetchSitemap(sitemapPath, liveHost) {
-  let res;
-  try {
-    res = await fetch(`https://${liveHost}${sitemapPath}`);
-    if (!res.ok) {
-      throw new Error(`Not found: ${sitemapPath}`);
-    }
-  } catch (err) {
-    throw new Error(`Failed to fetch ${sitemapPath}. Please provide a valid sitemap or query index path.`, err);
-  }
-
-  const xml = await res.text();
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, 'application/xml');
-
-  const sitemapLocs = doc.querySelectorAll('sitemap > loc');
-  for (let i = 0; i < sitemapLocs.length; i += 1) {
-    const loc = sitemapLocs[i];
-    const liveUrl = new URL(loc.textContent);
-    const resucrsiveResults = fetchSitemap(liveUrl.pathname, liveHost);
-    // eslint-disable-next-line no-restricted-syntax, no-await-in-loop
-    for await (const url of resucrsiveResults) {
-      yield url;
-    }
-  }
-
-  const urlLocs = doc.querySelectorAll('url > loc');
-  for (let i = 0; i < urlLocs.length; i += 1) {
-    const loc = urlLocs[i];
-    const url = new URL(loc.textContent, `https://${liveHost}`);
-    url.host = liveHost;
-    yield url;
-  }
-}
-
+/* form utilities */
 /**
  * Fetches form data from a form element.
  * @param {HTMLFormElement} form - Form element to fetch data from.
@@ -507,6 +398,90 @@ function getFormData(form) {
 }
 
 /**
+ * Enables all form elements.
+ * @param {HTMLFormElement} form - Form element to enable.
+ */
+function enableForm(form) {
+  [...form.elements].forEach((el) => {
+    el.disabled = false;
+  });
+}
+
+/**
+ * Disables all form elements.
+ * @param {HTMLFormElement} form - Form element to disable.
+ */
+function disableForm(form) {
+  [...form.elements].forEach((el) => {
+    el.disabled = true;
+  });
+}
+/* fetching data */
+/**
+ * Fetches the live and preview host URLs for org/site.
+ * @param {string} org - Organization name.
+ * @param {string} site - Site name within org.
+ * @returns {Promise<>} Object with `live` and `preview` hostnames.
+ */
+async function fetchHosts(org, site) {
+  let status;
+  try {
+    const url = `https://admin.hlx.page/status/${org}/${site}/main`;
+    const res = await fetch(url);
+    status = res.status;
+    const json = await res.json();
+    return {
+      status,
+      live: new URL(json.live.url).host,
+      preview: new URL(json.preview.url).host,
+    };
+  } catch (error) {
+    return {
+      status,
+      live: null,
+      preview: null,
+    };
+  }
+}
+
+/**
+ * Fetches URLs from a sitemap.
+ * @param {string} sitemap - URL of the sitemap to fetch.
+ * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
+ */
+async function* fetchSitemap(sitemapPath, liveHost) {
+  const res = await fetch(`https://${liveHost}${sitemapPath}`);
+  if (!res.ok) {
+    if (res.status === 404) throw new Error(`Not found: ${sitemapPath}`);
+    throw new Error('Failed on initial fetch of sitemap.', res.status);
+  }
+
+  const xml = await res.text();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+
+  const sitemapLocs = doc.querySelectorAll('sitemap > loc');
+  for (let i = 0; i < sitemapLocs.length; i += 1) {
+    const loc = sitemapLocs[i];
+    const liveUrl = new URL(loc.textContent);
+    const resucrsiveResults = fetchSitemap(liveUrl.pathname, liveHost);
+    // eslint-disable-next-line no-restricted-syntax, no-await-in-loop
+    for await (const url of resucrsiveResults) {
+      yield url;
+    }
+  }
+
+  const urlLocs = doc.querySelectorAll('url > loc');
+  for (let i = 0; i < urlLocs.length; i += 1) {
+    const loc = urlLocs[i];
+    const url = new URL(loc.textContent, `https://${liveHost}`);
+    url.host = liveHost;
+    yield url;
+  }
+}
+
+/**
  * Fetches URLs from a query index.
  * @param {string} queryIndexPath - Path to the query index.
  * @param {string} liveHost - Live hostname.
@@ -543,51 +518,58 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
 }
 
 /**
- * Fetches the live and preview host URLs for org/site.
- * @param {string} org - Organization name.
- * @param {string} site - Site name within org.
- * @returns {Promise<>} Object with `live` and `preview` hostnames.
+ * Updates the error message and title in the error wrapper.
+ * @param {HTMLElement} errorWrapper - The error wrapper element.
+ * @param {number} errCode - The error code.
+ * @param {string} org - The organization name.
+ * @param {string} site - The site name.
+ * @param {string} [sitemap] - The sitemap path.
  */
-async function fetchHosts(org, site) {
-  let status;
-  try {
-    const url = `https://admin.hlx.page/status/${org}/${site}/main`;
-    const res = await fetch(url);
-    status = res.status;
-    const json = await res.json();
-    return {
-      status,
-      live: new URL(json.live.url).host,
-      preview: new URL(json.preview.url).host,
-    };
-  } catch (error) {
-    return {
-      status,
-      live: null,
-      preview: null,
-    };
-  }
-}
-
-/* setup */
-async function processForm(sitemapUrls) {
-  // const urls = await fetchSitemap(sitemap);
-  // await fetchAndDisplayBatches(urls.slice(8000, 8100));
-  await fetchAndDisplayBatches(sitemapUrls);
+function updateError(errorWrapper, errCode, org, site, sitemap) {
+  const errorTitle = errorWrapper.querySelector('.error-title');
+  const errorMsg = errorWrapper.querySelector('.error-msg');
+  const { title, msg } = (() => {
+    switch (errCode) {
+      case 401:
+        return {
+          title: '401 Unauthorized Error',
+          msg: `Unable to display results. <a target="_blank" href="https://main--${site}--${org}.aem.page">Sign in to the ${site} project sidekick</a> to view the results.`,
+        };
+      case 404:
+        return {
+          title: '404 Not Found Error',
+          msg: `<a target="_blank" href="https://main--${site}--${org}.aem.live${sitemap}">${sitemap}</a> is not found. Ensure your sitemap / query index path is correct.`,
+        };
+      case 499:
+        return {
+          title: 'Initial Fetch Failed',
+          msg: `This is likely due to CORS. Either use a CORS allow plugin or add a header <code>Access-Control-Allow-Origin: ${window.location.origin}</code> in your site config.`,
+        };
+      default:
+        return {
+          title: 'Error',
+          msg: 'Unable to display results. Please check the console for more information.',
+        };
+    }
+  })();
+  errorWrapper.setAttribute('aria-hidden', 'false');
+  errorTitle.textContent = title;
+  errorMsg.innerHTML = msg;
 }
 
 function registerListeners(doc) {
   const form = doc.getElementById('search-form');
-  const error = doc.querySelector('.error');
-  const errorTitle = error.querySelector('.error-title');
-  const errorMsg = error.querySelector('.error-msg');
+  const errorWrapper = doc.querySelector('.error-wrapper');
+  const errorTitle = errorWrapper.querySelector('.error-title');
+  const errorMsg = errorWrapper.querySelector('.error-msg');
   const canvas = doc.getElementById('canvas');
   const gallery = canvas.querySelector('.gallery');
   const downloadReport = doc.getElementById('download-report');
   const actionbar = canvas.querySelector('.action-bar');
   const sortActions = actionbar.querySelectorAll('input[name="sort"]');
   const filterActions = actionbar.querySelectorAll('input[name="filter"]');
-
+  const imagesCounter = document.getElementById('images-counter');
+  const pagesCounter = document.getElementById('pages-counter');
   /**
    * Handles admin form submission.
    * @param {Event} e - Submit event
@@ -597,9 +579,13 @@ function registerListeners(doc) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     updateConfig();
-    error.setAttribute('aria-hidden', 'true');
+    errorWrapper.setAttribute('aria-hidden', 'true');
     errorTitle.textContent = 'Error';
     errorMsg.textContent = '';
+    gallery.innerHTML = '';
+    const elapsed = document.getElementById('elapsed');
+    updateCounter(elapsed);
+    const timer = setInterval(() => updateCounter(elapsed, 0.1, true), 100);
     // clear all sorting and filters
     // eslint-disable-next-line no-return-assign
     [...sortActions, ...filterActions].forEach((action) => action.checked = false);
@@ -608,30 +594,45 @@ function registerListeners(doc) {
     } = getFormData(form);
     // fetch host config
     const { status, live } = await fetchHosts(org, site);
+    disableForm(form);
     if (!live || status !== 200) {
+      clearInterval(timer);
+      updateError(errorWrapper, status, org, site, sitemap);
+      enableForm(form);
       return;
     }
 
     try {
       const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
-      const urls = [];
+
+      imagesCounter.textContent = 0;
+      pagesCounter.textContent = 0;
+      window.audit = [];
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
-          urls.push(sitemapUrl);
+          await fetchAndDisplayImages(sitemapUrl);
         }
       }
-      await processForm(urls);
+      clearInterval(timer);
     } catch (err) {
+      clearInterval(timer);
       // eslint-disable-next-line no-console
-      console.error('Error processing sitemap or query index:', err);
-      error.setAttribute('aria-hidden', 'false');
-      errorTitle.textContent = 'Error Fetching Sitemap or Query Index';
-      errorMsg.textContent = err.message;
+      console.error(err.message);
+      if (err.message.startsWith('Failed to fetch')) {
+        updateError(errorWrapper, 499, org, site);
+      } else if (err.message.startsWith('Not found')) {
+        updateError(errorWrapper, 404, org, site, sitemap);
+      } else {
+        updateError(errorWrapper, 500, org, site);
+      }
+    } finally {
+      clearInterval(timer);
+      enableForm(form);
     }
   });
 
   form.addEventListener('reset', () => {
-    error.setAttribute('aria-hidden', 'true');
+    errorWrapper.setAttribute('aria-hidden', 'true');
   });
   // handle gallery clicks to display modals
   gallery.addEventListener('click', (e) => {
