@@ -78,6 +78,6 @@ height: 32px;
   background-color: #2228;
 }
 
-#spinner[aria-hidden="true"] {
+#spinner[aria-hidden="true"], #page-status-wrapper[aria-hidden="true"], #review-status-wrapper[aria-hidden="true"] {
   display: none;
 }
