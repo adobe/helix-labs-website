@@ -309,7 +309,7 @@ function buildResource(resource, live, preview, site) {
     publishLastModified,
   } = resource;
 
-  const ignore = ['/helix-env.json', '/sitemap.json'];
+  const ignore = ['/helix-env.json', '/sitemap.json', '/sitemap.xml'];
   if (path && !ignore.includes(path)) {
     const row = document.createElement('tr');
     const status = buildSequenceStatus(
@@ -465,7 +465,11 @@ async function runJob(url, retry = 2000) {
  * @returns {Promise<>} Promise that resolves once job has run and results are displayed.
  */
 async function runAndDisplayJob(jobUrl, live, preview, site) {
-  const paths = (await runJob(jobUrl)).filter((r) => !r.path.startsWith('/drafts/'));
+  const hasRedirect = (r) => r.previewConfigRedirectLocation || r.publishConfigRedirectLocation;
+  const paths = (await runJob(jobUrl)).filter((r) => {
+    console.log(r);
+    return !r.path.startsWith('/drafts/') && !hasRedirect(r);
+  });
   if (!paths || paths.length === 0) {
     throw new Error('No page status data found.');
   }
