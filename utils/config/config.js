@@ -37,6 +37,7 @@ function setFieldValue(field, value, type) {
     field.value = value;
     field.dataset.autofill = type;
     field.dispatchEvent(new Event('input'));
+    field.dispatchEvent(new Event('change'));
   }
 }
 

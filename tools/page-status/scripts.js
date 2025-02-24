@@ -9,6 +9,8 @@ const RESULTS = TABLE.querySelector('.results');
 const ERROR = TABLE.querySelector('.error');
 const FILTER = document.getElementById('status-filter');
 const DOWNLOADCSV = document.getElementById('download-csv');
+const ORG = document.getElementById('org');
+const TOGGLE_ALL = document.getElementById('toggle-all');
 let intervalId;
 const oneSecondFunction = () => loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
@@ -128,51 +130,12 @@ function resetLoadingButton(button) {
 
 // form management
 /**
- * Extracts and formats form data from given form element.
+ * Returns FormData object from given form element.
  * @param {HTMLFormElement} form - Form element.
- * @returns {Object} Form data (field names as keys, field values as values).
+ * @returns {FormData} Form data object.
  */
 function getFormData(form) {
-  const data = {};
-  [...form.elements].forEach((field) => {
-    const { name, type, value } = field;
-    if (name && type && value) {
-      switch (type) {
-        // parse number and range as floats
-        case 'number':
-        case 'range':
-          data[name] = parseFloat(value, 10);
-          break;
-        // convert date and datetime-local to date objects
-        case 'date':
-        case 'datetime-local':
-          data[name] = new Date(value);
-          break;
-        // store checked checkbox values in array
-        case 'checkbox':
-          if (field.checked) {
-            if (data[name]) data[name].push(value);
-            else data[name] = [value];
-          }
-          break;
-        // only store checked radio
-        case 'radio':
-          if (field.checked) data[name] = value;
-          break;
-        // convert url to url object
-        case 'url':
-          data[name] = new URL(value);
-          break;
-        // store file filelist objects
-        case 'file':
-          data[name] = field.files;
-          break;
-        default:
-          data[name] = value;
-      }
-    }
-  });
-  return data;
+  return new FormData(form);
 }
 
 /**
@@ -308,6 +271,9 @@ function buildSequenceStatus(edit, preview, publish) {
   let status;
   if (!date(editDate)) {
     status = 'No source';
+    if (date(publishDate)) {
+      status = 'No source, still published';
+    }
     span.classList.add('negative');
   } else if (date(editDate) && !date(previewDate) && !date(publishDate)) {
     status = 'Not previewed';
@@ -365,7 +331,7 @@ function buildRedirectIcon(redirectLocation) {
  * @param {string} resource.path - The resource's path.
  * @returns {HTMLTableRowElement|null} `<tr>` element for resource, or `null` if no `path`.
  */
-function buildResource(resource, live, preview) {
+function buildResource(resource, live, preview, site) {
   const {
     path,
     sourceLastModified,
@@ -374,7 +340,8 @@ function buildResource(resource, live, preview) {
     publishConfigRedirectLocation,
     previewConfigRedirectLocation,
   } = resource;
-  const ignore = ['/helix-env.json', '/sitemap.json'];
+
+  const ignore = ['/helix-env.json', '/sitemap.json', '/sitemap.xml'];
   if (path && !ignore.includes(path)) {
     const row = document.createElement('tr');
     const status = buildSequenceStatus(
@@ -383,6 +350,7 @@ function buildResource(resource, live, preview) {
       publishLastModified,
     );
     const cols = [
+      site,
       path,
       buildRedirectIcon(publishConfigRedirectLocation || previewConfigRedirectLocation),
       status,
@@ -408,9 +376,9 @@ function buildResource(resource, live, preview) {
  * @param {string} live - Base URL for live links.
  * @param {string} preview - Base URL for preview links.
  */
-function displayResources(resources, live, preview) {
+function displayResources(resources, live, preview, site) {
   resources.forEach((resource) => {
-    const row = buildResource(resource, live, preview);
+    const row = buildResource(resource, live, preview, site);
     if (row) RESULTS.append(row);
   });
 }
@@ -488,7 +456,7 @@ async function fetchJobUrl(org, site, path) {
       throw error;
     }
     // update url param with job
-    if (json.job.name) updateJobParam(json.job.name);
+    // if (json.job.name) updateJobParam(json.job.name);
     return json.links ? json.links.self : null;
   } catch (error) {
     updateTableError(error.status, null, `${org}/${site}${path}`);
@@ -530,12 +498,16 @@ async function runJob(url, retry = 2000) {
  * @param {string} preview - Base URL for preview resources.
  * @returns {Promise<>} Promise that resolves once job has run and results are displayed.
  */
-async function runAndDisplayJob(jobUrl, live, preview) {
-  const paths = await runJob(jobUrl);
+async function runAndDisplayJob(jobUrl, live, preview, site) {
+  const hasRedirect = (r) => r.previewConfigRedirectLocation || r.publishConfigRedirectLocation;
+  const paths = (await runJob(jobUrl)).filter((r) => {
+    console.log(r);
+    return !r.path.startsWith('/drafts/') && !hasRedirect(r);
+  });
   if (!paths || paths.length === 0) {
     throw new Error('No page status data found.');
   }
-  displayResources(paths, live, preview);
+  displayResources(paths, live, preview, site);
   updateTableDisplay('results');
 }
 
@@ -546,8 +518,6 @@ async function runAndDisplayJob(jobUrl, live, preview) {
  */
 function setupJob(form, button) {
   disableForm(form, button);
-  clearTable(RESULTS);
-  updateTableDisplay('loading');
 }
 
 function downloadCSVFile(csvData) {
@@ -565,8 +535,37 @@ function downloadCSVFile(csvData) {
   document.body.removeChild(tempLink);
 }
 
+async function addSitesToSiteList(org) {
+  const resp = await fetch(`https://admin.hlx.page/config/${org}/sites.json`);
+  const json = await resp.json();
+  const siteList = document.getElementById('site-list-checkboxes');
+  siteList.innerHTML = '';
+  json.sites.forEach((site) => {
+    const label = document.createElement('label');
+    label.textContent = site.name;
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = site.name;
+    checkbox.name = 'site';
+    checkbox.id = `site-${site.name}`;
+    label.prepend(checkbox);
+    siteList.append(label);
+  });
+}
+
 function init() {
   initConfigField();
+
+  TOGGLE_ALL.addEventListener('change', () => {
+    const sites = document.querySelectorAll('input[name="site"][type="checkbox"]');
+    sites.forEach((site) => {
+      site.checked = TOGGLE_ALL.checked;
+    });
+  });
+
+  ORG.addEventListener('change', () => {
+    addSitesToSiteList(ORG.value);
+  });
 
   FORM.addEventListener('reset', () => {
     clearTable(RESULTS);
@@ -575,25 +574,37 @@ function init() {
   FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const { target, submitter } = e;
-    try {
-      // initial setup
-      setupJob(target, submitter);
-      const data = getFormData(target);
-      const { org, site, path } = data;
-      // fetch host config
-      const { live, preview } = await validateHosts(org, site);
-      updateConfig();
-      // fetch page status and display results
-      const jobUrl = await fetchJobUrl(org, site, path);
-      if (!jobUrl) throw new Error('Failed to create page status job.');
-      await runAndDisplayJob(jobUrl, live, preview);
-    } catch (error) {
-      updateTableError('Job');
-      removeJobParam();
-    } finally {
-      enableForm(target, submitter);
+    const checked = FORM.querySelectorAll('input[name="site"]:checked');
+    const sites = [...checked].map((c) => c.value);
+
+    while (sites.length > 0) {
+      const site = sites.shift();
+      try {
+        // initial setup
+        const formData = getFormData(target);
+        setupJob(target, submitter);
+        const org = formData.get('org');
+        const path = formData.get('path');
+        // fetch host config
+        // eslint-disable-next-line no-await-in-loop
+        const { live, preview } = await validateHosts(org, site);
+        updateConfig();
+        // fetch page status and display results
+        // eslint-disable-next-line no-await-in-loop
+        const jobUrl = await fetchJobUrl(org, site, path);
+        if (!jobUrl) throw new Error('Failed to create page status job.');
+        // eslint-disable-next-line no-await-in-loop
+        await runAndDisplayJob(jobUrl, live, preview, site);
+      } catch (error) {
+        console.error('error running job for site:', site, error);
+        updateTableError('Job');
+        removeJobParam();
+      } finally {
+        enableForm(target, submitter);
+      }
     }
   });
+
   DOWNLOADCSV.addEventListener('click', () => {
     let csvData = [];
     // Get the header data
@@ -675,7 +686,7 @@ async function runFromParams(search) {
         updateConfig();
         // fetch page status and display results
         const jobUrl = `https://admin.hlx.page/job/${org}/${site}/main/status/${job}`;
-        await runAndDisplayJob(jobUrl, live, preview);
+        await runAndDisplayJob(jobUrl, live, preview, site);
         updateJobParam(job);
       } catch (error) {
         updateTableError('Job');
