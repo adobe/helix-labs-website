@@ -713,8 +713,8 @@ function registerListeners(doc) {
   });
 }
 
-function init() {
-  initConfigField();
+async function init() {
+  await initConfigField();
   registerListeners(document);
 }
 

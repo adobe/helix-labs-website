@@ -565,8 +565,42 @@ function downloadCSVFile(csvData) {
   document.body.removeChild(tempLink);
 }
 
-function init() {
-  initConfigField();
+/**
+ * Executes status job based on params from search query string.
+ * @param {string} search - URL search string.
+ * @returns {Promise<>} Promise that resolves when job execution is complete.
+ */
+async function runFromParams(search) {
+  const params = new URLSearchParams(search);
+  if (params && params.size > 0) {
+    const org = params.get('org');
+    const site = params.get('site');
+    const job = params.get('job');
+    if (org && site && job) {
+      try {
+        // initial setup
+        setupJob(FORM, FORM.querySelector('button'));
+        // fetch host config
+        const { live, preview } = await validateHosts(org, site);
+        updateConfig();
+        // fetch page status and display results
+        const jobUrl = `https://admin.hlx.page/job/${org}/${site}/main/status/${job}`;
+        await runAndDisplayJob(jobUrl, live, preview);
+        updateJobParam(job);
+      } catch (error) {
+        updateTableError('Job');
+        removeJobParam();
+      } finally {
+        enableForm(FORM, FORM.querySelector('button'));
+      }
+    } else {
+      removeJobParam();
+    }
+  }
+}
+
+async function init() {
+  await initConfigField();
 
   FORM.addEventListener('reset', () => {
     clearTable(RESULTS);
@@ -653,41 +687,8 @@ function init() {
   FILTER.addEventListener('input', filterTable);
 
   FILTER.closest('form').addEventListener('submit', (e) => e.preventDefault());
-}
 
-/**
- * Executes status job based on params from search query string.
- * @param {string} search - URL search string.
- * @returns {Promise<>} Promise that resolves when job execution is complete.
- */
-async function runFromParams(search) {
-  const params = new URLSearchParams(search);
-  if (params && params.size > 0) {
-    const org = params.get('org');
-    const site = params.get('site');
-    const job = params.get('job');
-    if (org && site && job) {
-      try {
-        // initial setup
-        setupJob(FORM, FORM.querySelector('button'));
-        // fetch host config
-        const { live, preview } = await validateHosts(org, site);
-        updateConfig();
-        // fetch page status and display results
-        const jobUrl = `https://admin.hlx.page/job/${org}/${site}/main/status/${job}`;
-        await runAndDisplayJob(jobUrl, live, preview);
-        updateJobParam(job);
-      } catch (error) {
-        updateTableError('Job');
-        removeJobParam();
-      } finally {
-        enableForm(FORM, FORM.querySelector('button'));
-      }
-    } else {
-      removeJobParam();
-    }
-  }
+  runFromParams(window.location.search);
 }
 
 init();
-runFromParams(window.location.search);
