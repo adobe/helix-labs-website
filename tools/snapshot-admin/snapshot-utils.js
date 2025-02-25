@@ -44,3 +44,11 @@ export async function fetchStatus(owner, repo, snapshot, path) {
   }
   return status;
 }
+
+export async function updateReviewStatus(owner, repo, snapshot, status) {
+  const adminURL = `https://admin.hlx.page/snapshot/${owner}/${repo}/main/${snapshot}`;
+  const resp = await fetch(`${adminURL}?review=${status}`, {
+    method: 'POST',
+  });
+  return resp;
+}
