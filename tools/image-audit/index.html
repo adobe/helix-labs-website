@@ -26,20 +26,46 @@
         The <strong>Image Audit</strong> tool provides a way to analyze images on AEM websites. The tool offers insights into image use across a site, including identifying gaps in alt text usage.
       </p>
     </div>
+
     <div>
-      <form id="site-form">
-        <div class="form-field url-field">
-          <label for="site-url">Site URL</label>
-          <input name="site-url" id="site-url" type="url" required />
-          <div class="field-help-text">
-            <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+      <form id="search-form" aria-hidden="false">
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" required />
+            <datalist id="org-list"></datalist>
+          </div>
+          <div class="form-field site-field">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" disabled required />
+            <datalist id="site-list"></datalist>
+          </div>
+        </section>
+
+        <div class="field-group">
+          <div class="form-field text-field">
+            <label for="sitemap">Sitemap or Query Index</label>
+            <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
+            <div class="field-help-text">
+              <p>Path to sitemap or query index</p>
+            </div>
+          </div>
+          
+          <div class="form-field text-field path-filter-field">
+            <label for="path">Path Filter</label>
+            <input name="path" id="path" data-default-value="/" placeholder="/" />
           </div>
         </div>
+
+        <p class="button-wrapper">
+          <button type="submit" class="button">Submit</button>
+          <button type="reset" id="form-reset" class="button outline">Reset</button>
+        </p>
       </form>
     </div>
     <div id="audit-results" aria-hidden="true">
-      <p id="info" >
-        <span id="images-counter">0</span> images found on <span id="pages-counter">0</span> (out of <span id="total-counter">0</span>) pages in <span id="elapsed">0</span> s.
+      <p id="info">
+        <span id="images-counter">0</span> images found on <span id="pages-counter">0</span>  pages in <span id="elapsed">0</span> s.
       </p>
       <p class="button-wrapper">
         <button type="button" class="button" id="download-report" disabled>Download Audit Report</button>
@@ -105,6 +131,16 @@
       </div>
       <div class="gallery" id="image-gallery"></div>
     </div>
+
+      <div class="error-wrapper" aria-hidden="true">
+          <span class="icon icon-notice"></span>
+        <div>
+           <span> <strong class="error-title">Error</strong></span>
+          <p class="error-msg">Unable to display the page status.</p>
+        </div>
+ 
+      </div>
+
   </main>
   
   <footer></footer>
