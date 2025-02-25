@@ -124,6 +124,33 @@ function updateStorage(org, site) {
 }
 
 /**
+ * Adds all sidekick projects to storage data
+ * Since no order guarantee is made for sidekick projects, just add them at end of lists.
+ */
+function updateStorageFromSidekick(projects) {
+  let aemProjects = JSON.parse(localStorage.getItem('aem-projects'));
+  if (!aemProjects) {
+    aemProjects = { orgs: [], sites: {} };
+  }
+
+  projects.forEach(({ org, site }) => {
+    if (!aemProjects.orgs.includes(org)) {
+      aemProjects.orgs.push(org);
+    }
+
+    if (!aemProjects.sites[org]) {
+      aemProjects.sites[org] = [];
+    }
+
+    if (!aemProjects.sites[org].includes(site)) {
+      aemProjects.sites[org].push(site);
+    }
+  });
+
+  localStorage.setItem('aem-projects', JSON.stringify(aemProjects));
+}
+
+/**
  * Updates URL parameters, local storage, and datalists based on org/site values.
  */
 export function updateConfig() {
@@ -187,8 +214,9 @@ async function populateFromSidekick(org, orgList, site, siteList) {
       let messageResolved = false;
       const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
       chrome.runtime.sendMessage(id, { action: 'getSites' }, (projects) => {
-      // eslint-disable-next-line indent
-      if (projects && projects.length > 0) {
+        if (projects && projects.length > 0) {
+          updateStorageFromSidekick(projects);
+
           const { orgs, sites } = projects.reduce((acc, part) => {
             if (!acc.orgs.includes(part.org)) acc.orgs.push(part.org);
             if (!acc.sites[part.org]) acc.sites[part.org] = [];
@@ -206,11 +234,6 @@ async function populateFromSidekick(org, orgList, site, siteList) {
 
           populateList(siteList, sites[selectedOrg] || []);
           setFieldValue(site, sites[selectedOrg][0], 'sidekick');
-
-          // update storage with sidekick data
-          projects.reverse().forEach((project) => {
-            updateStorage(project.org, project.site);
-          });
         }
 
         messageResolved = true;
