@@ -180,14 +180,14 @@ function populateFromStorage(org, orgList, site, siteList) {
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
   return new Promise((resolve) => {
-  // eslint-disable-next-line no-undef
+    // eslint-disable-next-line no-undef
     if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
       let messageResolved = false;
       const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
       // eslint-disable-next-line no-undef
       chrome.runtime.sendMessage(id, { action: 'getSites' }, (projects) => {
       // eslint-disable-next-line indent
-      if (projects[0]) {
+      if (projects?.length) {
           const { orgs, sites } = projects.reduce((acc, part) => {
             const [orgVal, siteVal] = part.split('/');
 

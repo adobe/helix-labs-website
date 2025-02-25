@@ -1,3 +1,5 @@
+import { initConfigField, updateConfig } from '../../utils/config/config.js';
+
 /* eslint-disable no-alert */
 const adminForm = document.getElementById('site-admin-form');
 const org = document.getElementById('org');
@@ -157,6 +159,11 @@ function displaySiteDetails(path, name, elem, site = {
       deleteSiteConfig(path);
     }
   });
+
+  // config field update
+  const siteConfigField = document.getElementById('site');
+  siteConfigField.value = name;
+  updateConfig();
 }
 
 function displaySite(site, sitesList, editMode = false) {
@@ -244,6 +251,9 @@ function displaySites(sites) {
 }
 
 async function displaySitesForOrg(orgValue) {
+  sitesElem.setAttribute('aria-hidden', 'true');
+  sitesElem.replaceChildren();
+
   const adminURL = `https://admin.hlx.page/config/${orgValue}/sites.json`;
   const resp = await fetch(adminURL);
   if (resp.status === 200) {
@@ -263,5 +273,11 @@ adminForm.addEventListener('submit', async (e) => {
   displaySitesForOrg(org.value);
 });
 
-org.value = localStorage.getItem('org') || 'adobe';
-if (org.value) displaySitesForOrg(org.value);
+function init() {
+  initConfigField();
+
+  org.value = localStorage.getItem('org') || 'adobe';
+  if (org.value) displaySitesForOrg(org.value);
+}
+
+init();

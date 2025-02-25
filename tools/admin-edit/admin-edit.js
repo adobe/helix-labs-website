@@ -1,4 +1,5 @@
 import { loadScript } from '../../scripts/aem.js';
+import { initConfigField, updateConfig } from '../../utils/config/config.js';
 
 const adminForm = document.getElementById('admin-form');
 const adminURL = document.getElementById('admin-url');
@@ -11,6 +12,8 @@ const reqMethod = document.getElementById('method');
 const methodDropdown = document.querySelector('.picker-field ul');
 const methodOptions = methodDropdown.querySelectorAll('li');
 const logTable = document.querySelector('table tbody');
+const site = document.getElementById('site');
+const org = document.getElementById('org');
 
 // load Prism.js libraries (and remove event listeners to prevent reloading)
 async function loadPrism() {
@@ -169,96 +172,156 @@ function logResponse(cols) {
   logTable.prepend(row);
 }
 
-/**
- * Handles body form submission.
- * @param {Event} e - Submit event
- */
-bodyForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  localStorage.setItem('admin-url', adminURL.value);
-  const headers = {};
-  if (body.value) {
-    headers['content-type'] = adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json';
-  }
+function updateAdminUrl() {
+  const url = new URL(adminURL.value);
+  const orgVal = org.value;
+  const siteVal = site.value;
 
-  const resp = await fetch(adminURL.value, {
-    method: reqMethod.value,
-    body: body.value,
-    headers,
+  url.pathname = url.pathname.split('/').reduce((acc, part, i) => {
+    const resolvedPart = (() => {
+      if (orgVal && i === 2) {
+        return part.endsWith('.json') ? `${orgVal}.json` : orgVal;
+      }
+
+      if (acc.startsWith('/config/') && acc.endsWith('/sites') && siteVal && i === 4) {
+        return part.endsWith('.json') ? `${siteVal}.json` : siteVal;
+      }
+
+      if (!acc.startsWith('/config/') && siteVal && i === 3) {
+        return siteVal;
+      }
+
+      return part;
+    })();
+    return `${acc}/${resolvedPart}`;
   });
-  resp.text().then(() => {
-    logResponse([resp.status, reqMethod.value, adminURL.value, resp.headers.get('x-error') || '']);
+  adminURL.value = url.toString();
+}
+
+function updateConfigFields() {
+  const url = new URL(adminURL.value);
+
+  const pathParts = url.pathname.split('/');
+  pathParts.forEach((part, i) => {
+    if (i === 2) {
+      org.value = part.endsWith('.json') ? part.slice(0, -5) : part;
+    }
+
+    if (i === 4 && pathParts[1] === 'config' && pathParts[3] === 'sites') {
+      site.value = part.endsWith('.json') ? part.slice(0, -5) : part;
+    }
+
+    if (i === 3 && pathParts[1] !== 'config') {
+      site.value = part;
+    }
   });
-});
 
-// loads Prism.js libraries when #body focus event is fired for the first time
-body.addEventListener('focus', loadPrism, { once: true });
+  updateConfig();
+}
 
-/**
- * Formats code in preview element and synchronizes scroll positions.
- * @param {InputEvent} e - Input event
- */
-body.addEventListener('input', (e) => {
-  const { value } = e.target;
-  formatCode(preview, value);
-  syncScroll(previewWrapper, body);
-});
+function init() {
+  adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
+  initConfigField();
+  site.addEventListener('input', updateAdminUrl, { once: true });
+  site.addEventListener('change', updateAdminUrl);
+  org.addEventListener('change', updateAdminUrl);
 
-// synchronizes scroll positions between body and preview wrapper
-body.addEventListener('scroll', () => {
-  syncScroll(previewWrapper, body);
-});
-
-/**
- * Replaces default "Tab" behavior to instead insert a two-space "tab" at current cursor position.
- * @param {KeyboardEvent} e - Keyboard event
- */
-body.addEventListener('keydown', (e) => {
-  const { key } = e;
-  if (key === 'Tab') {
+  /**
+   * Handles body form submission.
+   * @param {Event} e - Submit event
+   */
+  bodyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    addTab(e.target, preview);
-  }
-});
+    localStorage.setItem('admin-url', adminURL.value);
+    updateConfigFields();
 
-// toggles the request method dropdown
-reqMethod.addEventListener('click', () => {
-  const expanded = reqMethod.getAttribute('aria-expanded') === 'true';
-  reqMethod.setAttribute('aria-expanded', !expanded);
-  methodDropdown.hidden = expanded;
-});
+    const headers = {};
+    if (body.value) {
+      headers['content-type'] = adminURL.value.endsWith('.yaml') ? 'text/yaml' : 'application/json';
+    }
 
-// handles the selection of a method option from the dropdown
-methodOptions.forEach((option) => {
-  option.addEventListener('click', () => {
-    reqMethod.value = option.textContent;
-    reqMethod.setAttribute('aria-expanded', false);
-    methodDropdown.hidden = true;
-    methodOptions.forEach((o) => o.setAttribute('aria-selected', o === option));
+    const resp = await fetch(adminURL.value, {
+      method: reqMethod.value,
+      body: body.value,
+      headers,
+    });
+
+    resp.text().then(() => {
+      logResponse([resp.status, reqMethod.value, adminURL.value, resp.headers.get('x-error') || '']);
+    });
   });
-});
 
-// loads the Prism.js libraries when #admin-form submit event is fired for the first time
-adminForm.addEventListener('submit', loadPrism, { once: true });
+  // loads Prism.js libraries when #body focus event is fired for the first time
+  body.addEventListener('focus', loadPrism, { once: true });
 
-/**
- * Handles admin form submission.
- * @param {Event} e - Submit event
- */
-adminForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  localStorage.setItem('admin-url', adminURL.value);
-  const resp = await fetch(adminURL.value);
-  const text = await resp.text();
-  body.value = text;
-  formatCode(preview, text);
-  logResponse([resp.status, 'GET', adminURL.value, resp.headers.get('x-error') || '']);
-});
+  /**
+   * Formats code in preview element and synchronizes scroll positions.
+   * @param {InputEvent} e - Input event
+   */
+  body.addEventListener('input', (e) => {
+    const { value } = e.target;
+    formatCode(preview, value);
+    syncScroll(previewWrapper, body);
+  });
 
-// handles admin form reset, clearing the body field
-adminForm.addEventListener('reset', () => {
-  body.value = '';
-  formatCode(preview, '');
-});
+  // synchronizes scroll positions between body and preview wrapper
+  body.addEventListener('scroll', () => {
+    syncScroll(previewWrapper, body);
+  });
 
-adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
+  /**
+   * Replaces default "Tab" behavior to instead insert a two-space "tab" at current cursor position.
+   * @param {KeyboardEvent} e - Keyboard event
+   */
+  body.addEventListener('keydown', (e) => {
+    const { key } = e;
+    if (key === 'Tab') {
+      e.preventDefault();
+      addTab(e.target, preview);
+    }
+  });
+
+  // toggles the request method dropdown
+  reqMethod.addEventListener('click', () => {
+    const expanded = reqMethod.getAttribute('aria-expanded') === 'true';
+    reqMethod.setAttribute('aria-expanded', !expanded);
+    methodDropdown.hidden = expanded;
+  });
+
+  // handles the selection of a method option from the dropdown
+  methodOptions.forEach((option) => {
+    option.addEventListener('click', () => {
+      reqMethod.value = option.textContent;
+      reqMethod.setAttribute('aria-expanded', false);
+      methodDropdown.hidden = true;
+      methodOptions.forEach((o) => o.setAttribute('aria-selected', o === option));
+    });
+  });
+
+  // loads the Prism.js libraries when #admin-form submit event is fired for the first time
+  adminForm.addEventListener('submit', loadPrism, { once: true });
+
+  /**
+   * Handles admin form submission.
+   * @param {Event} e - Submit event
+   */
+  adminForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    localStorage.setItem('admin-url', adminURL.value);
+    updateConfigFields();
+
+    const resp = await fetch(adminURL.value);
+    const text = await resp.text();
+    body.value = text;
+    formatCode(preview, text);
+    logResponse([resp.status, 'GET', adminURL.value, resp.headers.get('x-error') || '']);
+  });
+
+  // handles admin form reset, clearing the body field
+  adminForm.addEventListener('reset', () => {
+    body.value = '';
+    formatCode(preview, '');
+  });
+}
+
+init();

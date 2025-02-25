@@ -56,9 +56,9 @@ const ENV_HEADERS = {
   },
 };
 
-const purge = (liveHost, keys, tags) => fetch(`${API}/purge`, {
+const purge = (liveHost, keys, paths) => fetch(`${API}/purge`, {
   method: 'POST',
-  body: JSON.stringify({ liveHost, keys, tags }),
+  body: JSON.stringify({ liveHost, keys, paths }),
   headers: {
     'content-type': 'application/json',
     authorization: `Bearer ${authKey}`,

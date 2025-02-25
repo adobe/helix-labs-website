@@ -10,6 +10,15 @@
 @media (width >= 720px) {
   .admin-edit #admin-form {
     grid-template-columns: 1fr max-content;
+    gap: var(--spacing-l);
+  }
+
+  .admin-edit #admin-form .config-field {
+    grid-column: 1 / span 2;
+  }
+
+  .admin-edit #admin-form .url-field {
+    margin-top: 0;
   }
 }
 
@@ -132,12 +141,7 @@ pre[class*='language-'] {
   word-break: normal;
   word-spacing: normal;
   word-wrap: normal;
-  -webkit-hyphens: none;
-  -moz-hyphens: none;
-  -ms-hyphens: none;
   hyphens: none;
-  -moz-tab-size: 2;
-  -o-tab-size: 2;
   tab-size: 2;
 }
 
