@@ -31,6 +31,7 @@ function validDOM() {
  * Sets field value and marks as autofilled (if it hasn't been autofilled already).
  * @param {HTMLElement} field - Input field.
  * @param {string} value - Value to set.
+ * @returns {string} the field new value
  */
 function setFieldValue(field, value, type) {
   if (!field.dataset.autofill) {
@@ -38,6 +39,8 @@ function setFieldValue(field, value, type) {
     field.dataset.autofill = type;
     field.dispatchEvent(new Event('input'));
   }
+
+  return field.value;
 }
 
 /**
@@ -47,7 +50,7 @@ function setFieldValue(field, value, type) {
  */
 function populateList(list, values) {
   values.forEach((value) => {
-    if (![...list.options].some((o) => o.value === value)) {
+    if (value && ![...list.options].some((o) => o.value === value)) {
       const option = document.createElement('option');
       option.value = value;
       list.append(option);
@@ -161,11 +164,10 @@ function populateFromStorage(org, orgList, site, siteList) {
       const { orgs } = projects;
       populateList(orgList, orgs);
       // populate org field
-      const lastOrg = projects.orgs[0];
-      setFieldValue(org, lastOrg, 'storage');
-      if (projects.sites && projects.sites[lastOrg]) {
+      const selectedOrg = setFieldValue(org, projects.orgs[0], 'storage');
+      if (projects.sites && projects.sites[selectedOrg]) {
         // populate site list
-        const sites = projects.sites[lastOrg];
+        const sites = projects.sites[selectedOrg];
         populateList(siteList, sites);
         // populate site field
         const lastSite = sites[0];
@@ -180,20 +182,17 @@ function populateFromStorage(org, orgList, site, siteList) {
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
   return new Promise((resolve) => {
-    // eslint-disable-next-line no-undef
+    const { chrome } = window;
     if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
       let messageResolved = false;
       const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
-      // eslint-disable-next-line no-undef
       chrome.runtime.sendMessage(id, { action: 'getSites' }, (projects) => {
       // eslint-disable-next-line indent
-      if (projects?.length) {
+      if (projects && projects.length > 0) {
           const { orgs, sites } = projects.reduce((acc, part) => {
-            const [orgVal, siteVal] = part.split('/');
-
-            if (!acc.orgs.includes(orgVal)) acc.orgs.push(orgVal);
-            if (!acc.sites[orgVal]) acc.sites[orgVal] = [];
-            if (!acc.sites[orgVal].includes(siteVal)) acc.sites[orgVal].push(siteVal);
+            if (!acc.orgs.includes(part.org)) acc.orgs.push(part.org);
+            if (!acc.sites[part.org]) acc.sites[part.org] = [];
+            if (!acc.sites[part.org].includes(part.site)) acc.sites[part.org].push(part.site);
 
             return acc;
           }, { orgs: [], sites: {} });
@@ -202,27 +201,32 @@ async function populateFromSidekick(org, orgList, site, siteList) {
           populateList(orgList, orgs);
 
           // populate org & site field
-          const [lastOrg, lastSite] = projects[0].split('/');
-          setFieldValue(org, lastOrg, 'sidekick');
+          const lastProject = projects[0];
+          const selectedOrg = setFieldValue(org, lastProject.org, 'sidekick');
 
-          populateList(siteList, sites[lastOrg] || []);
-          setFieldValue(site, lastSite, 'sidekick');
+          populateList(siteList, sites[selectedOrg] || []);
+          setFieldValue(site, sites[selectedOrg][0], 'sidekick');
 
-          messageResolved = true;
-          resolve();
+          // update storage with sidekick data
+          projects.reverse().forEach((project) => {
+            updateStorage(project.org, project.site);
+          });
         }
+
+        messageResolved = true;
+        resolve();
       });
 
       setTimeout(() => {
         if (!messageResolved) {
           // eslint-disable-next-line no-console
-          console.warn('Sidekick message not resolved in 1 second');
+          console.warn('Sidekick message not resolved in time');
           resolve();
         }
-      }, 1000);
+      }, 500);
+    } else {
+      resolve();
     }
-
-    resolve();
   });
 }
 
