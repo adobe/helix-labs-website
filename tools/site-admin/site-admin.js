@@ -273,10 +273,10 @@ adminForm.addEventListener('submit', async (e) => {
   displaySitesForOrg(org.value);
 });
 
-function init() {
-  initConfigField();
+async function init() {
+  await initConfigField();
 
-  org.value = localStorage.getItem('org') || 'adobe';
+  if (!org.value) org.value = localStorage.getItem('org') || 'adobe';
   if (org.value) displaySitesForOrg(org.value);
 }
 
