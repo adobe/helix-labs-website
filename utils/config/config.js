@@ -31,7 +31,7 @@ function validDOM() {
  * Sets field value and marks as autofilled (if it hasn't been autofilled already).
  * @param {HTMLElement} field - Input field.
  * @param {string} value - Value to set.
- * @returns {string} the field new value
+ * @returns {string} the fields new value
  */
 function setFieldValue(field, value, type) {
   if (!field.dataset.autofill) {
