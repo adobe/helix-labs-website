@@ -28,7 +28,7 @@ const REVIEW_APPROVE = document.getElementById('approve');
 const PAGE_STATUS_WRAPPER = document.getElementById('page-status-wrapper');
 
 async function init() {
-  const state = 'review';
+  const state = referrer.hostname.includes('reviews') ? 'review' : 'page';
 
   REVIEWS_LINK.href = `https://${SNAPSHOT}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
   ADMIN_LINK.href = `/tools/snapshot-admin/index.html?snapshot=https://main--${REPO}--${OWNER}.aem.page/.snapshots/${SNAPSHOT}/.manifest.json`;
@@ -64,12 +64,12 @@ async function init() {
         ADD.disabled = true;
         REMOVE.disabled = false;
         UPDATE.disabled = false;
-        PAGE_STATUS.textContent = 'Page has pending changes';
+        PAGE_STATUS.textContent = 'Page is in snapshot, pending changes';
       } else {
         ADD.disabled = true;
         REMOVE.disabled = false;
         UPDATE.disabled = true;
-        PAGE_STATUS.textContent = 'Page is Current';
+        PAGE_STATUS.textContent = 'Page is snapshot';
       }
     }
   } else if (state === 'review') {
@@ -78,9 +78,14 @@ async function init() {
       REVIEW_REQUEST.disabled = true;
       REVIEW_REJECT.disabled = false;
       REVIEW_APPROVE.disabled = false;
-    } else {
-      REVIEW_STATUS.textContent = '';
+    } else if (manifest.resources.length > 0) {
+      REVIEW_STATUS.textContent = 'Review not requested';
       REVIEW_REQUEST.disabled = false;
+      REVIEW_REJECT.disabled = true;
+      REVIEW_APPROVE.disabled = true;
+    } else {
+      REVIEW_STATUS.textContent = 'No pages to review';
+      REVIEW_REQUEST.disabled = true;
       REVIEW_REJECT.disabled = true;
       REVIEW_APPROVE.disabled = true;
     }

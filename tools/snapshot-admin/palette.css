@@ -6,7 +6,6 @@ p {
 }
 
 body {
-  background-color: #222c;
   font-family: Arial, sans-serif;
   color: #DBDBDB;
   padding: 0 8px;
@@ -18,7 +17,6 @@ button {
   border-radius: 16px;
   border: 2px solid #DBDBDB;
   padding: 4px 8px;
-  min-width: 80px;
   font-size: 14px;
 }
 
