@@ -235,8 +235,8 @@ async function populateConfig(config) {
     org, orgList, site, siteList,
   } = config;
   populateFromParams([org, site], window.location.search);
-  await populateFromSidekick(org, orgList, site, siteList);
   populateFromStorage(org, orgList, site, siteList);
+  await populateFromSidekick(org, orgList, site, siteList);
 }
 
 /**
