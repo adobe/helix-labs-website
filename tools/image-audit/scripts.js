@@ -348,6 +348,9 @@ function displayModal(figure) {
       return;
     }
 
+    // Get the full imageOptions object from the cluster
+    const clusterImageOptions = clusterManager.get(clusterId).imageOptions;
+
     const data = {
       fileType: ImageAuditUtil.getFileType(clusterManager.get(clusterId).elementForCluster.src),
       count: site.length,
@@ -356,7 +359,7 @@ function displayModal(figure) {
       width: identity.width,
       height: identity.height,
       aspectRatio: identity.aspectRatio,
-      imageOptions: clusterManager.get(clusterId).imageOptions,
+      imageOptions: clusterImageOptions, // Pass the full object
     };
 
     const colorIdentity = cluster.getSingletonOf(ColorIdentity.type);
@@ -779,7 +782,7 @@ async function loadImages(
       loadedImg,
       figure,
       'image',
-      imageOptions.original.href,
+      imageOptions,
     );
 
     const identityValues = new IdentityValues({

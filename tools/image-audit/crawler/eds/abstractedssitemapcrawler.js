@@ -207,9 +207,9 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
 
           const imageOptions = {};
           imageOptions.original = original;
-          if (detail) imageOptions.detail = detail;
-          if (medium) imageOptions.medium = medium;
-          if (card) imageOptions.card = card;
+          imageOptions.detail = detail || original;
+          imageOptions.medium = medium || original;
+          imageOptions.card = card || original;
 
           let instance = 1;
           if (seenMap.has(src)) {
