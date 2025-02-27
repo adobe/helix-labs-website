@@ -1,0 +1,174 @@
+/**
+ * A class that manages a pool of promises with a maximum concurrency limit.
+ * It controls how many promises are running at any time, and queues any additional promises.
+ */
+/* eslint-disable no-console */
+class PromisePool {
+  #maxConcurrency;
+
+  #queue = [];
+
+  #activeCount = 0;
+
+  #activeTasks = [];
+
+  #debugpool;
+
+  #timer;
+
+  #timerActive = false;
+
+  #poolName;
+
+  #awaitingFinish;
+
+  #errorHandler;
+
+  #queueEmptyResolver;
+
+  constructor(maxConcurrency, poolName = 'PromisePool', debugpool = false, errorHandler = (error) => this.#defaultErrorHandler(error)) {
+    this.#errorHandler = errorHandler;
+    this.#maxConcurrency = maxConcurrency;
+    this.#debugpool = debugpool;
+    this.#poolName = `${poolName} Pool`;
+    this.#awaitingFinish = 0;
+    this.#queueEmptyResolver = null;
+
+    this.#activateTimer();
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  #defaultErrorHandler(error) {
+    console.error('Unresolved error during promise', error);
+  }
+
+  #createError(message) {
+    const error = new Error(message);
+    this.#errorHandler(error);
+    return Promise.reject(error);
+  }
+
+  #activateTimer() {
+    if (!this.#timerActive && this.#debugpool) {
+      this.#timerActive = true;
+      console.debug(`${this.#poolName} created with maxConcurrency ${this.#maxConcurrency}`);
+      this.#timer = setInterval(() => {
+        if (this.#activeTasks.length === 0
+          && this.#queue.length === 0
+          && this.#awaitingFinish === 0) {
+          this.#cleanupTimer();
+        }
+        console.debug(`${this.#poolName}: ${this.#activeTasks.length} active tasks, ${this.#queue.length} queued tasks, ${this.#awaitingFinish} processes awaiting finish`);
+      }, 1000);
+    }
+  }
+
+  #notifyQueueEmpty() {
+    if (this.#queueEmptyResolver) {
+      this.#queueEmptyResolver();
+    }
+  }
+
+  #createQueueEmptyPromise() {
+    return new Promise((resolve) => {
+      this.#queueEmptyResolver = resolve;
+    });
+  }
+
+  #cleanupTimer() {
+    if (this.#timer) {
+      this.#timerActive = false;
+      clearInterval(this.#timer);
+      this.#timer = null;
+    }
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  #extractTaskName(task) {
+    try {
+      let taskName = task.name ? task.name : `${task}`;
+      [taskName] = taskName.split('\n');
+      let lastIndex = taskName.lastIndexOf('(');
+      if (lastIndex < 0) lastIndex = taskName.length;
+      let firstIndex = taskName.lastIndexOf('=>');
+      if (firstIndex < 0) firstIndex = 0;
+      else firstIndex += 2;
+      return taskName.substring(firstIndex, lastIndex).trim();
+    } catch (error) {
+      return 'unknown';
+    }
+  }
+
+  async run(task) {
+    if (this.#awaitingFinish) {
+      return this.#createError('Cannot run new tasks while waiting for all tasks to settle');
+    }
+
+    if (task?.constructor?.name !== 'AsyncFunction') {
+      return this.#createError(`Task ${task} must be an async function`);
+    }
+
+    this.#activateTimer();
+    const taskName = this.#extractTaskName(task);
+
+    if (this.#activeCount >= this.#maxConcurrency) {
+      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} waiting for slot, ${this.#activeTasks.length} active tasks, ${this.#queue.length + 1} queued tasks`);
+      await new Promise((resolve) => {
+        this.#queue.push(resolve);
+      });
+    }
+    this.#activeCount += 1;
+    if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} executing in slot ${this.#activeCount}`);
+
+    let taskPromise;
+
+    try {
+      taskPromise = Promise.resolve(task());
+      this.#activeTasks.push(taskPromise); // Track active task
+      const rv = await taskPromise;
+      if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing`);
+      return rv;
+    } catch (error) {
+      return this.#createError(error.message);
+    } finally {
+      if (this.#debugpool) console.debug(`${this.#poolName}.run releasing ${taskName} slot`);
+
+      this.#activeCount -= 1;
+      if (taskPromise) {
+        this.#activeTasks = this.#activeTasks.filter((p) => p !== taskPromise);
+      }
+      if (this.#queue.length > 0) {
+        const nextResolve = this.#queue.shift();
+        nextResolve();
+      } else {
+        this.#notifyQueueEmpty();
+      }
+    }
+  }
+
+  async allSettled() {
+    // Wait for all active and queued tasks to settle
+    this.#awaitingFinish += 1;
+    try {
+      if (this.#debugpool) console.debug(`${this.#poolName}: Awaiting ${this.#activeTasks.length + this.#queue.length} tasks to complete`);
+      // Process any queued tasks
+      if (this.#queue.length > 0) {
+        await this.#createQueueEmptyPromise();
+      }
+
+      if (this.#activeTasks.length !== 0) {
+        return Promise.allSettled(this.#activeTasks).then(() => {
+          this.#cleanupTimer();
+          if (this.#debugpool) console.debug(`${this.#poolName} Finished waiting for tasks to settle`);
+        });
+      }
+      this.#cleanupTimer();
+      return Promise.resolve();
+    } finally {
+      this.#queueEmptyResolver = null;
+      this.#awaitingFinish -= 1;
+    }
+  }
+}
+
+export default PromisePool;

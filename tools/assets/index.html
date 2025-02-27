@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Audit</title>
+  <!-- ref https://github.com/mapbox/pixelmatch, https://github.com/naptha/tesseract.js/ -->
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preconnect" href="https://esm.sh">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <script type="importmap">
+    {
+      "imports": {
+        "@adobe/rum-distiller": "https://esm.sh/@adobe/rum-distiller@1.11.1",
+        "@adobe/rum-loader": "/scripts/loader.js",
+        "pixelmatch": "https://cdnjs.cloudflare.com/ajax/libs/pixelmatch/6.0.0/index.min.js",
+        "tesseract.js": "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.esm.min.js"
+      }
+    }
+  </script>
+  <!-- ref https://github.com/lokesh/color-thief -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.6.0/color-thief.umd.js" defer></script>
+  <!-- ref https://github.com/simon987/imagehash-web -->
+  <script src="https://cdn.jsdelivr.net/npm/imagehash-web@3.0.1" defer></script>
+  <script src="/scripts/aem.js" type="module"></script>
+  <script src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script src="/tools/image-audit/scripts.js" type="module" defer></script>
+  <link rel="stylesheet" href="/tools/image-audit/styles.css" />
+</head>
+
+<body class="image-audit">
+  <header></header>
+  <main>
+    <div>
+      <h1>Image Audit</h1>
+      <p>
+        The <strong>Image Audit</strong> tool provides a way to analyze images on AEM websites. The tool offers insights into image use across a site, including identifying gaps in alt text usage.
+      </p>
+    </div>
+    <div id="audit-results" aria-hidden="true">
+      <p id="info" >
+        <span id="images-counter">0</span> unique images<br/>
+        <span id="duplicate-images-counter">0</span> repeated images<br/>
+        found on <span id="pages-counter">0</span> pages<br/>
+        (out of <span id="total-counter">0</span>)<br/>
+        in <span id="elapsed">0</span> s.
+      </p>
+      <p class="button-wrapper">
+        <select id="download-report">
+          <option value="" disabled selected>Select a report to download</option>
+        </select>
+      </p>
+    </div>
+    <div>
+      <form id="site-form">
+        <div class="sitemap-form">
+          <ul>
+            <li>
+              <div class="form-field url-field">
+                <label for="site-url">Site URL</label>
+                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required list="site-url-history" />
+                <datalist id="site-url-history"></datalist>
+                <div class="field-help-text">
+                  <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+                </div>
+              </div>
+            </li>
+            <li>
+              <div class="form-field url-field">
+                <label>Sitemap replacement</label>
+                <div>
+                  <input type="radio" id="sitemap-none-option" name="sitemap-option" value="none" checked />
+                  <label for="sitemap-none-option">None</label>
+                  <input type="radio" id="sitemap-file-option" name="sitemap-option" value="file" />
+                  <label for="sitemap-file-option">File</label>
+                  <input type="radio" id="sitemap-url-option" name="sitemap-option" value="url" />
+                  <label for="sitemap-url-option">URL</label>
+                </div>
+                <div class="field-help-text">
+                  <p>
+                    A sitemap used in place of a sitemap on the site. Hostnames in the sitemap will be replaced with the site above.
+                  </p>
+                </div>
+              </div>
+            </li>
+            <li id="file-input-container" aria-hidden="true">
+              <div class="form-field file-field">
+                <label for="embedded-sitemap-file" id="embedded-sitemap-file-label">Upload Sitemap File</label>
+                <input name="embedded-sitemap-file" id="embedded-sitemap-file" type="file" accept=".xml" />
+              </div>
+            </li>
+            <li id="url-input-container" aria-hidden="true">
+              <div class="form-field url-field">
+                <label for="embedded-sitemap-url">Enter Sitemap URL</label>
+                <input name="embedded-sitemap-url" id="embedded-sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" />
+              </div>
+            </li>
+            <li>
+              <label for="replacement-domain">RUM Production Domain</label>
+              <input name="replacement-domain" id="replacement-domain" />
+            </li>
+            <li>
+              <label for="domain-key">RUM Domain Key</label>
+              <input name="domain-key" id="domain-key" />
+            </li>
+            <li>
+              <div class="field-help-text">
+                <p>Image identification methods:</p>
+              </div>
+            </li>
+            <div id="identity-selectors">
+            </div>
+            <li>
+              <hr/>
+            </li>
+            <li>
+              <p class="button-wrapper">
+                <button type="submit" class="button">Run</button>
+              </p>
+            </li>
+            <li>
+              <hr/>
+            </li>
+            <li>
+              <p class="button-wrapper">
+                <button type="button" id="import-sitemap-form-button" class="button">Import form</button>
+                <input 
+                  name="import-sitemap-form-file" 
+                  id="import-sitemap-form-file" 
+                  type="file" 
+                  accept=".smf" 
+                  style="display: none;" 
+                />
+                <button type="button" id="export-sitemap-form-button" class="button">Export form</button>
+              </p>
+            </li>
+          </ul>
+        </div>
+      </form>
+    </div>
+    <div class="canvas" id="canvas">
+      <div class="action-bar">
+        <div class="progress-bar-container" id="progress-bar">
+          <ul>
+            <li>
+              <label>Loading:</label>
+            </li>
+            <li class="progress-bar">
+              <div class="progress" id="progress"></div>
+            </li>
+            <li class="stop-button-container">
+              <button id="stop-button" aria-label="Stop">&#x1F6D1;</button>
+            </li>
+          </ul>
+        </div>
+        <form id="action-form" aria-hidden="true">
+          <div class="form-field radio-field">
+            <p>Sort by:</p>
+            <ul>
+              <div class="form-field radio-field" id="sorts">
+              </div>
+            </ul>
+          </div>
+          <div class="form-field checkbox-field">
+            <p>Filter by:</p>
+            <ul>
+              <div class="form-field radio-field" id="filters">
+              </div>
+              <li>
+                <label>
+                  <input type="checkbox" name="filter" value="shape-square" aria-label="Square aspect ratio" id="filter-shape-square">
+                  <span><i class="symbol symbol-square"></i></span>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input type="checkbox" name="filter" value="shape-portrait" aria-label="Portrait aspect ratio" id="filter-shape-portrait">
+                  <span><i class="symbol symbol-portrait"></i></span>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input type="checkbox" name="filter" value="shape-landscape" aria-label="Landscape aspect ratio" id="filter-shape-landscape">
+                  <span><i class="symbol symbol-landscape"></i></span>
+                </label>
+              </li>
+              <li>
+                <label>
+                  <input type="checkbox" name="filter" value="shape-widescreen" aria-label="Widescreen aspect ratio" id="filter-shape-widescreen">
+                  <span><i class="symbol symbol-widescreen"></i></span>
+                </label>
+              </li>
+            </ul>
+          </div>
+          <div class="form-field checkbox-field" id="color-pallette-container">
+            <p>Color Filter:</p>
+            <ul id="color-pallette">
+            </ul>
+          </div>
+          <div class="form-field checkbox-field" id="pagination-div"> 
+            <ul>
+              <li>
+                  <button id="decrease-slider" class="slider-arrow" type="button">◀</button>
+              </li>
+              <li>
+                <label for="pagination-slider" id="pagination-text">Showing page <span id="current-page">0</span> of <span id="pagination-counter">0</span></label>
+                <input 
+                  type="range" 
+                  id="pagination-slider" 
+                  value="1" 
+                  min="1" 
+                  max="1" 
+                  step="1" 
+                />
+              </li>
+              <li>
+                  <button id="increase-slider" class="slider-arrow" type="button">▶</button>
+              </li>
+            </ul>
+          </div>
+          </form>
+      </div>
+      <div class="gallery" id="image-gallery"></div>
+    </div>
+  </main>
+  
+  <footer></footer>
+</body>
+
+</html>
