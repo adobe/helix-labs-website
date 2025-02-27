@@ -69,6 +69,12 @@ class PromisePool {
     }
   }
 
+  #createQueueEmptyPromise() {
+    return new Promise((resolve) => {
+      this.#queueEmptyResolver = resolve;
+    });
+  }
+
   #cleanupTimer() {
     if (this.#timer) {
       this.#timerActive = false;
@@ -147,10 +153,7 @@ class PromisePool {
       if (this.#debugpool) console.debug(`${this.#poolName}: Awaiting ${this.#activeTasks.length + this.#queue.length} tasks to complete`);
       // Process any queued tasks
       if (this.#queue.length > 0) {
-        const queueEmptyPromise = new Promise((resolve) => {
-          this.#queueEmptyResolver = resolve; // Store the resolver function for later
-        });
-        await queueEmptyPromise; // Wait for the queue to change
+        await this.#createQueueEmptyPromise();
       }
 
       if (this.#activeTasks.length !== 0) {
