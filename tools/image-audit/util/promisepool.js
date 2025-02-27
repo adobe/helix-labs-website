@@ -34,7 +34,7 @@ class PromisePool {
     this.#awaitingFinish = 0;
     this.#queueEmptyResolver = null;
 
-    this.activateTimer();
+    this.#activateTimer();
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -42,7 +42,7 @@ class PromisePool {
     console.error('Unresolved error during promise', error);
   }
 
-  activateTimer() {
+  #activateTimer() {
     if (!this.#timerActive && this.#debugpool) {
       this.#timerActive = true;
       console.debug(`${this.#poolName} created with maxConcurrency ${this.#maxConcurrency}`);
@@ -50,8 +50,7 @@ class PromisePool {
         if (this.#activeTasks.length === 0
           && this.#queue.length === 0
           && this.#awaitingFinish === 0) {
-          clearInterval(this.#timer);
-          this.#timerActive = false;
+          this.#cleanupTimer();
         }
         console.debug(`${this.#poolName}: ${this.#activeTasks.length} active tasks, ${this.#queue.length} queued tasks, ${this.#awaitingFinish} processes awaiting finish`);
       }, 1000);
@@ -61,6 +60,30 @@ class PromisePool {
   #notifyQueueEmpty() {
     if (this.#queueEmptyResolver) {
       this.#queueEmptyResolver();
+    }
+  }
+
+  #cleanupTimer() {
+    if (this.#timer) {
+      this.#timerActive = false;
+      clearInterval(this.#timer);
+      this.#timer = null;
+    }
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  #extractTaskName(task) {
+    try {
+      let taskName = task.name ? task.name : `${task}`;
+      [taskName] = taskName.split('\n');
+      let lastIndex = taskName.lastIndexOf('(');
+      if (lastIndex < 0) lastIndex = taskName.length;
+      let firstIndex = taskName.lastIndexOf('=>');
+      if (firstIndex < 0) firstIndex = 0;
+      else firstIndex += 2;
+      return taskName.substring(firstIndex, lastIndex).trim();
+    } catch (error) {
+      return 'unknown';
     }
   }
 
@@ -77,15 +100,8 @@ class PromisePool {
       return Promise.reject(error);
     }
 
-    this.activateTimer();
-    let taskName = task.name ? task.name : `${task}`;
-    [taskName] = taskName.split('\n');
-    let lastIndex = taskName.lastIndexOf('(');
-    if (lastIndex < 0) lastIndex = taskName.length;
-    let firstIndex = taskName.lastIndexOf('=>');
-    if (firstIndex < 0) firstIndex = 0;
-    else firstIndex += 2;
-    taskName = taskName.substring(firstIndex, lastIndex).trim();
+    this.#activateTimer();
+    const taskName = this.#extractTaskName(task);
 
     if (this.#activeCount >= this.#maxConcurrency) {
       if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} waiting for slot, ${this.#activeTasks.length} active tasks, ${this.#queue.length + 1} queued tasks`);
@@ -138,17 +154,11 @@ class PromisePool {
 
       if (this.#activeTasks.length !== 0) {
         return Promise.allSettled(this.#activeTasks).then(() => {
-          if (this.#timer) {
-            this.#timerActive = false;
-            clearInterval(this.#timer);
-          }
+          this.#cleanupTimer();
           if (this.#debugpool) console.debug(`${this.#poolName} Finished waiting for tasks to settle`);
         });
       }
-      if (this.#timer) {
-        this.#timerActive = false;
-        clearInterval(this.#timer);
-      }
+      this.#cleanupTimer();
       return Promise.resolve();
     } finally {
       this.#queueEmptyResolver = null;
