@@ -32,8 +32,8 @@ class TextRecognizerPool {
           terminated = true;
           await worker.terminate();
           // eslint-disable-next-line no-console
-          console.warn(`Recognition of ${imageElement.src} timed out after ${this.recognitionTimeout / 1000} seconds`);
-          reject(new Error(`Recognition of ${imageElement.src} timed out after ${this.recognitionTimeout / 1000} seconds`));
+          console.warn(`Recognition of ${imageElement.src} timed out after ${this.#recognitionTimeout / 1000} seconds`);
+          reject(new Error(`Recognition of ${imageElement.src} timed out after ${this.#recognitionTimeout / 1000} seconds`));
         }, this.#recognitionTimeout);
 
         // Cancel the timeout if the recognition finishes in time
