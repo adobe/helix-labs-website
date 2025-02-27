@@ -42,6 +42,12 @@ class PromisePool {
     console.error('Unresolved error during promise', error);
   }
 
+  #createError(message) {
+    const error = new Error(message);
+    this.#errorHandler(error);
+    return Promise.reject(error);
+  }
+
   #activateTimer() {
     if (!this.#timerActive && this.#debugpool) {
       this.#timerActive = true;
@@ -89,15 +95,11 @@ class PromisePool {
 
   async run(task) {
     if (this.#awaitingFinish) {
-      const error = Error('Cannot run new tasks while waiting for all tasks to settle');
-      this.#errorHandler(error);
-      return Promise.reject(error);
+      return this.#createError('Cannot run new tasks while waiting for all tasks to settle');
     }
 
-    if (task.constructor.name !== 'AsyncFunction') {
-      const error = Error(`Task ${task} must be an async function`);
-      this.#errorHandler(error);
-      return Promise.reject(error);
+    if (task?.constructor?.name !== 'AsyncFunction') {
+      return this.#createError(`Task ${task} must be an async function`);
     }
 
     this.#activateTimer();
@@ -121,8 +123,7 @@ class PromisePool {
       if (this.#debugpool) console.debug(`${this.#poolName}.run ${taskName} finished executing`);
       return rv;
     } catch (error) {
-      this.#errorHandler(error);
-      return Promise.reject(error);
+      return this.#createError(error.message);
     } finally {
       if (this.#debugpool) console.debug(`${this.#poolName}.run releasing ${taskName} slot`);
 
@@ -133,7 +134,7 @@ class PromisePool {
       if (this.#queue.length > 0) {
         const nextResolve = this.#queue.shift();
         nextResolve();
-      } else if (this.#queue.length === 0) {
+      } else {
         this.#notifyQueueEmpty();
       }
     }
