@@ -319,15 +319,13 @@ async function init(doc) {
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
           searched += 1;
-          processUrl(sitemapUrl, query, queryType, org, site).then((tr) => {
-            if (tr) {
-              results.append(tr);
-            }
-          });
+          const tr = await processUrl(sitemapUrl, query, queryType, org, site);
+          if (tr) {
+            results.append(tr);
+            updateCaption(caption, results.children.length, searched);
+          }
         }
-        updateCaption(caption, results.children.length, searched);
       }
-      updateCaption(caption, results.children.length, searched);
 
       if (results.children.length === 0) {
         noResults.setAttribute('aria-hidden', 'false');
