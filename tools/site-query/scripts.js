@@ -238,12 +238,6 @@ async function processUrl(sitemapUrl, query, queryType, org, site) {
 
   return null;
 }
-
-function updateCaption(caption, found, searched) {
-  caption.querySelector('.results-found').textContent = found;
-  caption.querySelector('.results-of').textContent = searched;
-}
-
 /**
  * Fetches the live and preview host URLs for org/site.
  * @param {string} org - Organization name.
@@ -312,20 +306,28 @@ async function init(doc) {
       const caption = table.querySelector('caption');
       caption.setAttribute('aria-hidden', false);
       caption.querySelector('.term').textContent = query;
-      caption.querySelector('.results-found').textContent = 0;
-      caption.querySelector('.results-of').textContent = 0;
+      const resultsFoundElement = caption.querySelector('.results-found');
+      resultsFoundElement.textContent = 0;
+      const resultsOfElement = caption.querySelector('.results-of');
+      resultsOfElement.textContent = 0;
 
+      const processingTasks = [];
       // eslint-disable-next-line no-restricted-syntax
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
           searched += 1;
-          const tr = await processUrl(sitemapUrl, query, queryType, org, site);
-          if (tr) {
-            results.append(tr);
-            updateCaption(caption, results.children.length, searched);
-          }
+          const promise = processUrl(sitemapUrl, query, queryType, org, site)
+            .then((tr) => {
+              if (tr) {
+                results.append(tr);
+                resultsFoundElement.textContent = results.children.length;
+              }
+            });
+          processingTasks.push(promise);
         }
       }
+      resultsOfElement.textContent = searched;
+      await Promise.all(processingTasks);
 
       if (results.children.length === 0) {
         noResults.setAttribute('aria-hidden', 'false');
