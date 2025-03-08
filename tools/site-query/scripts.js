@@ -312,12 +312,17 @@ async function init(doc) {
       resultsOfElement.textContent = 0;
 
       const processingTasks = [];
+      const updateSearched = () => {
+        searched += 1;
+        resultsOfElement.textContent = searched;
+      };
+
       // eslint-disable-next-line no-restricted-syntax
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
-          searched += 1;
           const promise = processUrl(sitemapUrl, query, queryType, org, site)
             .then((tr) => {
+              updateSearched();
               if (tr) {
                 results.append(tr);
                 resultsFoundElement.textContent = results.children.length;
