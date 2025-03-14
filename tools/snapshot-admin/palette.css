@@ -1,5 +1,5 @@
 
-p {
+p, details {
   margin: 8px 0;
   font-size: 14px;
   font-family: adobe-clean, "Adobe Clean", "Source Sans Pro", -apple-system, system-ui, sans-serif;
@@ -78,4 +78,15 @@ height: 32px;
 
 #spinner[aria-hidden="true"], #page-status-wrapper[aria-hidden="true"], #review-status-wrapper[aria-hidden="true"] {
   display: none;
+}
+
+#page-list {
+  background-color: #0008;
+  font-family: 'Courier New', Courier, monospace;
+  list-style: none;
+  padding: 3px;
+  margin: 5px -5px;
+  border-radius: 5px;
+  border: 2px solid #DBDBDB;
+  overflow-x: scroll;
 }

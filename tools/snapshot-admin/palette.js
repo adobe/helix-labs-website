@@ -46,6 +46,9 @@ async function init() {
   SPINNER.setAttribute('aria-hidden', 'true');
   const { locked } = manifest;
 
+  const pageList = document.getElementById('page-list');
+  pageList.innerHTML = manifest.resources.map((e) => `<li>${e.path}</li>`).join('');
+
   if (state === 'page') {
     const previewDate = status.preview.preview.lastModified;
     if (locked) {
@@ -69,7 +72,7 @@ async function init() {
         ADD.disabled = true;
         REMOVE.disabled = false;
         UPDATE.disabled = true;
-        PAGE_STATUS.textContent = 'Page is snapshot';
+        PAGE_STATUS.textContent = 'Page is in snapshot';
       }
     }
   } else if (state === 'review') {
