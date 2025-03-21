@@ -49,6 +49,21 @@
       <form id="snapshot-edit-form">
         <fieldset>
           <textarea rows="20" id="snapshot-resources"></textarea>
+          <details>
+            <summary>Snapshot metadata</summary>
+            <label>
+              Title
+              <input type="text" id="snapshot-title">
+            </label>
+            <label>
+              Description
+              <textarea id="snapshot-description"></textarea>
+            </label>
+            <label>
+              Password (shared secret for reviews)
+              <input type="password" id="snapshot-password">
+            </label>
+          </details>
           <div>
             <button id="snapshot-save" class="button" disabled>Save</button>  
             <span id="snapshot-status"></span>
