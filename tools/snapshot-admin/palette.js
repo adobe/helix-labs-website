@@ -10,6 +10,7 @@ const params = new URLSearchParams(window.location.search);
 const referrer = new URL(params.get('referrer'));
 const OWNER = params.get('owner');
 const REPO = params.get('repo');
+const CUSTOM_REVIEW_HOST = params.get('reviewHost');
 const SNAPSHOT = 'default';
 const PATHNAME = referrer.pathname;
 
@@ -30,7 +31,7 @@ const PAGE_STATUS_WRAPPER = document.getElementById('page-status-wrapper');
 async function init() {
   const state = referrer.hostname.includes('reviews') ? 'review' : 'page';
 
-  REVIEWS_LINK.href = `https://${SNAPSHOT}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
+  REVIEWS_LINK.href = CUSTOM_REVIEW_HOST ? `https://${SNAPSHOT}--${CUSTOM_REVIEW_HOST}${PATHNAME}` : `https://${SNAPSHOT}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
   ADMIN_LINK.href = `/tools/snapshot-admin/index.html?snapshot=https://main--${REPO}--${OWNER}.aem.page/.snapshots/${SNAPSHOT}/.manifest.json`;
 
   if (state === 'page') {
