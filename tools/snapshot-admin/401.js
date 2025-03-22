@@ -25,13 +25,13 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>`;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'https://labs.aem.live/tools/snapshot-admin/401-styles.css';
+  link.href = window.location.pathname !== '/tools/snapshot-admin/401-test.html' ? 'https://labs.aem.live/tools/snapshot-admin/401-styles.css' : '/tools/snapshot-admin/401-styles.css';
   document.head.append(link);
   const sha256 = async (message) => {
     const encoder = new TextEncoder();
     const data = encoder.encode(message);
     const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
+    const hashArray = Array.from(new Uint8Array(hashBuffer)); 
     const hash = hashArray
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
