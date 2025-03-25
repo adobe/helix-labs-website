@@ -330,6 +330,12 @@ async function init(doc) {
             });
           processingTasks.push(promise);
         }
+
+        // max 50 inflight at a time
+        if (processingTasks.length >= 50) {
+          await Promise.all(processingTasks);
+          processingTasks.splice(0, processingTasks.length);
+        }
       }
       resultsOfElement.textContent = searched;
       await Promise.all(processingTasks);
