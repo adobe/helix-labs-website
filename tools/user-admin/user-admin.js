@@ -204,6 +204,7 @@ function displayUserDetails(elem, user) {
 }
 
 async function getSiteAccessConfig() {
+  addUserDetails.setAttribute('aria-hidden', 'true');
   const adminURL = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/access.json`;
   const resp = await fetch(adminURL);
   logResponse([resp.status, 'GET', adminURL, resp.headers.get('x-error') || '']);
@@ -211,6 +212,10 @@ async function getSiteAccessConfig() {
     const json = await resp.json();
     return json;
   }
+  if (resp.status === 404) {
+    return { admin: { role: {} } };
+  }
+
   return null;
 }
 
