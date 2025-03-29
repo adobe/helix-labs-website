@@ -17,6 +17,7 @@ const reviewApprove = document.getElementById('review-approve');
 const snapshotTitle = document.getElementById('snapshot-title');
 const snapshotDescription = document.getElementById('snapshot-description');
 const snapshotPassword = document.getElementById('snapshot-password');
+const snapshotMetadata = document.getElementById('snapshot-metadata');
 
 let manifest = {};
 let adminURL = '';
@@ -198,6 +199,15 @@ async function fetchSnapshotManifest(urlString) {
   const resp = await fetch(adminURL);
   if (resp.status === 200) {
     manifest = (await resp.json()).manifest;
+    displaySnapshot();
+  }
+  if (resp.status === 404) {
+    manifest = {
+      title: '',
+      description: '',
+      resources: [],
+    };
+    snapshotMetadata.open = true;
     displaySnapshot();
   }
   logResponse([resp.status, 'GET', adminURL, resp.headers.get('x-error') || '']);
