@@ -70,7 +70,7 @@ height: 32px;
 }
 
 #spinner {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -85,6 +85,10 @@ height: 32px;
   display: none;
 }
 
+details[open] {
+  width: 100%;
+}
+
 #page-list {
   background-color: #0008;
   font-family: 'Courier New', Courier, monospace;
@@ -94,6 +98,11 @@ height: 32px;
   border-radius: 5px;
   border: 2px solid #DBDBDB;
   overflow-x: scroll;
+}
+
+#page-list li {
+  display: flex;
+  justify-content: space-between;
 }
 
 .snapshot-admin-oinw {
