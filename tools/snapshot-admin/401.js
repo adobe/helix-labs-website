@@ -73,7 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const pw = document.getElementById('review-password').value;
     if (pw.length < 50) {
       const hash = await sha256(pw);
-      document.cookie = `reviewPassword=${hash}`;
+      document.cookie = `reviewPassword=${hash}; path=/`;
     }
     window.location.reload();
   });
