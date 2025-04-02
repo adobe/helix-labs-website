@@ -67,10 +67,6 @@ async function init() {
     body.value = text;
     logResponse([resp.status, 'GET', robotsUrl, resp.headers.get('x-error') || '']);
   });
-
-  adminForm.addEventListener('reset', () => {
-    body.value = '';
-  });
 }
 
 init();
