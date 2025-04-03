@@ -11,6 +11,7 @@ const referrer = new URL(params.get('referrer'));
 const OWNER = params.get('owner');
 const REPO = params.get('repo');
 const CUSTOM_REVIEW_HOST = params.get('reviewHost');
+const CUSTOM_LIVE_HOST = params.get('liveHost');
 const SNAPSHOT = 'default';
 const PATHNAME = referrer.pathname;
 
@@ -48,7 +49,19 @@ async function init() {
   const { locked } = manifest;
 
   const pageList = document.getElementById('page-list');
-  pageList.innerHTML = manifest.resources.map((e) => `<li>${e.path}</li>`).join('');
+  pageList.innerHTML = manifest.resources.map((e) => `<li><span>${e.path}</span><span class="page-list-remove" role="button" aria-label="Remove">&#x274C;</span></li>`).join('');
+  pageList.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('page-list-remove')) {
+      const path = e.target.parentElement.firstElementChild.textContent.trim();
+      // eslint-disable-next-line no-alert
+      const confirmed = window.confirm(`Are you sure you want to remove ${path} from this snapshot?`);
+      if (confirmed) {
+        SPINNER.setAttribute('aria-hidden', 'false');
+        await deleteFromSnapshot(OWNER, REPO, SNAPSHOT, path);
+        init();
+      }
+    }
+  });
 
   if (state === 'page') {
     const previewDate = status.preview.preview.lastModified;
@@ -129,7 +142,7 @@ REVIEW_REJECT.addEventListener('click', async () => {
 REVIEW_APPROVE.addEventListener('click', async () => {
   SPINNER.setAttribute('aria-hidden', 'false');
   await updateReviewStatus(OWNER, REPO, SNAPSHOT, 'approve');
-  init();
+  window.parent.location.href = CUSTOM_LIVE_HOST ? `https://${CUSTOM_LIVE_HOST}${PATHNAME}` : `https://main--${REPO}--${OWNER}.aem.live${PATHNAME}`;
 });
 
 init();
