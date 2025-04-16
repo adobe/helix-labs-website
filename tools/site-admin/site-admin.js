@@ -286,4 +286,9 @@ async function init() {
   if (org.value) displaySitesForOrg(org.value);
 }
 
-init();
+const isReady = init();
+
+// eslint-disable-next-line import/prefer-default-export
+export async function ready() {
+  return isReady;
+}
