@@ -222,6 +222,7 @@ function updateConfigFields() {
 async function init() {
   adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
   await initConfigField();
+  updateAdminUrl();
   site.addEventListener('input', updateAdminUrl, { once: true });
   site.addEventListener('change', updateAdminUrl);
   org.addEventListener('change', updateAdminUrl);

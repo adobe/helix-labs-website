@@ -121,6 +121,7 @@ function displaySiteDetails(path, name, elem, site = {
         <p class="button-wrapper">
           <button type="submit" id="${name}-save" class="button">Save</button>
           <button id="${name}-clone" class="button outline">Copy Site Config ...</button>
+          <a target="_blank" id="${name}-edit" href="/tools/admin-edit/index.html?org=${encodeURIComponent(org.value)}&site=${encodeURIComponent(name)}" class="button outline">Edit Site Config <span class="site-admin-oinw"></span></a>
           <button id="${name}-delete" class="button outline">Delete ...</button>
         </p>
         </fieldset>
@@ -158,6 +159,11 @@ function displaySiteDetails(path, name, elem, site = {
       remove.innerHTML += ' <i class="symbol symbol-loading"></i>';
       deleteSiteConfig(path);
     }
+  });
+
+  const adminEdit = elem.querySelector(`#${name}-edit`);
+  adminEdit.addEventListener('click', () => {
+    localStorage.setItem('admin-url', `https://admin.hlx.page/config/${org.value}/sites/${name}.json`);
   });
 
   // config field update
