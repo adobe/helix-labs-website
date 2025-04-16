@@ -325,4 +325,9 @@ async function init() {
   });
 }
 
-init();
+const isReady = init();
+
+// eslint-disable-next-line import/prefer-default-export
+export async function ready() {
+  return isReady;
+}

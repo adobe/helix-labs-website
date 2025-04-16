@@ -82,19 +82,6 @@ export function swapIcons() {
 }
 
 /**
- * Builds all synthetic blocks in a container element.
- * @param {Element} main The container element
- */
-// function buildAutoBlocks(main) {
-//   try {
-//     // build auto blocks
-//   } catch (error) {
-//     // eslint-disable-next-line no-console
-//     console.error('Auto Blocking failed', error);
-//   }
-// }
-
-/**
  * Builds a modal dialog element with a close button and body.
  * @returns {Array} Array containing the created dialog element and the body div.
  */
@@ -168,7 +155,6 @@ function decorateImages(main) {
 export function decorateMain(main) {
   decorateIcons(main);
   decorateImages(main);
-  // buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);
   decorateButtons(main);
@@ -209,13 +195,39 @@ async function loadEager(doc) {
   }
 }
 
+async function toolReady() {
+  const isToolPage = window.location.pathname.includes('/tools/') && window.location.pathname.endsWith('.html');
+  if (isToolPage) {
+    try {
+      const toolScript = [...document.querySelectorAll('script')].find((s) => {
+        if (s.src && s.src.includes('/tools/')) {
+          const toolName = s.src.split('/tools/').pop().split('/')[0];
+          return s.src.endsWith(`${toolName}.js`) || s.src.endsWith('index.js');
+        }
+
+        return false;
+      });
+      if (toolScript) {
+        const mod = await import(toolScript.src);
+        if (mod && mod.ready) {
+          return mod.ready();
+        }
+      }
+    } catch {
+      // do nothing
+    }
+  }
+
+  return Promise.resolve();
+}
+
 /**
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
  */
 async function loadLazy(doc) {
   const main = doc.querySelector('main');
-  await loadSections(main);
+  await loadSections(main, toolReady);
 
   const { hash } = window.location;
   const element = hash ? doc.getElementById(hash.substring(1)) : false;
