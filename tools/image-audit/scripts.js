@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
-import { decorateIcons } from '../../scripts/aem.js';
+import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
 import { initConfigField } from '../../utils/config/config.js';
 /* reporting utilities */
 /**
@@ -275,7 +275,10 @@ async function fetchImageDataFromPage(url) {
     if (html) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
-        const src = img.getAttribute('src').split('?')[0];
+        const picture = createOptimizedPicture(img.src, '', false, [{
+          width: 750,
+        }]);
+        const src = picture.querySelector('source').getAttribute('srcset');
         const alt = img.getAttribute('alt') || '';
         const width = img.getAttribute('width') || img.naturalWidth;
         const height = img.getAttribute('height') || img.naturalHeight;
