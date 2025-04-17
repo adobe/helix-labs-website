@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
-import { decorateIcons, createOptimizedPicture } from '../../scripts/aem.js';
+import { decorateIcons } from '../../scripts/aem.js';
 import { initConfigField } from '../../utils/config/config.js';
 /* reporting utilities */
 /**
@@ -206,6 +206,8 @@ function displayImages(images) {
     // create a new figure to hold the image and its metadata
     const figure = document.createElement('figure');
     figure.dataset.alt = validateAlt(data.alt, data.count);
+    figure.dataset.altText = data.alt.join(' ');
+    figure.dataset.pages = data.site.join(' ');
     figure.dataset.aspect = data.aspectRatio;
     figure.dataset.count = data.count;
     // build image
@@ -275,15 +277,13 @@ async function fetchImageDataFromPage(url) {
     if (html) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
-        const picture = createOptimizedPicture(img.src, '', false, [{
-          width: 750,
-        }]);
-        const src = picture.querySelector('source').getAttribute('srcset');
+        const originURL = new URL(img.getAttribute('src'), pageUrl);
+        const src = originURL.href.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
         const alt = img.getAttribute('alt') || '';
         const width = img.getAttribute('width') || img.naturalWidth;
         const height = img.getAttribute('height') || img.naturalHeight;
         const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
-        const fileType = src.split('.').pop();
+        const fileType = src.split('.').pop().split('?')[0];
         return {
           site: pageUrl,
           origin: new URL(pageUrl).origin,
@@ -547,6 +547,7 @@ function registerListeners(doc) {
   const filterActions = actionbar.querySelectorAll('input[name="filter"]');
   const imagesCounter = document.getElementById('images-counter');
   const pagesCounter = document.getElementById('pages-counter');
+
   /**
    * Handles admin form submission.
    * @param {Event} e - Submit event
@@ -648,9 +649,10 @@ function registerListeners(doc) {
   });
 
   filterActions.forEach((action) => {
-    action.addEventListener('change', () => {
+    action.addEventListener('input', () => {
       const checked = [...filterActions].filter((a) => a.checked).map((a) => a.value);
       const figures = [...gallery.querySelectorAll('figure')];
+      const textFilter = actionbar.querySelector('#filter-text');
 
       figures.forEach((figure) => {
         const hasAlt = figure.dataset.alt === 'true';
@@ -676,6 +678,16 @@ function registerListeners(doc) {
         } else if (checked.length === 0) { // no filters are selected
           // show all figures
           hide = false;
+        }
+        if (!hide && textFilter.value) {
+          // show figures that match the text filter
+          const alt = figure.dataset.altText || '';
+          const pages = figure.dataset.pages || '';
+
+          const matchesAlt = alt.toLowerCase().includes(textFilter.value.toLowerCase());
+          const matchesSrc = pages.toLowerCase().includes(textFilter.value.toLowerCase());
+
+          hide = !(matchesAlt || matchesSrc);
         }
         figure.setAttribute('aria-hidden', hide);
       });

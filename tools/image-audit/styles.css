@@ -194,3 +194,9 @@ label, legend, .field-help-text, .form-error {
 .image-audit .canvas .action-bar button[aria-selected='true'] {
   background-color: var(--gray-300);
 }
+
+.image-audit .canvas .action-bar input {
+  font-size: var(--body-size-s);
+  padding: 0.2em 0.5em;
+}
+
