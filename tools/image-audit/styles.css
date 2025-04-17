@@ -82,8 +82,26 @@ label, legend, .field-help-text, .form-error {
 }
 
 .image-audit .gallery figure {
+  position: relative;
   min-height: 44px;
   cursor: context-menu;
+}
+
+.image-audit .gallery figure::after {
+  content: attr(data-count);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--red-300);
+  position: absolute;
+  bottom: -1em;
+  left: -1em;
+  padding: var(--spacing-xs);
+  border-radius: var(--rounding-xl);
+  font-size: var(--body-size-s);
+  font-weight: bold;
+  color: var(--red-900);
+  min-width: 2.5em;
 }
 
 .image-audit .gallery figure button {

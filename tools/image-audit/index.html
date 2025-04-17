@@ -30,26 +30,13 @@
     <div>
       <form id="search-form" aria-hidden="false">
         <section class="form-field config-field">
-          <div class="form-field org-field">
-            <label for="org">Organization</label>
-            <input name="org" id="org" list="org-list" autocomplete="off" required />
-            <datalist id="org-list"></datalist>
-          </div>
-          <div class="form-field site-field">
-            <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" autocomplete="off" disabled required />
-            <datalist id="site-list"></datalist>
+          <div class="form-field url-field">
+            <label for="url">Site, Sitemap or Query Index</label>
+            <input name="url" id="url" required />
           </div>
         </section>
 
         <div class="field-group">
-          <div class="form-field text-field">
-            <label for="sitemap">Sitemap or Query Index</label>
-            <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
-            <div class="field-help-text">
-              <p>Path to sitemap or query index</p>
-            </div>
-          </div>
           
           <div class="form-field text-field path-filter-field">
             <label for="path">Path Filter</label>
