@@ -460,11 +460,10 @@ async function* fetchSitemap(sitemapURL) {
 
 /**
  * Fetches URLs from a query index.
- * @param {string} queryIndexPath - Path to the query index.
- * @param {string} liveHost - Live hostname.
+ * @param {string} indexUrl - URL of the query index.
  * @returns {AsyncGenerator<URL>} - Async generator of URLs.
  */
-async function* fetchQueryIndex(queryIndexPath, liveHost) {
+async function* fetchQueryIndex(indexUrl) {
   const limit = 512;
   let offset = 0;
   let more = true;
@@ -473,13 +472,13 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
     let res;
     try {
       // eslint-disable-next-line no-await-in-loop
-      res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+      res = await fetch(`https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(indexUrl)}?offset=${offset}&limit=${limit}`);
     } catch (err) {
       throw new Error('Failed on initial fetch of index.', err);
     }
 
     if (!res.ok) {
-      throw new Error(`Not found: ${queryIndexPath}`);
+      throw new Error(`Not found: ${indexUrl}`);
     }
     // eslint-disable-next-line no-await-in-loop
     const json = await res.json();
@@ -487,8 +486,8 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
     more = json.data.length > 0;
     for (let i = 0; i < json.data.length; i += 1) {
       const item = json.data[i];
-      const url = new URL(item.path, `https://${liveHost}`);
-      url.host = liveHost;
+      const path = item.path || item.Path;
+      const url = new URL(path, indexUrl);
       yield url;
     }
   } while (more);
