@@ -35,6 +35,7 @@ async function init() {
   bodyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!org.value || !site.value) {
+      // eslint-disable-next-line no-alert
       alert('Please select an organization and site first');
       return;
     }
