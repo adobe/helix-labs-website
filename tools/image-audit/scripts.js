@@ -259,9 +259,8 @@ function displayImages(images) {
 async function fetchPage(url) {
   const req = await fetch(`https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`, { redirect: 'manual' });
   if (req.ok) {
-    const temp = document.createElement('div');
-    temp.innerHTML = await req.text();
-    return temp;
+    const html = await req.text();
+    return new DOMParser().parseFromString(html, 'text/html');
   }
   return null;
 }
