@@ -18,6 +18,12 @@
   }
 }
 
+.headers-edit .button-bar {
+  margin-top: var(--spacing-m);
+  display: flex;
+  justify-content: space-between;
+}
+
 .headers-edit #admin-form .button-wrapper {
   align-self: center;
 }
@@ -102,3 +108,7 @@
 .headers-edit .status-light.http3::before {
   color: var(--yellow-900);
 } 
+
+.headers-edit .button-bar[aria-hidden='true'] {
+  display: none;
+}

@@ -49,15 +49,19 @@
           <div class="headers-list" id="headers-list">
             <!-- Headers will be dynamically added here -->
           </div>
-          <div class="add-header">
-            <button type="button" id="add-header" class="button">Add Header</button>
+        </div>
+        <div class="button-bar" aria-hidden="true">
+          <div class="button-wrapper">
+            <button type="button" id="add-header" class="button outline">Add Header...</button>
+          </div>
+          <div class="button-wrapper">
+            <button type="submit" id="save" class="button">Save</button>
           </div>
         </div>
-        <div class="save-wrapper">
-          <p class="button-wrapper">
-            <button type="submit" id="save" class="button">Save</button>
-          </p>
-        </div>
+        <datalist id="header-keys">
+          <option value="content-security-policy">content-security-policy</option>
+          <option value="access-control-allow-origin">access-control-allow-origin</option>
+        </datalist>
       </form>
     </div>
 
