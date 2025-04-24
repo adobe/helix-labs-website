@@ -31,7 +31,6 @@ function logResponse(cols) {
 }
 
 function createHeaderItem(header = '', value = '') {
-  console.log(header, value);
   const div = document.createElement('div');
   div.className = 'header-item';
 
@@ -123,11 +122,9 @@ async function init() {
       originalHeaders = (await resp.json());
 
       const headers = originalHeaders['/**'];
-      console.log(headers);
 
       // Add each header
       headers.forEach(({ key, value }) => {
-        console.log(key, value);
         headersList.append(createHeaderItem(key, value));
       });
     } else if (resp.status === 404) {
