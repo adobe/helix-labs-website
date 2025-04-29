@@ -164,6 +164,15 @@ export function updateConfig() {
 }
 
 /**
+ * Sends a message to the Sidekick extension and returns the response
+ */
+export async function messageSidekick(action, msg = {}) {
+  const { chrome } = window;
+  const id = 'dfeojcdljkdfebmdcmilekahpcjkafdp'; // 'igkmdomcgoebiipaifhmpfjhbjccggml';
+  return chrome.runtime.sendMessage(id, { action, ...msg });
+}
+
+/**
  * Populates org/site fields with values from URL params.
  * @param {Array.<HTMLInputElement>} fields - Array of input elements.
  * @param {string} search - URL search string.
@@ -208,49 +217,28 @@ function populateFromStorage(org, orgList, site, siteList) {
  * Populates org field from sidekick.
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
-  return new Promise((resolve) => {
-    const { chrome } = window;
-    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
-      let messageResolved = false;
-      const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
-      chrome.runtime.sendMessage(id, { action: 'getSites' }, (projects) => {
-        if (projects && projects.length > 0) {
-          updateStorageFromSidekick(projects);
+  const projects = await messageSidekick('getSites');
+  if (projects && projects.length > 0) {
+    updateStorageFromSidekick(projects);
 
-          const { orgs, sites } = projects.reduce((acc, part) => {
-            if (!acc.orgs.includes(part.org)) acc.orgs.push(part.org);
-            if (!acc.sites[part.org]) acc.sites[part.org] = [];
-            if (!acc.sites[part.org].includes(part.site)) acc.sites[part.org].push(part.site);
+    const { orgs, sites } = projects.reduce((acc, part) => {
+      if (!acc.orgs.includes(part.org)) acc.orgs.push(part.org);
+      if (!acc.sites[part.org]) acc.sites[part.org] = [];
+      if (!acc.sites[part.org].includes(part.site)) acc.sites[part.org].push(part.site);
 
-            return acc;
-          }, { orgs: [], sites: {} });
+      return acc;
+    }, { orgs: [], sites: {} });
 
-          // populate org list
-          populateList(orgList, orgs);
+    // populate org list
+    populateList(orgList, orgs);
 
-          // populate org & site field
-          const lastProject = projects[0];
-          const selectedOrg = setFieldValue(org, lastProject.org, 'sidekick');
+    // populate org & site field
+    const lastProject = projects[0];
+    const selectedOrg = setFieldValue(org, lastProject.org, 'sidekick');
 
-          populateList(siteList, sites[selectedOrg] || []);
-          setFieldValue(site, sites[selectedOrg][0], 'sidekick');
-        }
-
-        messageResolved = true;
-        resolve();
-      });
-
-      setTimeout(() => {
-        if (!messageResolved) {
-          // eslint-disable-next-line no-console
-          console.warn('Sidekick message not resolved in time');
-          resolve();
-        }
-      }, 500);
-    } else {
-      resolve();
-    }
-  });
+    populateList(siteList, sites[selectedOrg] || []);
+    setFieldValue(site, sites[selectedOrg][0], 'sidekick');
+  }
 }
 
 async function populateConfig(config) {

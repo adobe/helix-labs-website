@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
+    move-as-header="true"
+  >
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Admin</title>
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="/tools/project-admin/project-admin.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/project-admin/project-admin.css" />
+</head>
+
+<body class="site-admin">
+  <header></header>
+  <main>
+    <!-- TITLE -->
+    <div>
+      <h1>Project Admin</h1>
+      <p>
+        Manage the projects in your sidekick.
+      </p>
+    </div>
+
+    <!-- BODY FORM -->
+    <div id="sites" aria-hidden="true">
+    </div>
+
+    <!-- CONSOLE -->
+    <div>
+      <div class="table" aria-hidden="true">
+        <table id="console">
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+  <footer></footer>
+</body>
+
+</html>
