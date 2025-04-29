@@ -168,7 +168,7 @@ export function updateConfig() {
  */
 export async function messageSidekick(action, msg = {}) {
   const { chrome } = window;
-  const id = 'dfeojcdljkdfebmdcmilekahpcjkafdp'; // 'igkmdomcgoebiipaifhmpfjhbjccggml';
+  const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
   return chrome.runtime.sendMessage(id, { action, ...msg });
 }
 
