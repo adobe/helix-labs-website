@@ -92,9 +92,9 @@ function displayProject(config, editMode = false) {
       ${externalLink(previewUrl, 'Preview', true)}
     </div>
     <div class="projects-project-details">
-      <div>
+      ${Array.isArray(mountpoints) && mountpoints.length >= 1 ? `<div>
         <div>Content:</div><div>${externalLink(mountpoints[0], new URL(mountpoints[0]).host)}</div>
-      </div>
+      </div>` : ''}
       <div>
         <div>Preview:</div><div>${externalLink(previewUrl, new URL(previewUrl).host)}</div>
       </div>
