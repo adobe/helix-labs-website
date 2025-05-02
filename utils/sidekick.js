@@ -1,5 +1,5 @@
-const SIDEKICK_ID = 'dfeojcdljkdfebmdcmilekahpcjkafdp';
-// const SIDEKICK_ID = 'igkmdomcgoebiipaifhmpfjhbjccggml';
+// const SIDEKICK_ID = 'dfeojcdljkdfebmdcmilekahpcjkafdp';
+const SIDEKICK_ID = 'igkmdomcgoebiipaifhmpfjhbjccggml';
 
 export const NO_SIDEKICK = 'no-sidekick';
 
