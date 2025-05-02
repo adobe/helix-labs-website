@@ -1,7 +1,7 @@
-import { messageSidekick } from '../../utils/config/config.js';
+import { messageSidekick, NO_SIDEKICK } from '../../utils/sidekick.js';
 
 /* eslint-disable no-alert */
-const projectsElem = document.querySelector('div#sites');
+const projectsElem = document.querySelector('div#projects');
 
 async function saveProject() {
   // todo
@@ -15,6 +15,22 @@ async function removeProject() {
   // logResponse([resp.status, 'DELETE', adminURL, resp.headers.get('x-error') || '']);
   // // eslint-disable-next-line no-use-before-define
   // displaySitesForOrg(org.value);
+}
+
+async function login(org, site, { idp, selectAccount }) {
+  const defaultIdp = idp === 'default';
+  return messageSidekick({
+    action: 'login',
+    org,
+    site,
+    idp: defaultIdp ? null : idp,
+    selectAccount,
+  });
+}
+
+function externalLink(url, text, iconOnly = false) {
+  return `<a target="_blank" href="${url}" title="${text || ''}">
+    ${iconOnly ? '<span class="project-admin-oinw"></span>' : text}</a>`;
 }
 
 function displayProjectForm(elem, config) {
@@ -33,7 +49,7 @@ function displayProjectForm(elem, config) {
         </div>
         <p class="button-wrapper">
           <button id="${name}-save" class="button">Save</button>
-          <button id="${name}-remove" class="button outline">Remove ...</button>
+          <button id="${name}-remove" class="button outline">Remove</button>
           <button id="${name}-cancel" class="button outline">Cancel</button>
         </p>
       </fieldset>
@@ -59,57 +75,75 @@ function displayProjectForm(elem, config) {
   cancel.addEventListener('click', (e) => {
     e.preventDefault();
     // eslint-disable-next-line no-use-before-define
-    elem.replaceWith(drawProject(config));
+    elem.replaceWith(displayProject(config));
   });
 }
 
-function drawProject(config, editMode = false) {
-  const { org, site, project } = config;
-  const name = project || `${org}/${site}`;
+function displayProject(config, editMode = false) {
+  const {
+    org, site, project, mountpoints, previewHost, host,
+  } = config;
+  const name = project || site;
+  const previewUrl = `https://${previewHost || `main--${site}--${org}.aem.page`}/`;
+
   const li = document.createElement('li');
-  li.innerHTML = `<div class="sites-site-name">${name} <a target="_blank" href="https://main--${site}--${org}.aem.page/"><span class="site-admin-oinw"></span></a></div>`;
+  li.innerHTML = `<div class="projects-project-name">
+      ${name}
+      ${externalLink(previewUrl, 'Preview', true)}
+    </div>
+    <div class="projects-project-details">
+      <div>
+        <div>Content:</div><div>${externalLink(mountpoints[0], new URL(mountpoints[0]).host)}</div>
+      </div>
+      <div>
+        <div>Preview:</div><div>${externalLink(previewUrl, new URL(previewUrl).host)}</div>
+      </div>
+      ${host ? `<div><div>Production: </div><div>${externalLink(host, host)}</div></div>` : ''}
+    </div>`;
+
   const buttons = document.createElement('div');
-  buttons.className = 'sites-site-edit';
+  buttons.className = 'projects-project-edit';
+
   const edit = document.createElement('button');
   edit.className = 'button';
   edit.textContent = 'Edit';
   edit.ariaHidden = editMode;
   buttons.append(edit);
-  const cancel = document.createElement('button');
-  cancel.className = 'button outline';
-  cancel.textContent = 'Cancel';
-  cancel.ariaHidden = !editMode;
-  buttons.append(cancel);
+
   li.append(buttons);
   const details = document.createElement('div');
-  details.className = 'sites-site-details';
+  details.className = 'projects-project-details';
   details.ariaHidden = !editMode;
 
   li.append(details);
 
   edit.addEventListener('click', async () => {
     displayProjectForm(li, config);
-    cancel.ariaHidden = false;
     edit.ariaHidden = true;
     details.ariaHidden = false;
-    // logResponse([resp.status, 'GET', adminURL, resp.headers.get('x-error') || '']);
-  });
-
-  cancel.addEventListener('click', async () => {
-    cancel.ariaHidden = true;
-    edit.ariaHidden = false;
-    details.innerText = '';
-    details.ariaHidden = true;
   });
 
   return li;
 }
 
-function displayProjects(projects) {
+function displayProjects(projects, authInfo) {
+  let message;
+  if (projects === NO_SIDEKICK) {
+    message = `No sidekick found. Make sure the ${externalLink('https://chromewebstore.google.com/detail/aem-sidekick/igkmdomcgoebiipaifhmpfjhbjccggml?authuser=0&hl=en', 'AEM Sidekick')} extension is installed and enabled.`;
+  } else if (!projects || projects.length === 0) {
+    message = `No projects found. See the ${externalLink('https://www.aem.live/docs/sidekick#adding-your-project', 'sidekick documentation')} to find out how to add projects to your sidekick.`;
+  } else {
+    message = 'Manage the projects in your sidekick.';
+  }
   projectsElem.ariaHidden = false;
-  projectsElem.textContent = '';
-  const div = document.createElement('div');
-  div.classList.add('sites-list-button-bar');
+  projectsElem.innerHTML = `<div class="default-content-wrapper"><p>${message}</p></div>`;
+
+  if (projects === NO_SIDEKICK) {
+    return;
+  }
+
+  const buttonBar = document.createElement('div');
+  buttonBar.classList.add('projects-list-button-bar');
   // const addNew = document.createElement('button');
   // addNew.className = 'button';
   // addNew.textContent = 'Add new project ...';
@@ -118,20 +152,91 @@ function displayProjects(projects) {
   //   addProject();
   // });
   // div.append(addNew);
-  projectsElem.append(div);
-  const div2 = document.createElement('div');
-  const sitesList = document.createElement('ol');
-  sitesList.id = 'sites-list';
+  projectsElem.append(buttonBar);
+
+  // sort projects by org
+  const projectsByOrg = {};
   projects.forEach((project) => {
-    sitesList.append(drawProject(project));
+    const { org } = project;
+    if (!projectsByOrg[org]) {
+      projectsByOrg[org] = [];
+    }
+    projectsByOrg[org].push(project);
   });
-  div2.append(sitesList);
-  projectsElem.append(div2);
+
+  const sortedOrgs = Object.keys(projectsByOrg).sort((a, b) => a.localeCompare(b));
+  sortedOrgs.forEach((org) => {
+    const orgContainer = document.createElement('div');
+    orgContainer.classList.add('projects-org');
+
+    const titleBar = document.createElement('div');
+    titleBar.classList.add('projects-title-bar');
+    titleBar.innerHTML = `<h3>${org}</h3>`;
+
+    const loginOptions = document.createElement('div');
+    loginOptions.classList.add('form-field', 'picker-field');
+    loginOptions.innerHTML = `
+      <input type="button" class="button outline" id="login-button-${org}"
+        value="${authInfo.includes(org) ? 'Signed in' : 'Sign in'}"
+        ${authInfo.includes(org) ? 'disabled' : ''}>
+      ${authInfo.includes(org) ? '' : `<i id="login-button-icon-${org}" class="symbol symbol-chevron"></i>`}
+      <ul class="menu" id="login-options-${org}" role="listbox" aria-labelledby="login-button-${org}" hidden>
+        <li role="option" aria-selected="false" data-value="default">Default IDP</li>
+        <li role="option" aria-selected="false" data-value="microsoft">Microsoft</li>
+        <li role="option" aria-selected="false" data-value="google">Google</li>
+        <li role="option" aria-selected="false" data-value="adobe">Adobe</li>
+      </ul>
+    `;
+
+    titleBar.append(loginOptions);
+    orgContainer.append(titleBar);
+
+    // enable login dropdown
+    const loginPicker = orgContainer.querySelector(`input#login-button-${org}`);
+    const loginPickerIcon = orgContainer.querySelector(`i#login-button-icon-${org}`);
+    const loginDropdown = orgContainer.querySelector(`ul#login-options-${org}`);
+    const loginIdps = loginDropdown.querySelectorAll('[role="option"]');
+    loginPicker.addEventListener('click', (e) => {
+      const { target } = e;
+      const expanded = target.getAttribute('aria-expanded') === 'true';
+      target.setAttribute('aria-expanded', !expanded);
+      loginDropdown.hidden = expanded;
+    });
+    loginDropdown.addEventListener('click', async (e) => {
+      const option = e.target.closest('[role="option"]');
+      if (option) {
+        loginPicker.setAttribute('aria-expanded', false);
+        loginDropdown.hidden = true;
+        loginIdps.forEach((o) => o.setAttribute('aria-selected', o === option));
+        const { value: idp } = option.dataset;
+        loginPickerIcon.classList.replace('symbol-chevron', 'symbol-loading');
+        await login(org, projectsByOrg[org][0].site, { idp });
+        setTimeout(() => {
+          // eslint-disable-next-line no-use-before-define
+          init();
+        }, 1000);
+      }
+    });
+
+    // list sites for org
+    const sitesList = document.createElement('ol');
+    sitesList.classList.add('projects-list');
+    sitesList.id = `projects-list-${org}`;
+    projectsByOrg[org]
+      .sort((a, b) => a.site.localeCompare(b.site))
+      .forEach((project) => {
+        sitesList.append(displayProject(project));
+      });
+
+    orgContainer.append(sitesList);
+    projectsElem.append(orgContainer);
+  });
 }
 
 async function init() {
-  const projects = await messageSidekick('getSites') || [];
-  displayProjects(projects);
+  const authInfo = await messageSidekick({ action: 'getAuthInfo' }) || [];
+  const projects = await messageSidekick({ action: 'getSites' }) || [];
+  displayProjects(projects, authInfo);
 }
 
 init();

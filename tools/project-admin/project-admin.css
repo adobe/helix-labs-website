@@ -1,44 +1,59 @@
-.site-admin [aria-hidden='true'] {
+.project-admin [aria-hidden='true'] {
   display: none;
 }
 
-.site-admin #site-admin-form {
+.project-admin #site-admin-form {
   display: grid;
   gap: var(--spacing-s);
 }
 
-.site-admin #site-admin-form .button-wrapper {
+.project-admin #site-admin-form .button-wrapper {
   align-self: center;
 }
 
 
-.site-admin .status-light {
+.project-admin .status-light {
   white-space: nowrap;
 }
 
-.site-admin .status-light::before {
+.project-admin .status-light::before {
   color: var(--red-900);
 }
 
-.site-admin .status-light.http1::before {
+.project-admin .status-light.http1::before {
   color: var(--blue-900);
 }
 
-.site-admin .status-light.http2::before {
+.project-admin .status-light.http2::before {
   color: var(--green-900);
 }
 
-.site-admin .status-light.http3::before {
+.project-admin .status-light.http3::before {
   color: var(--yellow-900);
 }
 
-.site-admin ol#sites-list {
+.project-admin .projects-org {
+  margin: 0 0 16px;
+}
+
+.project-admin .projects-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 6px;
+}
+
+.project-admin .projects-title-bar h3 {
+  margin-top: 0.25em;
+}
+
+.project-admin ol.projects-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.site-admin ol#sites-list li {
+.project-admin ol.projects-list li {
   padding: var(--spacing-s) 0;
   border-top: var(--border-s) solid var(--gray-300);
   display: grid;
@@ -48,29 +63,72 @@
   align-items: center;
 }
 
-.site-admin .sites-list-button-bar {
+.project-admin ol.projects-list li:first-of-type {
+  border-top: var(--border-m) solid var(--gray-700);
+}
+
+.project-admin .projects-list-button-bar {
   display: flex;
   justify-content: end;
 }
 
-.site-admin .sites-site-name {
+.project-admin .projects-project-name {
   grid-area: id;
   font-size: var(--body-size-xl);
   font-weight: bold;
 }
 
-.site-admin .sites-site-edit {
+.project-admin .projects-project-edit {
   grid-area: button;
 }
 
-.site-admin .sites-site-details {
+.project-admin .projects-project-details {
   grid-area: details;
-  margin-top: var(--spacing-m);
-  padding-top: var(--spacing-m);
-  border-top: var(--border-s) solid var(--gray-300);
+  margin-bottom: var(--spacing-m);
+  font-size: var(--body-size-m);
 }
 
-.site-admin-oinw {
+.project-admin .projects-project-details > div {
+  display: flex;
+}
+
+.project-admin .projects-project-details > div > div:first-child {
+  min-width: 100px;
+}
+
+.project-admin .form-field.picker-field  {
+  width: 200px;
+  display: flex;
+  justify-content: end;
+}
+
+.project-admin .form-field.picker-field input.button {
+  background-color: initial;
+  border-color: initial;
+  padding-right: 32px;
+  box-sizing: border-box;
+  width: max-content;
+}
+
+.project-admin .form-field.picker-field i.symbol {
+  color: var(--color-link);
+  top: 13px;
+  right: 10px;
+}
+
+.project-admin .form-field.picker-field input[disabled] {
+  padding-right: 20px;
+}
+
+.project-admin .form-field.picker-field input[disabled] ~ i.symbol {
+  color: var(--gray-400);
+}
+
+.project-admin .form-field.picker-field ul li[data-value="default"] {
+  font-weight: 700;
+}
+
+.project-admin-oinw {
   margin-bottom: -2px;
   margin-left: 4px;
   box-sizing: border-box;
@@ -83,8 +141,8 @@
   border-radius: 4px;
 }
 
-.site-admin-oinw::after,
-.site-admin-oinw::before {
+.project-admin-oinw::after,
+.project-admin-oinw::before {
   content: "";
   display: block;
   box-sizing: border-box;
@@ -92,7 +150,7 @@
   right: 4px;
 }
 
-.site-admin-oinw::after {
+.project-admin-oinw::after {
   width: 10px;
   height: 2px;
   background: currentcolor;
@@ -100,7 +158,7 @@
   bottom: 8px;
 }
 
-.site-admin-oinw::before {
+.project-admin-oinw::before {
   width: 6px;
   height: 6px;
   top: 4px;

@@ -1,4 +1,5 @@
 import { loadCSS } from '../../scripts/aem.js';
+import { messageSidekick } from '../sidekick.js';
 
 /**
  * Validates the existence and type of config elements.
@@ -161,15 +162,6 @@ export function updateConfig() {
     populateList(cfg.orgList, [cfg.org.value]);
     populateList(cfg.siteList, [cfg.site.value]);
   }
-}
-
-/**
- * Sends a message to the Sidekick extension and returns the response
- */
-export async function messageSidekick(action, msg = {}) {
-  const { chrome } = window;
-  const id = 'igkmdomcgoebiipaifhmpfjhbjccggml';
-  return chrome.runtime.sendMessage(id, { action, ...msg });
 }
 
 /**
