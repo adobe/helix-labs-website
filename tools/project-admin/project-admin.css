@@ -54,10 +54,10 @@
 }
 
 .project-admin ol.projects-list li {
-  padding: var(--spacing-s) 0;
+  padding: var(--spacing-l) 0;
   border-top: var(--border-s) solid var(--gray-300);
   display: grid;
-  grid-template-areas: "id button" "details details";
+  grid-template-areas: "id button" "details button";
   grid-template-columns: 1fr max-content;
   justify-content: space-between;
   align-items: center;
@@ -105,19 +105,25 @@
 .project-admin .form-field.picker-field input.button {
   background-color: initial;
   border-color: initial;
-  padding-right: 32px;
+  padding-right: 36px;
+  padding-left: 16px;
   box-sizing: border-box;
   width: max-content;
 }
 
 .project-admin .form-field.picker-field i.symbol {
+  display: block;
+  border-left: solid 1px var(--color-link);
+  padding: 0 18px 0 8px;
+  height: 38px;
   color: var(--color-link);
-  top: 13px;
-  right: 10px;
+  top: 3px;
+  right: 3px;
+  cursor: pointer;
 }
 
 .project-admin .form-field.picker-field input[disabled] {
-  padding-right: 20px;
+  padding-right: 16px;
 }
 
 .project-admin .form-field.picker-field input[disabled] ~ i.symbol {

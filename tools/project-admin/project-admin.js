@@ -3,31 +3,6 @@ import { messageSidekick, NO_SIDEKICK } from '../../utils/sidekick.js';
 /* eslint-disable no-alert */
 const projectsElem = document.querySelector('div#projects');
 
-async function saveProject() {
-  // todo
-  // logResponse([resp.status, 'POST', adminURL, resp.headers.get('x-error') || '']);
-  // // eslint-disable-next-line no-use-before-define
-  // displaySitesForOrg(org.value);
-}
-
-async function removeProject() {
-  // todo
-  // logResponse([resp.status, 'DELETE', adminURL, resp.headers.get('x-error') || '']);
-  // // eslint-disable-next-line no-use-before-define
-  // displaySitesForOrg(org.value);
-}
-
-async function login(org, site, { idp, selectAccount }) {
-  const defaultIdp = idp === 'default';
-  return messageSidekick({
-    action: 'login',
-    org,
-    site,
-    idp: defaultIdp ? null : idp,
-    selectAccount,
-  });
-}
-
 function externalLink(url, text, iconOnly = false) {
   return `<a target="_blank" href="${url}" title="${text || ''}">
     ${iconOnly ? '<span class="project-admin-oinw"></span>' : text}</a>`;
@@ -56,20 +31,38 @@ function displayProjectForm(elem, config) {
     </form>`;
   const fs = elem.querySelector('fieldset');
   const save = elem.querySelector(`#${name}-save`);
-  save.addEventListener('click', (e) => {
+  save.addEventListener('click', async (e) => {
     fs.disabled = 'disabled';
     save.innerHTML += ' <i class="symbol symbol-loading"></i>';
     e.preventDefault();
-    saveProject({
-      project: elem.querySelector(`input[id="${name}-project"]`).value,
+    const success = await messageSidekick({
+      action: 'updateSite',
+      config: {
+        project: elem.querySelector(`input[id="${name}-project"]`).value,
+      },
     });
+    if (success) {
+      // eslint-disable-next-line no-use-before-define
+      init();
+    } else {
+      // todo: error handling
+    }
   });
   const remove = elem.querySelector(`#${name}-remove`);
-  remove.addEventListener('click', (e) => {
+  remove.addEventListener('click', async (e) => {
     e.preventDefault();
     fs.disabled = 'disabled';
     remove.innerHTML += ' <i class="symbol symbol-loading"></i>';
-    removeProject({ org, site });
+    const success = await messageSidekick({
+      action: 'removeSite',
+      config,
+    });
+    if (success) {
+      // eslint-disable-next-line no-use-before-define
+      init();
+    } else {
+      // todo: error handling
+    }
   });
   const cancel = elem.querySelector(`#${name}-cancel`);
   cancel.addEventListener('click', (e) => {
@@ -148,8 +141,7 @@ function displayProjects(projects, authInfo) {
   // addNew.className = 'button';
   // addNew.textContent = 'Add new project ...';
   // addNew.addEventListener('click', () => {
-  //   // eslint-disable-next-line no-use-before-define
-  //   addProject();
+  //   // todo: add new project
   // });
   // div.append(addNew);
   projectsElem.append(buttonBar);
@@ -173,13 +165,14 @@ function displayProjects(projects, authInfo) {
     titleBar.classList.add('projects-title-bar');
     titleBar.innerHTML = `<h3>${org}</h3>`;
 
+    // login options
     const loginOptions = document.createElement('div');
     loginOptions.classList.add('form-field', 'picker-field');
     loginOptions.innerHTML = `
-      <input type="button" class="button outline" id="login-button-${org}"
+      <input type="button" class="button outline" id="login-button-${org}" title="Sign in"
         value="${authInfo.includes(org) ? 'Signed in' : 'Sign in'}"
         ${authInfo.includes(org) ? 'disabled' : ''}>
-      ${authInfo.includes(org) ? '' : `<i id="login-button-icon-${org}" class="symbol symbol-chevron"></i>`}
+      ${authInfo.includes(org) ? '' : `<i id="login-button-icon-${org}" class="symbol symbol-chevron" title="Sign in options"></i>`}
       <ul class="menu" id="login-options-${org}" role="listbox" aria-labelledby="login-button-${org}" hidden>
         <li role="option" aria-selected="false" data-value="default">Default IDP</li>
         <li role="option" aria-selected="false" data-value="microsoft">Microsoft</li>
@@ -196,12 +189,16 @@ function displayProjects(projects, authInfo) {
     const loginPickerIcon = orgContainer.querySelector(`i#login-button-icon-${org}`);
     const loginDropdown = orgContainer.querySelector(`ul#login-options-${org}`);
     const loginIdps = loginDropdown.querySelectorAll('[role="option"]');
-    loginPicker.addEventListener('click', (e) => {
+    loginPicker.addEventListener('click', () => {
+      loginDropdown.querySelector('li').click();
+    });
+    loginPickerIcon?.addEventListener('click', (e) => {
       const { target } = e;
       const expanded = target.getAttribute('aria-expanded') === 'true';
       target.setAttribute('aria-expanded', !expanded);
       loginDropdown.hidden = expanded;
     });
+    // trigger login on dropdown click
     loginDropdown.addEventListener('click', async (e) => {
       const option = e.target.closest('[role="option"]');
       if (option) {
@@ -210,7 +207,14 @@ function displayProjects(projects, authInfo) {
         loginIdps.forEach((o) => o.setAttribute('aria-selected', o === option));
         const { value: idp } = option.dataset;
         loginPickerIcon.classList.replace('symbol-chevron', 'symbol-loading');
-        await login(org, projectsByOrg[org][0].site, { idp });
+        const defaultIdp = idp === 'default';
+        await messageSidekick({
+          action: 'login',
+          org,
+          site: projectsByOrg[org][0].site, // use first site in org
+          idp: defaultIdp ? null : idp,
+          // selectAccount,
+        });
         setTimeout(() => {
           // eslint-disable-next-line no-use-before-define
           init();
