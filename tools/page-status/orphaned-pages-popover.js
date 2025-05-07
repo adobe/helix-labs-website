@@ -1,6 +1,7 @@
 const ORPHANED_PAGES_LIST = document.getElementById('orphaned-pages-list');
 const SPINNER = document.getElementById('spinner');
 const STATUS = document.getElementById('orphaned-pages-status');
+const HIDE_DRAFTS = document.getElementById('hide-drafts'); 
 const params = new URLSearchParams(window.location.search);
 const ORG = params.get('owner');
 const SITE = params.get('repo');
@@ -42,6 +43,7 @@ async function fetchJobUrl() {
 
 function displayJobDetails() {
   const details = JOB_DETAILS.data.resources;
+  STATUS.innerHTML = `Phase: ${JOB_DETAILS.data.phase}`;
   if (details && details.length > 0) {
     STATUS.innerHTML = `Scanned ${details.length} pages...`;
     const orphanedPages = details.filter(
@@ -57,7 +59,7 @@ function displayJobDetails() {
       },
     );
     orphanedPages.forEach((detail) => {
-      ORPHANED_PAGES_LIST.innerHTML += `<li>${detail.path}</li>`;
+      ORPHANED_PAGES_LIST.innerHTML += `<li class="${detail.path.startsWith('/drafts') ? 'draft' : ''}">${detail.path}</li>`;
     });
     if (orphanedPages.length === 0) {
       if (JOB_DETAILS.state === 'stopped') {
@@ -85,6 +87,13 @@ function pollJob(detailsURL) {
 
 function init() {
   console.log('init', ORG, SITE);
+  HIDE_DRAFTS.addEventListener('change', () => {
+    if (HIDE_DRAFTS.checked) {
+      ORPHANED_PAGES_LIST.classList.add('hide-drafts');
+    } else {
+      ORPHANED_PAGES_LIST.classList.remove('hide-drafts');
+    }
+  });
   const runReportButton = document.getElementById('run-report');
   runReportButton.addEventListener('click', async () => {
     const jobUrl = await fetchJobUrl();

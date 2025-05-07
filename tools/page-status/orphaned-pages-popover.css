@@ -105,6 +105,6 @@ details[open] {
   justify-content: space-between;
 }
 
-.snapshot-admin-oinw {
-  transform: scale(0.75) translateX(-0.3em) translateY(0.3em);
+.hide-drafts li.draft {
+  display: none;
 }
