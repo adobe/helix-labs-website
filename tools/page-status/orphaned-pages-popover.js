@@ -87,7 +87,7 @@ function displayJobDetails() {
       },
     ).sort((a, b) => a.path.localeCompare(b.path));
     orphanedPages.forEach((detail) => {
-      ORPHANED_PAGES_LIST.innerHTML += `<li class="${detail.path.startsWith('/drafts') ? 'draft' : ''}">
+      ORPHANED_PAGES_LIST.innerHTML += `<li class="${detail.path.includes('/drafts/') ? 'draft' : ''}">
       <input type="checkbox" class="orphaned-page-checkbox" value="${detail.path}">
       <a href="https://${LIVE_HOST}${detail.path}" target="_blank">${detail.path}</a></li>`;
     });
