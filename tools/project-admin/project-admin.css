@@ -104,6 +104,7 @@
   width: 200px;
   display: flex;
   justify-content: end;
+  user-select: none;
 }
 
 .project-admin .form-field.picker-field input.button {
