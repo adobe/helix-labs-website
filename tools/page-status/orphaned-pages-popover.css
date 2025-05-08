@@ -5,6 +5,10 @@ body {
   padding: 0 8px;
 }
 
+body.standalone {
+  background-color: #000;
+}
+
 p, details {
   margin: 4px 0;
   font-size: 12px;
@@ -89,20 +93,10 @@ details[open] {
   width: 100%;
 }
 
-#page-list {
-  background-color: #0008;
-  font-family: 'Courier New', Courier, monospace;
+#orphaned-pages-list {
   list-style: none;
-  padding: 3px;
-  margin: 5px -5px;
-  border-radius: 5px;
-  border: 2px solid #DBDBDB;
-  overflow-x: scroll;
-}
-
-#page-list li {
-  display: flex;
-  justify-content: space-between;
+  padding: 0;
+  margin: 10px 0;
 }
 
 .hide-drafts li.draft {
