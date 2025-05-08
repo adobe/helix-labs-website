@@ -78,6 +78,10 @@
   font-weight: bold;
 }
 
+.project-admin .projects-project-name h4 {
+  margin-bottom: 16px;
+}
+
 .project-admin .projects-project-edit {
   grid-area: button;
 }
@@ -120,6 +124,10 @@
   top: 3px;
   right: 3px;
   cursor: pointer;
+}
+
+.project-admin .form-field.picker-field i.symbol[aria-hidden="true"] {
+  display: none;
 }
 
 .project-admin .form-field.picker-field input[disabled] {

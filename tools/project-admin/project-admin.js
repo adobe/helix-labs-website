@@ -8,6 +8,26 @@ function externalLink(url, text, iconOnly = false) {
     ${iconOnly ? '<span class="project-admin-oinw"></span>' : text}</a>`;
 }
 
+function collapseDropdowns(e) {
+  const { target } = e;
+  const { nextElementSibling: next } = target;
+  const hasMenu = next && next.tagName.toLowerCase() === 'ul' && next.classList.contains('menu');
+
+  if (target.closest('ul') || hasMenu) {
+    // ignore click on picker icon or inside dropdown
+    return;
+  }
+  const dropdowns = document.querySelectorAll('ul.menu');
+  dropdowns.forEach((dropdown) => {
+    if (!dropdown.hidden) {
+      dropdown.hidden = true;
+      const button = dropdown.previousElementSibling;
+      button.setAttribute('aria-expanded', false);
+    }
+  });
+  document.removeEventListener('click', collapseDropdowns);
+}
+
 function displayProjectForm(elem, config) {
   const { org, site, project } = config;
   const name = `${org}--${site}`;
@@ -81,8 +101,7 @@ function displayProject(config, editMode = false) {
 
   const li = document.createElement('li');
   li.innerHTML = `<div class="projects-project-name">
-      ${name}
-      ${externalLink(previewUrl, 'Preview', true)}
+      <h4>${name} ${externalLink(previewUrl, 'Preview', true)}</h4>
     </div>
     <div class="projects-project-details">
       ${Array.isArray(mountpoints) && mountpoints.length >= 1 ? `<div>
@@ -98,7 +117,7 @@ function displayProject(config, editMode = false) {
   buttons.className = 'projects-project-edit';
 
   const edit = document.createElement('button');
-  edit.className = 'button';
+  edit.className = 'button projects-project-edit';
   edit.textContent = 'Edit';
   edit.ariaHidden = editMode;
   buttons.append(edit);
@@ -172,7 +191,8 @@ function displayProjects(projects, authInfo) {
       <input type="button" class="button outline" id="login-button-${org}" title="Sign in"
         value="${authInfo.includes(org) ? 'Signed in' : 'Sign in'}"
         ${authInfo.includes(org) ? 'disabled' : ''}>
-      ${authInfo.includes(org) ? '' : `<i id="login-button-icon-${org}" class="symbol symbol-chevron" title="Sign in options"></i>`}
+      <i id="login-button-icon-${org}" class="symbol symbol-chevron" title="Sign in options"
+        ${authInfo.includes(org) ? 'aria-hidden="true"' : ''}></i>
       <ul class="menu" id="login-options-${org}" role="listbox" aria-labelledby="login-button-${org}" hidden>
         <li role="option" aria-selected="false" data-value="default">Default IDP</li>
         <li role="option" aria-selected="false" data-value="microsoft">Microsoft</li>
@@ -197,6 +217,7 @@ function displayProjects(projects, authInfo) {
       const expanded = target.getAttribute('aria-expanded') === 'true';
       target.setAttribute('aria-expanded', !expanded);
       loginDropdown.hidden = expanded;
+      setTimeout(() => document.addEventListener('click', collapseDropdowns), 200);
     });
     // trigger login on dropdown click
     loginDropdown.addEventListener('click', async (e) => {
@@ -241,6 +262,23 @@ async function init() {
   const authInfo = await messageSidekick({ action: 'getAuthInfo' }) || [];
   const projects = await messageSidekick({ action: 'getSites' }) || [];
   displayProjects(projects, authInfo);
+
+  // recheck authInfo every minute and update login buttons
+  setInterval(async () => {
+    const updatedAuthInfo = await messageSidekick({ action: 'getAuthInfo' }) || [];
+    document.querySelectorAll('input[id^="login-button-"]').forEach((loginPicker) => {
+      const org = loginPicker.id.replace('login-button-', '');
+      if (updatedAuthInfo.includes(org)) {
+        loginPicker.value = 'Signed in';
+        loginPicker.disabled = true;
+        loginPicker.nextElementSibling.ariaHidden = true;
+      } else {
+        loginPicker.value = 'Sign in';
+        loginPicker.disabled = false;
+        loginPicker.nextElementSibling.ariaHidden = false;
+      }
+    });
+  }, 60000);
 }
 
 init();
