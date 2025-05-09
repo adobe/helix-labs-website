@@ -7,14 +7,11 @@ const cdnType = document.getElementById('cdn-type');
 const logTable = document.querySelector('table tbody');
 const site = document.getElementById('site');
 const org = document.getElementById('org');
-
+const host = document.getElementById('host');
 let originalConfig;
 
 const CDN_FIELDS = {
   fastly: [
-    {
-      name: 'host', type: 'text', required: true, label: 'Production Host',
-    },
     {
       name: 'route', type: 'text', required: false, label: 'Routes (comma-separated)',
     },
@@ -26,9 +23,6 @@ const CDN_FIELDS = {
     },
   ],
   cloudflare: [
-    {
-      name: 'host', type: 'text', required: true, label: 'Production Host',
-    },
     {
       name: 'route', type: 'text', required: false, label: 'Routes (comma-separated)',
     },
@@ -43,9 +37,6 @@ const CDN_FIELDS = {
     },
   ],
   akamai: [
-    {
-      name: 'host', type: 'text', required: true, label: 'Production Host',
-    },
     {
       name: 'route', type: 'text', required: false, label: 'Routes (comma-separated)',
     },
@@ -64,16 +55,10 @@ const CDN_FIELDS = {
   ],
   managed: [
     {
-      name: 'host', type: 'text', required: true, label: 'Production Host',
-    },
-    {
       name: 'route', type: 'text', required: false, label: 'Routes (comma-separated)',
     },
   ],
   cloudfront: [
-    {
-      name: 'host', type: 'text', required: true, label: 'Production Host',
-    },
     {
       name: 'route', type: 'text', required: false, label: 'Routes (comma-separated)',
     },
@@ -124,6 +109,14 @@ function createField(field) {
   input.required = field.required;
 
   div.append(label, input);
+  if (field.type === 'password') {
+    input.addEventListener('focus', () => {
+      input.type = 'text';
+    });
+    input.addEventListener('blur', () => {
+      input.type = 'password';
+    });
+  }
   return div;
 }
 
@@ -143,14 +136,22 @@ function getFormData() {
     type: formData.get('cdn-type'),
   };
 
-  CDN_FIELDS[data.type].forEach((field) => {
-    const value = formData.get(field.name);
-    if (field.name === 'route' && value) {
-      data[field.name] = value.split(',').map((r) => r.trim());
-    } else {
-      data[field.name] = value;
-    }
-  });
+  if (data.type) {
+    CDN_FIELDS[data.type].forEach((field) => {
+      const value = formData.get(field.name);
+      if (field.name === 'route' && value) {
+        data[field.name] = value.split(',').map((r) => r.trim());
+      } else {
+        data[field.name] = value;
+      }
+    });
+  } else {
+    delete data.type;
+  }
+
+  if (host.value) {
+    data.host = host.value;
+  }
 
   return data;
 }
@@ -162,12 +163,13 @@ async function init() {
 
   cdnForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    console.log('submit');
     if (!org.value || !site.value) {
       alert('Please select an organization and site first');
       return;
     }
 
-    const cdnUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/cdn.json`;
+    const cdnUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/cdn/prod.json`;
     const cdnConfig = getFormData();
 
     const resp = await fetch(cdnUrl, {
@@ -190,31 +192,43 @@ async function init() {
       return;
     }
 
-    const cdnUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/cdn.json`;
+    const cdnUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}.json`;
     const resp = await fetch(cdnUrl);
-    const buttonBar = document.querySelector('.button-bar');
 
     if (resp.status === 200) {
-      originalConfig = (await resp.json()).prod;
-      cdnType.value = originalConfig.type;
+      const siteConfig = await resp.json();
+      if (siteConfig.cdn && siteConfig.cdn.prod) {
+        originalConfig = siteConfig.cdn.prod;
+        cdnType.value = originalConfig.type || '';
+        host.value = originalConfig.host || '';
+      } else {
+        originalConfig = {};
+        cdnType.value = '';
+        host.value = '';
+      }
+
       updateFields();
 
       // Populate fields with existing values
-      CDN_FIELDS[originalConfig.type].forEach((field) => {
-        const input = document.getElementById(field.name);
-        if (input) {
-          if (field.name === 'route' && Array.isArray(originalConfig[field.name])) {
-            input.value = originalConfig[field.name].join(', ');
-          } else {
-            input.value = originalConfig[field.name] || '';
+      if (originalConfig.type) {
+        CDN_FIELDS[originalConfig.type].forEach((field) => {
+          const input = document.getElementById(field.name);
+          if (input) {
+            if (field.name === 'route' && Array.isArray(originalConfig[field.name])) {
+              input.value = originalConfig[field.name].join(', ');
+            } else {
+              input.value = originalConfig[field.name] || '';
+            }
           }
-        }
-      });
+        });
+      }
 
-      buttonBar.setAttribute('aria-hidden', 'false');
+      cdnForm.setAttribute('aria-hidden', 'false');
+      cdnForm.removeAttribute('disabled');
     } else if (resp.status === 404) {
       originalConfig = {};
-      buttonBar.setAttribute('aria-hidden', 'false');
+      cdnForm.setAttribute('aria-hidden', 'true');
+      cdnForm.setAttribute('disabled', '');
     }
 
     logResponse([resp.status, 'GET', cdnUrl, resp.headers.get('x-error') || '']);

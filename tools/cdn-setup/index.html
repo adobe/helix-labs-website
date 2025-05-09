@@ -44,12 +44,16 @@
     </div>
 
     <div>
-      <form id="cdn-form">
+      <form id="cdn-form" aria-hidden="true" disabled>
+        <div class="form-field">
+          <label for="host">Production Host</label>
+          <input id="host" name="host" type="text" />
+        </div>
         <div class="cdn-container">
           <div class="form-field">
             <label for="cdn-type">CDN Type</label>
-            <select id="cdn-type" name="cdn-type" required>
-              <option value="">Select CDN Type</option>
+            <select id="cdn-type" name="cdn-type">
+              <option value="">(No CDN Type Selected)</option>
               <option value="fastly">Fastly</option>
               <option value="cloudflare">Cloudflare</option>
               <option value="akamai">Akamai</option>
@@ -62,7 +66,7 @@
             <!-- CDN-specific fields will be dynamically added here -->
           </div>
         </div>
-        <div class="button-bar" aria-hidden="true">
+        <div class="button-bar">
           <div class="button-wrapper">
             <button type="submit" id="save" class="button">Save</button>
           </div>
