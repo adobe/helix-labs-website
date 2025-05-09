@@ -263,7 +263,7 @@ async function init() {
   const projects = await messageSidekick({ action: 'getSites' }) || [];
   displayProjects(projects, authInfo);
 
-  // recheck authInfo every minute and update login buttons
+  // recheck authInfo every 10s and update login buttons
   setInterval(async () => {
     const updatedAuthInfo = await messageSidekick({ action: 'getAuthInfo' }) || [];
     document.querySelectorAll('input[id^="login-button-"]').forEach((loginPicker) => {
@@ -278,7 +278,7 @@ async function init() {
         loginPicker.nextElementSibling.ariaHidden = false;
       }
     });
-  }, 60000);
+  }, 10000);
 }
 
 init();
