@@ -64,7 +64,7 @@
     display: none;
 }
 
-.cdn-setup .http2 { background-color: #28a745; }
-.cdn-setup .http3 { background-color: #ffc107; }
-.cdn-setup .http4 { background-color: #dc3545; }
-.cdn-setup .http5 { background-color: #6c757d; } 
+.cdn-setup .http2::before { background-color: #28a745; }
+.cdn-setup .http3::before { background-color: #ffc107; }
+.cdn-setup .http4::before { background-color: #dc3545; }
+.cdn-setup .http5::before { background-color: #6c757d; } 
