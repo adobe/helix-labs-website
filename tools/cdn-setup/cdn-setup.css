@@ -43,6 +43,10 @@
   border-bottom: 1px solid #eee;
 }
 
+.cdn-setup tr:last-of-type td {
+    border: none;
+}
+
 .cdn-setup th {
   background-color: #f8f9fa;
   font-weight: 500;
@@ -54,6 +58,7 @@
   height: 8px;
   border-radius: 50%;
   margin-right: 8px;
+  white-space: nowrap;
 }
 
 .cdn-setup .form-field:has(#route) {
