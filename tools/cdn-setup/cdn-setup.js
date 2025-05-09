@@ -163,7 +163,6 @@ async function init() {
 
   cdnForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    console.log('submit');
     if (!org.value || !site.value) {
       alert('Please select an organization and site first');
       return;
