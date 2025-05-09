@@ -1,0 +1,75 @@
+.cdn-setup .form-field {
+  margin-bottom: 20px;
+}
+
+.cdn-setup label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.cdn-setup input,
+.cdn-setup select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.cdn-setup input:focus,
+.cdn-setup select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.cdn-setup .button-wrapper {
+    font-size: 14px;
+}
+
+.cdn-setup .table {
+  margin-top: 20px;
+}
+
+.cdn-setup table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cdn-setup th,
+.cdn-setup td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.cdn-setup tr:last-of-type td {
+    border: none;
+}
+
+.cdn-setup th {
+  background-color: #f8f9fa;
+  font-weight: 500;
+}
+
+.cdn-setup .status-light {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.cdn-setup .form-field:has(#route) {
+    display: none;
+}
+
+.cdn-setup [aria-hidden="true"] {
+    display: none;
+}
+
+.cdn-setup .http2::before { background-color: #28a745; }
+.cdn-setup .http3::before { background-color: #ffc107; }
+.cdn-setup .http4::before { background-color: #dc3545; }
+.cdn-setup .http5::before { background-color: #6c757d; } 
