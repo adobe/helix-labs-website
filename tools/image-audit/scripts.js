@@ -457,6 +457,20 @@ async function* fetchSitemap(sitemapURL) {
   }
 }
 
+async function* fetchFromRobotsTxt(origin) {
+  const fullOrigin = origin.includes('/') ? origin : `https://${origin}/`;
+  const robotsTxtUrl = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(fullOrigin)}robots.txt`;
+  const robotsTxt = await fetch(robotsTxtUrl);
+  const text = await robotsTxt.text();
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (line.startsWith('Sitemap:')) {
+      const sitemapUrl = line.split('Sitemap:')[1].trim();
+      yield* fetchSitemap(sitemapUrl);
+    }
+  }
+}
+
 /**
  * Fetches URLs from a query index.
  * @param {string} indexUrl - URL of the query index.
@@ -572,7 +586,10 @@ function registerListeners(doc) {
     window.history.pushState({}, '', `${window.location.pathname}?url=${encodeURIComponent(url)}&path=${encodeURIComponent(path)}`);
 
     try {
-      const sitemapUrls = url.endsWith('.json') ? fetchQueryIndex(url) : fetchSitemap(url);
+      let sitemapUrls;
+      if (url.endsWith('.json')) sitemapUrls = fetchQueryIndex(url);
+      if (url.endsWith('.xml')) sitemapUrls = fetchSitemap(url);
+      if (url.endsWith('/') || !url.includes('/')) sitemapUrls = fetchFromRobotsTxt(url);
 
       imagesCounter.textContent = 0;
       pagesCounter.textContent = 0;
