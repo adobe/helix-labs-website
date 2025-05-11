@@ -49,6 +49,7 @@ function displayProjectForm(elem, config) {
         </p>
       </fieldset>
     </form>`;
+
   const fs = elem.querySelector('fieldset');
   const save = elem.querySelector(`#${name}-save`);
   save.addEventListener('click', async (e) => {
@@ -70,6 +71,7 @@ function displayProjectForm(elem, config) {
       // todo: error handling
     }
   });
+
   const remove = elem.querySelector(`#${name}-remove`);
   remove.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -86,16 +88,27 @@ function displayProjectForm(elem, config) {
       // todo: error handling
     }
   });
+
   const cancel = elem.querySelector(`#${name}-cancel`);
   cancel.addEventListener('click', (e) => {
     e.preventDefault();
     // eslint-disable-next-line no-use-before-define
     elem.replaceWith(displayProject(config));
   });
+
   // focus and select first text field
   const input = elem.querySelector('input[type="text"]');
   input.focus();
   input.select();
+
+  // cancel edit on escape
+  const escHandler = ({ key }) => {
+    if (key === 'Escape') {
+      cancel.click();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
 }
 
 function displayProject(config, editMode = false) {
