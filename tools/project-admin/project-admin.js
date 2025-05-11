@@ -92,8 +92,10 @@ function displayProjectForm(elem, config) {
     // eslint-disable-next-line no-use-before-define
     elem.replaceWith(displayProject(config));
   });
-  // focus first text field
-  elem.querySelector('input[type="text"]').focus();
+  // focus and select first text field
+  const input = elem.querySelector('input[type="text"]');
+  input.focus();
+  input.select();
 }
 
 function displayProject(config, editMode = false) {
