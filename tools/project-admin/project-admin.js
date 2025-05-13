@@ -119,10 +119,11 @@ function displayProject(config, editMode = false) {
   const previewUrl = `https://${previewHost || `main--${site}--${org}.aem.page`}/`;
 
   const li = document.createElement('li');
-  li.innerHTML = `<div class="projects-project-name">
+  li.innerHTML = `<div class="projects-project-title">
       <h4>${name} ${externalLink(previewUrl, 'Preview', true)}</h4>
+      <button class="button outline" aria-hidden="${editMode}" title="Edit">Edit</button>
     </div>
-    <div class="projects-project-details">
+    <div class="projects-project-details" aria-hidden="${editMode}">
       ${Array.isArray(mountpoints) && mountpoints.length >= 1 ? `<div>
         <div>Content:</div><div>${externalLink(mountpoints[0], new URL(mountpoints[0]).host)}</div>
       </div>` : ''}
@@ -132,21 +133,8 @@ function displayProject(config, editMode = false) {
       ${host ? `<div><div>Production: </div><div>${externalLink(host, host)}</div></div>` : ''}
     </div>`;
 
-  const buttons = document.createElement('div');
-  buttons.className = 'projects-project-edit';
-
-  const edit = document.createElement('button');
-  edit.className = 'button projects-project-edit';
-  edit.textContent = 'Edit';
-  edit.ariaHidden = editMode;
-  buttons.append(edit);
-
-  li.append(buttons);
-  const details = document.createElement('div');
-  details.className = 'projects-project-details';
-  details.ariaHidden = !editMode;
-
-  li.append(details);
+  const details = li.querySelector('.projects-project-details');
+  const edit = li.querySelector('.projects-project-title > button');
 
   edit.addEventListener('click', async () => {
     displayProjectForm(li, config);

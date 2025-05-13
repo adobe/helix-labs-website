@@ -72,18 +72,21 @@
   justify-content: end;
 }
 
-.project-admin .projects-project-name {
+.project-admin .projects-project-title {
   grid-area: id;
+  display: flex;
+  align-items: center;
   font-size: var(--body-size-xl);
   font-weight: bold;
+  padding-bottom: 16px;
 }
 
-.project-admin .projects-project-name h4 {
-  margin-bottom: 16px;
+.project-admin .projects-project-title h4 {
+  margin: 0 16px 0 0;
 }
 
-.project-admin .projects-project-edit {
-  grid-area: button;
+.project-admin .projects-project-title button {
+  transform: scale(0.8);
 }
 
 .project-admin .projects-project-details {
@@ -94,6 +97,7 @@
 
 .project-admin .projects-project-details > div {
   display: flex;
+  margin-bottom: 8px;
 }
 
 .project-admin .projects-project-details > div > div:first-child {
