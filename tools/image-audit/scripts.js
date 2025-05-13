@@ -3,6 +3,8 @@
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
 import { initConfigField } from '../../utils/config/config.js';
+import { getImageFingerprint } from '../../utils/identity.js';
+
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
@@ -213,10 +215,15 @@ function displayImages(images) {
     // build image
     const { href } = new URL(data.src, data.origin);
     const img = document.createElement('img');
-    img.dataset.src = href;
+    img.crossOrigin = 'Anonymous';
+    img.dataset.src = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(href)}`;
     img.width = data.width;
     img.height = data.height;
     img.loading = 'lazy';
+    img.onload = async () => {
+      const fingerprint = await getImageFingerprint(img);
+      // console.debug('Fingerprint:', fingerprint);
+    };
     figure.append(img);
     // load the image when it comes into view
     const observer = new IntersectionObserver((entries) => {
