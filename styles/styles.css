@@ -470,12 +470,6 @@ var {
 }
 
 /* links */
-a:any-link {
-  color: var(--color-link);
-  text-decoration: underline;
-  transition: color 0.2s;
-}
-
 a:hover {
   color: var(--color-link-hover);
   text-decoration: underline;
@@ -484,6 +478,12 @@ a:hover {
 a:focus {
   outline: var(--border-m) solid var(--color-link);
   outline-offset: var(--border-m);
+}
+
+a:any-link:not(a.button) {
+  color: var(--color-link);
+  text-decoration: underline;
+  transition: color 0.2s;
 }
 
 /* buttons */
