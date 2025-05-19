@@ -1,3 +1,4 @@
+import createLoginButton from '../../utils/login.js';
 import { messageSidekick, NO_SIDEKICK } from '../../utils/sidekick.js';
 
 /* eslint-disable no-alert */
@@ -6,26 +7,6 @@ const projectsElem = document.querySelector('div#projects');
 function externalLink(url, text, iconOnly = false) {
   return `<a target="_blank" href="${url}" title="${text || ''}">
     ${iconOnly ? '<span class="project-admin-oinw"></span>' : text}</a>`;
-}
-
-function collapseDropdowns(e) {
-  const { target } = e;
-  const { nextElementSibling: next } = target;
-  const hasMenu = next && next.tagName.toLowerCase() === 'ul' && next.classList.contains('menu');
-
-  if (target.closest('ul') || hasMenu) {
-    // ignore click on picker icon or inside dropdown
-    return;
-  }
-  const dropdowns = document.querySelectorAll('ul.menu');
-  dropdowns.forEach((dropdown) => {
-    if (!dropdown.hidden) {
-      dropdown.hidden = true;
-      const button = dropdown.previousElementSibling;
-      button.setAttribute('aria-expanded', false);
-    }
-  });
-  document.removeEventListener('click', collapseDropdowns);
 }
 
 function displayProjectForm(elem, config) {
@@ -190,65 +171,15 @@ function displayProjects(projects, authInfo) {
     const titleBar = document.createElement('div');
     titleBar.classList.add('projects-title-bar');
     titleBar.innerHTML = `<h3>${org}</h3>`;
-
-    // login options
-    const loginOptions = document.createElement('div');
-    loginOptions.classList.add('form-field', 'picker-field');
-    loginOptions.innerHTML = `
-      <input type="button" class="button outline" id="login-button-${org}" title="Sign in"
-        value="${authInfo.includes(org) ? 'Signed in' : 'Sign in'}"
-        ${authInfo.includes(org) ? 'disabled' : ''}>
-      <i id="login-button-icon-${org}" class="symbol symbol-chevron" title="Sign in options"
-        ${authInfo.includes(org) ? 'aria-hidden="true"' : ''}></i>
-      <ul class="menu" id="login-options-${org}" role="listbox" aria-labelledby="login-button-${org}" hidden>
-        <li role="option" aria-selected="false" data-value="default">Default IDP</li>
-        <li role="option" aria-selected="false" data-value="microsoft">Microsoft</li>
-        <li role="option" aria-selected="false" data-value="google">Google</li>
-        <li role="option" aria-selected="false" data-value="adobe">Adobe</li>
-      </ul>
-    `;
-
-    titleBar.append(loginOptions);
+    const loginButton = createLoginButton(
+      org,
+      projectsByOrg[org][0].site, // default to first site
+      // eslint-disable-next-line no-use-before-define
+      () => setTimeout(() => init(), 1000), // refresh UI after login
+      authInfo,
+    );
+    titleBar.append(loginButton);
     orgContainer.append(titleBar);
-
-    // enable login dropdown
-    const loginPicker = orgContainer.querySelector(`input#login-button-${org}`);
-    const loginPickerIcon = orgContainer.querySelector(`i#login-button-icon-${org}`);
-    const loginDropdown = orgContainer.querySelector(`ul#login-options-${org}`);
-    const loginIdps = loginDropdown.querySelectorAll('[role="option"]');
-    loginPicker.addEventListener('click', () => {
-      loginDropdown.querySelector('li').click();
-    });
-    loginPickerIcon?.addEventListener('click', (e) => {
-      const { target } = e;
-      const expanded = target.getAttribute('aria-expanded') === 'true';
-      target.setAttribute('aria-expanded', !expanded);
-      loginDropdown.hidden = expanded;
-      setTimeout(() => document.addEventListener('click', collapseDropdowns), 200);
-    });
-    // trigger login on dropdown click
-    loginDropdown.addEventListener('click', async (e) => {
-      const option = e.target.closest('[role="option"]');
-      if (option) {
-        loginPicker.setAttribute('aria-expanded', false);
-        loginDropdown.hidden = true;
-        loginIdps.forEach((o) => o.setAttribute('aria-selected', o === option));
-        const { value: idp } = option.dataset;
-        loginPickerIcon.classList.replace('symbol-chevron', 'symbol-loading');
-        const defaultIdp = idp === 'default';
-        await messageSidekick({
-          action: 'login',
-          org,
-          site: projectsByOrg[org][0].site, // use first site in org
-          idp: defaultIdp ? null : idp,
-          // selectAccount,
-        });
-        setTimeout(() => {
-          // eslint-disable-next-line no-use-before-define
-          init();
-        }, 1000);
-      }
-    });
 
     // list sites for org
     const sitesList = document.createElement('ol');
