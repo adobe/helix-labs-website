@@ -1,5 +1,5 @@
 import { loadCSS } from '../../scripts/aem.js';
-import { messageSidekick } from '../sidekick.js';
+import { messageSidekick, NO_SIDEKICK } from '../sidekick.js';
 
 /**
  * Validates the existence and type of config elements.
@@ -210,7 +210,7 @@ function populateFromStorage(org, orgList, site, siteList) {
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
   const projects = await messageSidekick('getSites');
-  if (projects && projects.length > 0 && projects !== 'no-sidekick') {
+  if (projects && projects.length > 0 && projects !== NO_SIDEKICK) {
     updateStorageFromSidekick(projects);
 
     const { orgs, sites } = projects.reduce((acc, part) => {
