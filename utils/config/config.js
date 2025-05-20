@@ -210,7 +210,7 @@ function populateFromStorage(org, orgList, site, siteList) {
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
   const projects = await messageSidekick('getSites');
-  if (projects && projects.length > 0) {
+  if (projects && projects.length > 0 && projects !== 'no-sidekick') {
     updateStorageFromSidekick(projects);
 
     const { orgs, sites } = projects.reduce((acc, part) => {
