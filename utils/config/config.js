@@ -209,7 +209,7 @@ function populateFromStorage(org, orgList, site, siteList) {
  * Populates org field from sidekick.
  */
 async function populateFromSidekick(org, orgList, site, siteList) {
-  const projects = await messageSidekick('getSites');
+  const projects = await messageSidekick({ action: 'getSites' });
   if (projects && projects.length > 0 && projects !== NO_SIDEKICK) {
     updateStorageFromSidekick(projects);
 
