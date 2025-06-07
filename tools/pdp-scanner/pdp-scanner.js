@@ -34,7 +34,7 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         break;
       }
       case 'number of variants': {
-        result.prod.numVariants = prodDoc.querySelectorAll('[data-color]').length;
+        result.prod.numVariants = prodDoc.querySelectorAll('[data-color]').length || 1;
         result.new.numVariants = JSONLDData.offers.length;
         break;
       }
