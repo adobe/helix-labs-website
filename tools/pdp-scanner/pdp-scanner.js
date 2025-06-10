@@ -38,6 +38,18 @@ function logResult(result) {
 }
 
 function extractData(prodDoc, newDoc, JSONLDData, config, result) {
+  const findSwatches = (scripts) => {
+    for (let i = 0; i < scripts.length; i += 1) {
+      const script = scripts[i];
+      const json = JSON.parse(script.textContent);
+      if (json['[data-role=swatch-options]']) {
+        const swatches = json['[data-role=swatch-options]']['Magento_Swatches/js/swatch-renderer'].jsonConfig.attributes['93'].options;
+        return swatches.filter((swatch) => swatch.products.length > 0);
+      }
+    }
+    return [];
+  };
+
   config.forEach((item) => {
     switch (item.Field) {
       case 'price': {
@@ -47,7 +59,7 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         break;
       }
       case 'number of variants': {
-        result.prod.numVariants = prodDoc.querySelectorAll(item.QuerySelector).length || 1;
+        result.prod.numVariants = findSwatches([...prodDoc.querySelectorAll('script[type="text/x-magento-init"]')]).length || 1;
         result.new.numVariants = JSONLDData.offers.length;
         break;
       }
