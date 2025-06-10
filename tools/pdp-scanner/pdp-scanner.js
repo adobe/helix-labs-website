@@ -46,7 +46,7 @@ function logResult(result) {
       img.style.opacity = 0.5;
     });
     img.addEventListener('load', () => {
-      img.src = img.src.replace('&reload=true', `?ck=${Math.random()}`);
+      img.src = img.src.replace('&reload=true', `&ck=${Math.random()}`);
       console.log('loaded');
       img.style.opacity = 1;
     });
