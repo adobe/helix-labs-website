@@ -42,12 +42,10 @@ function logResult(result) {
   row.querySelectorAll('img').forEach((img) => {
     img.addEventListener('click', () => {
       img.src = `${img.src}&reload=true`;
-      console.log('loading');
       img.style.opacity = 0.5;
     });
     img.addEventListener('load', () => {
       img.src = img.src.replace('&reload=true', `&ck=${Math.random()}`);
-      console.log('loaded');
       img.style.opacity = 1;
     });
   });
@@ -131,6 +129,7 @@ async function processAuxRequests(config, result) {
         }
         result.prod[auxRequest.Field] = value;
       } catch (e) {
+        // eslint-disable-next-line no-console
         console.error(e);
       }
     }
