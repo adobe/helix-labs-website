@@ -3,7 +3,7 @@ const resultsTable = document.querySelector('#results tbody');
 const reloadButton = document.querySelector('#reload-selected');
 
 async function corsFetch(url, cache = false, reload = false) {
-  const cacheParam = cache ? 'cache=hard&' : '';
+  const cacheParam = cache ? 'cache=hard&' : 'cache=off&';
   const reloadParam = reload ? 'reload=true&' : '';
   const resp = await fetch(`https://little-forest-58aa.david8603.workers.dev/?${cacheParam}${reloadParam}url=${encodeURIComponent(url)}`);
   return resp;
@@ -39,6 +39,18 @@ function logResult(result) {
     <td>${imgProd}</td>
     <td>${imgNew}</td>
   `;
+  row.querySelectorAll('img').forEach((img) => {
+    img.addEventListener('click', () => {
+      img.src = `${img.src}&reload=true`;
+      console.log('loading');
+      img.style.opacity = 0.5;
+    });
+    img.addEventListener('load', () => {
+      img.src = img.src.replace('&reload=true', `?ck=${Math.random()}`);
+      console.log('loaded');
+      img.style.opacity = 1;
+    });
+  });
   resultsTable.appendChild(row);
 }
 
