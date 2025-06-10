@@ -23,6 +23,9 @@ function logResult(result) {
     Prod: result.prod.url,
     New: result.new.url,
   };
+
+  const imgProd = result.prod.status === 200 ? `<img src="https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(result.prod.url)}" alt="prod" width="100">` : '';
+  const imgNew = result.new.status === 200 ? `<img src="https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(result.new.url)}" alt="new" width="100">` : '';
   const row = document.createElement('tr');
   row.innerHTML = `
     <td><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
@@ -33,6 +36,8 @@ function logResult(result) {
     <td class="${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
     <td class="${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
     <td class="${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
+    <td>${imgProd}</td>
+    <td>${imgNew}</td>
   `;
   resultsTable.appendChild(row);
 }

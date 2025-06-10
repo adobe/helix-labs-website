@@ -1,3 +1,7 @@
+.pdp-scanner main, .pdp-scanner main > .section {
+  max-width: unset;
+}
+
 .pdp-scanner .block[aria-hidden='true'] {
   display: none;
 }
