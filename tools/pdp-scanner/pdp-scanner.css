@@ -84,7 +84,26 @@
   color: var(--red-900);
 }
 
-.pdp-scanner .img-container {
+.pdp-scanner td.img-container {
   font-size: var(--body-size-xs);
   text-align: right;
+  position: relative;
+}
+
+.pdp-scanner td.img-container span {
+  display: block;
+  padding: 4px 8px;
+  border-radius: 20px;
+  background-color: var(--gray-100);
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+}
+
+.pdp-scanner.focus-images td, .pdp-scanner.focus-images th {
+  display: none;
+}
+
+.pdp-scanner.focus-images .img-container, .pdp-scanner.focus-images .url, .pdp-scanner.focus-images .status {
+  display: table-cell;
 }

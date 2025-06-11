@@ -26,6 +26,7 @@ async function logResult(result) {
 
   const createImage = async (url) => {
     const toHumanReadableAgo = (date) => {
+      if (!date) return 'never';
       const diff = new Date() - new Date(date);
       const diffInSeconds = Math.floor(diff / 1000);
       const diffInMinutes = Math.floor(diffInSeconds / 60);
@@ -47,7 +48,7 @@ async function logResult(result) {
     const resp = await fetch(`https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}&metadata=true`);
     const imgData = await resp.json();
     const imgInfo = document.createElement('span');
-    imgInfo.textContent = `updated ${toHumanReadableAgo(imgData['last-modified'])} ago`;
+    imgInfo.textContent = `updated ${toHumanReadableAgo(imgData['last-modified'])}`;
     div.appendChild(imgInfo);
     img.addEventListener('click', () => {
       img.src = `${img.src}&reload=true`;
@@ -63,18 +64,18 @@ async function logResult(result) {
     return div;
   };
 
-  const prodImg = await createImage(result.prod.url);
-  const newImg = await createImage(result.new.url);
+  const prodImg = result.prod.status === 200 ? await createImage(result.prod.url) : document.createElement('div');
+  const newImg = result.new.status === 200 ? await createImage(result.new.url) : document.createElement('div');
   const row = document.createElement('tr');
   row.innerHTML = `
-    <td><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
-    <td class="${checkSame('status').same ? 'pass' : 'fail'}">${checkSame('status').value}</td>
-    <td class="${checkSame('sku').same ? 'pass' : 'fail'}">${checkSame('sku').value}</td>
-    <td class="${checkSame('productId').same ? 'pass' : 'fail'}">${checkSame('productId').value}</td>
-    <td class="${checkSame('price').same ? 'pass' : 'fail'}">${checkSame('price').value}</td>
-    <td class="${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
-    <td class="${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
-    <td class="${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
+    <td class="url"><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
+    <td class="status ${checkSame('status').same ? 'pass' : 'fail'}">${checkSame('status').value}</td>
+    <td class="sku ${checkSame('sku').same ? 'pass' : 'fail'}">${checkSame('sku').value}</td>
+    <td class="productId ${checkSame('productId').same ? 'pass' : 'fail'}">${checkSame('productId').value}</td>
+    <td class="price ${checkSame('price').same ? 'pass' : 'fail'}">${checkSame('price').value}</td>
+    <td class="numVariants ${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
+    <td class="availability ${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
+    <td class="retired ${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
     <td class="img-container">${prodImg.outerHTML}</td>
     <td class="img-container">${newImg.outerHTML}</td>
   `;
@@ -246,6 +247,12 @@ function init() {
   const initialConfigUrl = currentUrl.searchParams.get('config');
   if (initialConfigUrl) {
     urlInput.value = initialConfigUrl;
+  }
+
+  const focus = currentUrl.searchParams.get('focus');
+
+  if (focus) {
+    document.body.classList.add('focus-images');
   }
 
   scannerForm.addEventListener('submit', async (e) => {
