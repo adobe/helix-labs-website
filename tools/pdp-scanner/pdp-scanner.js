@@ -9,7 +9,7 @@ async function corsFetch(url, cache = false, reload = false) {
   return resp;
 }
 
-function logResult(result) {
+async function logResult(result) {
   const checkSame = (prop) => {
     if (result.prod[prop] === undefined && result.new[prop] === undefined) {
       return { same: true, value: '' };
@@ -24,8 +24,47 @@ function logResult(result) {
     New: result.new.url,
   };
 
-  const imgProd = result.prod.status === 200 ? `<img src="https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(result.prod.url)}" alt="prod" width="100">` : '';
-  const imgNew = result.new.status === 200 ? `<img src="https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(result.new.url)}" alt="new" width="100">` : '';
+  const createImage = async (url) => {
+    const toHumanReadableAgo = (date) => {
+      const diff = new Date() - new Date(date);
+      const diffInSeconds = Math.floor(diff / 1000);
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      const diffInDays = Math.floor(diffInHours / 24);
+      if (diffInDays > 0) return `${diffInDays}d`;
+      if (diffInHours > 0) return `${diffInHours}h`;
+      if (diffInMinutes > 0) return `${diffInMinutes}m`;
+      return `${diffInSeconds}s`;
+    };
+
+    const div = document.createElement('div');
+    const img = document.createElement('img');
+    img.src = `https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`;
+    img.alt = 'image';
+    img.width = 100;
+    img.style.opacity = 0.5;
+    div.appendChild(img);
+    const resp = await fetch(`https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}&metadata=true`);
+    const imgData = await resp.json();
+    const imgInfo = document.createElement('span');
+    imgInfo.textContent = `updated ${toHumanReadableAgo(imgData['last-modified'])} ago`;
+    div.appendChild(imgInfo);
+    img.addEventListener('click', () => {
+      img.src = `${img.src}&reload=true`;
+      img.style.opacity = 0.5;
+    });
+    img.addEventListener('load', () => {
+      if (img.src.includes('&reload=true')) {
+        img.style.opacity = 1;
+        img.src = img.src.replace('&reload=true', `&ck=${Math.random()}`);
+        imgInfo.textContent = 'updated now';
+      }
+    });
+    return div;
+  };
+
+  const prodImg = await createImage(result.prod.url);
+  const newImg = await createImage(result.new.url);
   const row = document.createElement('tr');
   row.innerHTML = `
     <td><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
@@ -36,8 +75,8 @@ function logResult(result) {
     <td class="${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
     <td class="${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
     <td class="${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
-    <td>${imgProd}</td>
-    <td>${imgNew}</td>
+    <td class="img-container">${prodImg.outerHTML}</td>
+    <td class="img-container">${newImg.outerHTML}</td>
   `;
   row.querySelectorAll('img').forEach((img) => {
     img.addEventListener('click', () => {
@@ -195,7 +234,7 @@ function reloadSelected(config) {
   selectedRows.forEach(async (row) => {
     const urls = JSON.parse(decodeURIComponent(row.dataset.urls));
     const result = await scanPDP(urls, config, true);
-    logResult(result);
+    await logResult(result);
   });
 }
 
@@ -221,16 +260,19 @@ function init() {
     const json = await response.json();
     const urls = json.urls.data;
     const config = json.config.data;
+    const params = new URLSearchParams(currentUrl.search);
+    const limit = +params.get('limit') || urls.length;
 
     reloadButton.addEventListener('click', () => reloadSelected(config));
     reloadButton.disabled = false;
-    for (let i = 0; i < urls.length; i += 1) {
+    for (let i = 0; i < limit; i += 1) {
       const row = urls[i];
       // eslint-disable-next-line no-await-in-loop
       const result = await scanPDP(row, config);
       result.prod.url = row.Prod;
       result.new.url = row.New;
-      logResult(result);
+      // eslint-disable-next-line no-await-in-loop
+      await logResult(result);
     }
   });
 }

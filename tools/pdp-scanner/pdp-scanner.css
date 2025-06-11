@@ -83,3 +83,8 @@
   background-color: var(--red-100);
   color: var(--red-900);
 }
+
+.pdp-scanner .img-container {
+  font-size: var(--body-size-xs);
+  text-align: right;
+}
