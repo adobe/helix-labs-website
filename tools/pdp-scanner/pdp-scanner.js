@@ -42,6 +42,7 @@ async function logResult(result) {
     const img = document.createElement('img');
     img.src = `https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`;
     img.alt = 'image';
+    img.loading = 'lazy';
     img.width = 100;
     img.style.opacity = 0.5;
     div.appendChild(img);
