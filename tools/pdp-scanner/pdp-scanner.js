@@ -42,9 +42,7 @@ async function logResult(result) {
     const img = document.createElement('img');
     img.src = `https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`;
     img.alt = 'image';
-    img.loading = 'lazy';
     img.width = 100;
-    img.style.opacity = 0.5;
     div.appendChild(img);
     const resp = await fetch(`https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}&metadata=true`);
     const imgData = await resp.json();
@@ -80,6 +78,7 @@ async function logResult(result) {
     <td class="img-container">${prodImg.outerHTML}</td>
     <td class="img-container">${newImg.outerHTML}</td>
   `;
+  console.log(row);
   resultsTable.appendChild(row);
 }
 
