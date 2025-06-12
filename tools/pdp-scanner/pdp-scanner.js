@@ -81,7 +81,6 @@ async function logResult(result, config) {
   });
 
   config.forEach((item) => {
-    console.log(item);
     const td = document.createElement('td');
     td.textContent = checkSame(item.Field).value;
     td.classList.add(checkSame(item.Field).same ? 'pass' : 'fail');
@@ -116,7 +115,6 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
   };
 
   config.forEach((item) => {
-    console.log(item);
     switch (item.Field) {
       case 'price': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
@@ -145,12 +143,24 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
         result.new.productId = result.prod.productid;
         break;
       }
+      case 'warranty': {
+        const prodElem = prodDoc.querySelector(item.QuerySelector);
+        if (prodElem) prodElem.querySelectorAll('style').forEach((style) => style.remove());
+        result.prod.warranty = prodElem ? prodElem.textContent.trim() : undefined;
+        result.new.warranty = JSONLDData.custom?.options?.[0]?.name;
+        break;
+      }
       default:
         if (item.AuxRequest) {
           result.prod[item.Field] = '';
         } else if (item.QuerySelector) {
           if (item.QuerySelector) {
-            result.prod[item.Field] = prodDoc.querySelector(item.QuerySelector).textContent;
+            if (prodDoc.querySelector(item.QuerySelector)) {
+              result.prod[item.Field] = prodDoc.querySelector(item.QuerySelector)
+                .textContent.trim();
+            } else {
+              result.prod[item.Field] = '';
+            }
           } else {
             result.prod[item.Field] = '';
           }
@@ -189,7 +199,7 @@ async function processAuxRequests(config, result) {
 
 function mapResultValues(result, config) {
   config.filter((item) => item.ValueMap).forEach((item) => {
-    const rows = item.ValueMap.split(',');
+    const rows = item.ValueMap.includes(';') ? item.ValueMap.split(';') : item.ValueMap.split(',');
     const map = {};
     rows.forEach((row) => {
       const [key, value] = row.split('=').map((i) => i.trim());
@@ -249,14 +259,12 @@ function shareSelected() {
   const selectedUrls = [...selectedRows].map((row) => JSON.parse(decodeURIComponent(row.dataset.urls)).Prod.split('/').pop());
   const url = new URL(window.location.href);
   for (let i = 0; i < selectedUrls.length; i += 1) {
-    console.log(selectedUrls[i]);
     url.searchParams.append('share', selectedUrls[i]);
   }
   navigator.clipboard.writeText(url.toString());
 }
 
 async function runScan(url, focus, share) {
-  console.log(url, focus, share);
   const response = await corsFetch(`${url}`);
   const json = await response.json();
   let urls = [];
