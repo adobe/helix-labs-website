@@ -80,16 +80,6 @@ async function logResult(result) {
     <td class="img-container">${prodImg.outerHTML}</td>
     <td class="img-container">${newImg.outerHTML}</td>
   `;
-  row.querySelectorAll('img').forEach((img) => {
-    img.addEventListener('click', () => {
-      img.src = `${img.src}&reload=true`;
-      img.style.opacity = 0.5;
-    });
-    img.addEventListener('load', () => {
-      img.src = img.src.replace('&reload=true', `&ck=${Math.random()}`);
-      img.style.opacity = 1;
-    });
-  });
   resultsTable.appendChild(row);
 }
 
