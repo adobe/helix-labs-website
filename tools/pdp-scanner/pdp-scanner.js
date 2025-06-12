@@ -1,6 +1,6 @@
 const scannerForm = document.getElementById('scanner-form');
 const resultsTable = document.querySelector('#results tbody');
-const reloadButton = document.querySelector('#reload-selected');
+const shareSelectedButton = document.querySelector('#share-selected');
 
 async function corsFetch(url, cache = false, reload = false) {
   const cacheParam = cache ? 'cache=hard&' : 'cache=off&';
@@ -71,6 +71,14 @@ async function logResult(result, config) {
     <td class="url"><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
     <td class="status ${checkSame('status').same ? 'pass' : 'fail'}">${checkSame('status').value}</td>
   `;
+
+  row.querySelector('input[type="checkbox"]').addEventListener('change', () => {
+    if (document.querySelectorAll('input[type="checkbox"]:checked').length > 0) {
+      shareSelectedButton.disabled = false;
+    } else {
+      shareSelectedButton.disabled = true;
+    }
+  });
 
   config.forEach((item) => {
     console.log(item);
@@ -236,13 +244,76 @@ function updateUrl(configUrl) {
   window.history.pushState({}, '', url);
 }
 
-function reloadSelected(config) {
+function shareSelected() {
   const selectedRows = resultsTable.querySelectorAll('input[type="checkbox"]:checked');
-  selectedRows.forEach(async (row) => {
-    const urls = JSON.parse(decodeURIComponent(row.dataset.urls));
-    const result = await scanPDP(urls, config, true);
-    await logResult(result, config);
+  const selectedUrls = [...selectedRows].map((row) => JSON.parse(decodeURIComponent(row.dataset.urls)).Prod.split('/').pop());
+  const url = new URL(window.location.href);
+  for (let i = 0; i < selectedUrls.length; i += 1) {
+    console.log(selectedUrls[i]);
+    url.searchParams.append('share', selectedUrls[i]);
+  }
+  navigator.clipboard.writeText(url.toString());
+}
+
+async function runScan(url, focus, share) {
+  console.log(url, focus, share);
+  const response = await corsFetch(`${url}`);
+  const json = await response.json();
+  let urls = [];
+  let config = [];
+  if (json[':type'] === 'multi-sheet') {
+    urls = json.urls.data;
+    config = json.config.data;
+  } else {
+    urls = json.data;
+  }
+
+  if (focus) {
+    config = [];
+  }
+
+  if (share.length > 0) {
+    urls = urls.filter((u) => share.includes(u.Prod.split('/').pop()));
+  }
+
+  const tableHead = document.querySelector('#results thead tr');
+  tableHead.innerHTML = '';
+  const thUrl = document.createElement('th');
+  thUrl.textContent = 'URL';
+  tableHead.appendChild(thUrl);
+
+  const thStatus = document.createElement('th');
+  thStatus.textContent = 'Status';
+  tableHead.appendChild(thStatus);
+
+  config.forEach((item) => {
+    item.Field = item.Field.toLowerCase();
+    const th = document.createElement('th');
+    th.textContent = item.Field;
+    tableHead.appendChild(th);
   });
+
+  const thProd = document.createElement('th');
+  thProd.textContent = 'Prod Screenshot';
+  tableHead.appendChild(thProd);
+
+  const thNew = document.createElement('th');
+  thNew.textContent = 'New Screenshot';
+  tableHead.appendChild(thNew);
+
+  const params = new URLSearchParams(window.location.search);
+  const limit = +params.get('limit') || urls.length;
+
+  shareSelectedButton.addEventListener('click', () => shareSelected());
+  for (let i = 0; i < limit; i += 1) {
+    const row = urls[i];
+    // eslint-disable-next-line no-await-in-loop
+    const result = await scanPDP(row, config);
+    result.prod.url = row.Prod;
+    result.new.url = row.New;
+    // eslint-disable-next-line no-await-in-loop
+    await logResult(result, config);
+  }
 }
 
 function init() {
@@ -257,6 +328,12 @@ function init() {
 
   const focus = currentUrl.searchParams.get('focus');
 
+  const share = currentUrl.searchParams.getAll('share');
+  if (share.length > 0) {
+    document.body.classList.add('share');
+    runScan(urlInput.value, focus, share);
+  }
+
   scannerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = document.getElementById('url').value.trim();
@@ -264,61 +341,7 @@ function init() {
 
     // Clear previous results
     resultsTable.innerHTML = '';
-
-    const response = await corsFetch(`${url}`);
-    const json = await response.json();
-    let urls = [];
-    let config = [];
-    if (json[':type'] === 'multi-sheet') {
-      urls = json.urls.data;
-      config = json.config.data;
-    } else {
-      urls = json.data;
-    }
-
-    if (focus) {
-      config = [];
-    }
-
-    const tableHead = document.querySelector('#results thead tr');
-    tableHead.innerHTML = '';
-    const thUrl = document.createElement('th');
-    thUrl.textContent = 'URL';
-    tableHead.appendChild(thUrl);
-
-    const thStatus = document.createElement('th');
-    thStatus.textContent = 'Status';
-    tableHead.appendChild(thStatus);
-
-    config.forEach((item) => {
-      item.Field = item.Field.toLowerCase();
-      const th = document.createElement('th');
-      th.textContent = item.Field;
-      tableHead.appendChild(th);
-    });
-
-    const thProd = document.createElement('th');
-    thProd.textContent = 'Prod Screenshot';
-    tableHead.appendChild(thProd);
-
-    const thNew = document.createElement('th');
-    thNew.textContent = 'New Screenshot';
-    tableHead.appendChild(thNew);
-
-    const params = new URLSearchParams(currentUrl.search);
-    const limit = +params.get('limit') || urls.length;
-
-    reloadButton.addEventListener('click', () => reloadSelected(config));
-    reloadButton.disabled = false;
-    for (let i = 0; i < limit; i += 1) {
-      const row = urls[i];
-      // eslint-disable-next-line no-await-in-loop
-      const result = await scanPDP(row, config);
-      result.prod.url = row.Prod;
-      result.new.url = row.New;
-      // eslint-disable-next-line no-await-in-loop
-      await logResult(result, config);
-    }
+    await runScan(url, focus, share);
   });
 }
 
