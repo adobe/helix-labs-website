@@ -75,10 +75,11 @@ async function logResult(result) {
     <td class="numVariants ${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
     <td class="availability ${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
     <td class="retired ${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
-    <td class="img-container">${prodImg.outerHTML}</td>
-    <td class="img-container">${newImg.outerHTML}</td>
+    <td class="img-container prod-img"></td>
+    <td class="img-container new-img"></td>
   `;
-  console.log(row);
+  row.querySelector('.prod-img').appendChild(prodImg);
+  row.querySelector('.new-img').appendChild(newImg);
   resultsTable.appendChild(row);
 }
 
