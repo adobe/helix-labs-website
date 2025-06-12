@@ -107,3 +107,23 @@
 .pdp-scanner.focus-images .img-container, .pdp-scanner.focus-images .url, .pdp-scanner.focus-images .status {
   display: table-cell;
 }
+
+.pdp-scanner.share h1, .pdp-scanner.share #scanner-form, .pdp-scanner.share header, .pdp-scanner.share footer, .pdp-scanner.share input[type="checkbox"] {
+  display: none;
+}
+
+td.url {
+  min-width: 300px;
+}
+
+#share-selected {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 1000;
+}
+
+#share-selected:disabled {
+  display: none;
+}
+
