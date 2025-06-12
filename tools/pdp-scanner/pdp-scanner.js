@@ -9,7 +9,7 @@ async function corsFetch(url, cache = false, reload = false) {
   return resp;
 }
 
-async function logResult(result) {
+async function logResult(result, config) {
   const checkSame = (prop) => {
     if (result.prod[prop] === undefined && result.new[prop] === undefined) {
       return { same: true, value: '' };
@@ -42,8 +42,8 @@ async function logResult(result) {
     const img = document.createElement('img');
     img.src = `https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`;
     img.alt = 'image';
+    img.loading = 'lazy';
     img.width = 100;
-    img.style.opacity = 0.5;
     div.appendChild(img);
     const resp = await fetch(`https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}&metadata=true`);
     const imgData = await resp.json();
@@ -70,29 +70,31 @@ async function logResult(result) {
   row.innerHTML = `
     <td class="url"><input type="checkbox" data-urls="${encodeURIComponent(JSON.stringify(urls))}">${result.prod.url.split('/').pop()} [<a href="${result.prod.url}" target="_blank">prod</a> | <a href="${result.new.url}" target="_blank">new</a>]</td>
     <td class="status ${checkSame('status').same ? 'pass' : 'fail'}">${checkSame('status').value}</td>
-    <td class="sku ${checkSame('sku').same ? 'pass' : 'fail'}">${checkSame('sku').value}</td>
-    <td class="productId ${checkSame('productId').same ? 'pass' : 'fail'}">${checkSame('productId').value}</td>
-    <td class="price ${checkSame('price').same ? 'pass' : 'fail'}">${checkSame('price').value}</td>
-    <td class="numVariants ${checkSame('numVariants').same ? 'pass' : 'fail'}">${checkSame('numVariants').value}</td>
-    <td class="availability ${checkSame('availability').same ? 'pass' : 'fail'}">${checkSame('availability').value}</td>
-    <td class="retired ${checkSame('retired').same ? 'pass' : 'fail'}">${checkSame('retired').value}</td>
-    <td class="img-container">${prodImg.outerHTML}</td>
-    <td class="img-container">${newImg.outerHTML}</td>
   `;
-  row.querySelectorAll('img').forEach((img) => {
-    img.addEventListener('click', () => {
-      img.src = `${img.src}&reload=true`;
-      img.style.opacity = 0.5;
-    });
-    img.addEventListener('load', () => {
-      img.src = img.src.replace('&reload=true', `&ck=${Math.random()}`);
-      img.style.opacity = 1;
-    });
+
+  config.forEach((item) => {
+    console.log(item);
+    const td = document.createElement('td');
+    td.textContent = checkSame(item.Field).value;
+    td.classList.add(checkSame(item.Field).same ? 'pass' : 'fail');
+    td.setAttribute('data-field', item.Field);
+    row.appendChild(td);
   });
+
+  const wrapInTd = (elem, className = '') => {
+    const td = document.createElement('td');
+    td.className = className;
+    td.appendChild(elem);
+    return td;
+  };
+
+  row.appendChild(wrapInTd(prodImg, 'prod-img img-container'));
+  row.appendChild(wrapInTd(newImg, 'new-img img-container'));
+
   resultsTable.appendChild(row);
 }
 
-function extractData(prodDoc, newDoc, JSONLDData, config, result) {
+function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
   const findSwatches = (scripts) => {
     for (let i = 0; i < scripts.length; i += 1) {
       const script = scripts[i];
@@ -106,6 +108,7 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
   };
 
   config.forEach((item) => {
+    console.log(item);
     switch (item.Field) {
       case 'price': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
@@ -114,8 +117,8 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         break;
       }
       case 'number of variants': {
-        result.prod.numVariants = findSwatches([...prodDoc.querySelectorAll('script[type="text/x-magento-init"]')]).length || 1;
-        result.new.numVariants = JSONLDData.offers.length;
+        result.prod['number of variants'] = findSwatches([...prodDoc.querySelectorAll('script[type="text/x-magento-init"]')]).length || 1;
+        result.new['number of variants'] = JSONLDData.offers.length;
         break;
       }
       case 'availability': {
@@ -128,10 +131,10 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         result.new.sku = JSONLDData.sku;
         break;
       }
-      case 'productId': {
+      case 'productid': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod.productId = prodElem ? prodElem.textContent : undefined;
-        result.new.productId = result.prod.productId;
+        result.new.productId = result.prod.productid;
         break;
       }
       default:
@@ -215,8 +218,11 @@ async function scanPDP(row, config, reload = false) {
   const prodDoc = new DOMParser().parseFromString(prodHtml, 'text/html');
   const newDoc = new DOMParser().parseFromString(newHtml, 'text/html');
 
+  let JSONLDData = {};
   const JSONLD = newDoc.querySelector('script[type="application/ld+json"]');
-  const JSONLDData = JSON.parse(JSONLD.textContent);
+  if (JSONLD) {
+    JSONLDData = JSON.parse(JSONLD.textContent);
+  }
 
   extractData(prodDoc, newDoc, JSONLDData, config, result);
   await processAuxRequests(config, result);
@@ -235,7 +241,7 @@ function reloadSelected(config) {
   selectedRows.forEach(async (row) => {
     const urls = JSON.parse(decodeURIComponent(row.dataset.urls));
     const result = await scanPDP(urls, config, true);
-    await logResult(result);
+    await logResult(result, config);
   });
 }
 
@@ -251,10 +257,6 @@ function init() {
 
   const focus = currentUrl.searchParams.get('focus');
 
-  if (focus) {
-    document.body.classList.add('focus-images');
-  }
-
   scannerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = document.getElementById('url').value.trim();
@@ -263,10 +265,46 @@ function init() {
     // Clear previous results
     resultsTable.innerHTML = '';
 
-    const response = await corsFetch(`${url}?sheet=urls&sheet=config`);
+    const response = await corsFetch(`${url}`);
     const json = await response.json();
-    const urls = json.urls.data;
-    const config = json.config.data;
+    let urls = [];
+    let config = [];
+    if (json[':type'] === 'multi-sheet') {
+      urls = json.urls.data;
+      config = json.config.data;
+    } else {
+      urls = json.data;
+    }
+
+    if (focus) {
+      config = [];
+    }
+
+    const tableHead = document.querySelector('#results thead tr');
+    tableHead.innerHTML = '';
+    const thUrl = document.createElement('th');
+    thUrl.textContent = 'URL';
+    tableHead.appendChild(thUrl);
+
+    const thStatus = document.createElement('th');
+    thStatus.textContent = 'Status';
+    tableHead.appendChild(thStatus);
+
+    config.forEach((item) => {
+      item.Field = item.Field.toLowerCase();
+      const th = document.createElement('th');
+      th.textContent = item.Field;
+      tableHead.appendChild(th);
+    });
+
+    const thProd = document.createElement('th');
+    thProd.textContent = 'Prod Screenshot';
+    tableHead.appendChild(thProd);
+
+    const thNew = document.createElement('th');
+    thNew.textContent = 'New Screenshot';
+    tableHead.appendChild(thNew);
+
     const params = new URLSearchParams(currentUrl.search);
     const limit = +params.get('limit') || urls.length;
 
@@ -279,7 +317,7 @@ function init() {
       result.prod.url = row.Prod;
       result.new.url = row.New;
       // eslint-disable-next-line no-await-in-loop
-      await logResult(result);
+      await logResult(result, config);
     }
   });
 }
