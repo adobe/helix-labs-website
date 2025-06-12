@@ -205,7 +205,6 @@ function mapResultValues(result, config) {
       const [key, value] = row.split('=').map((i) => i.trim());
       map[key] = value;
     });
-    console.log(map, result.prod[item.Field]);
     if (map[result.prod[item.Field]]) {
       result.prod[item.Field] = map[result.prod[item.Field]];
     }
