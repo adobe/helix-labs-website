@@ -133,7 +133,7 @@ function updateFields() {
 function getFormData() {
   const formData = new FormData(cdnForm);
   const data = {
-    type: formData.get('cdn-type'),
+    type: cdnType.value,
   };
 
   if (data.type) {
@@ -141,9 +141,7 @@ function getFormData() {
       const value = formData.get(field.name);
       if (field.name === 'route' && value) {
         data[field.name] = value.split(',').map((r) => r.trim());
-      } else {
-        data[field.name] = value;
-      }
+      } else if (value) data[field.name] = value;
     });
   } else {
     delete data.type;
@@ -151,6 +149,10 @@ function getFormData() {
 
   if (host.value) {
     data.host = host.value;
+  }
+
+  if (cdnType.disabled) {
+    delete data.type;
   }
 
   return data;
@@ -191,6 +193,10 @@ async function init() {
       return;
     }
 
+    const aggregateConfig = await fetch(`https://admin.hlx.page/config/${org.value}/aggregated/${site.value}.json`);
+    const aggregate = await aggregateConfig.json();
+    const aggConfig = aggregate.cdn.prod;
+
     const cdnUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}.json`;
     const resp = await fetch(cdnUrl);
 
@@ -206,17 +212,25 @@ async function init() {
         host.value = '';
       }
 
-      updateFields();
-
       // Populate fields with existing values
-      if (originalConfig.type) {
-        CDN_FIELDS[originalConfig.type].forEach((field) => {
+      if (originalConfig.type || aggConfig.type) {
+        const effectiveType = originalConfig.type || aggConfig.type;
+        if (aggConfig.type && !originalConfig.type) {
+          cdnType.disabled = true;
+          cdnType.value = effectiveType;
+        }
+        updateFields();
+
+        CDN_FIELDS[effectiveType].forEach((field) => {
           const input = document.getElementById(field.name);
           if (input) {
             if (field.name === 'route' && Array.isArray(originalConfig[field.name])) {
               input.value = originalConfig[field.name].join(', ');
             } else {
-              input.value = originalConfig[field.name] || '';
+              input.value = originalConfig[field.name] || aggConfig[field.name] || '';
+              if (aggConfig[field.name] && !originalConfig[field.name]) {
+                input.disabled = true;
+              }
             }
           }
         });
