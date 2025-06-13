@@ -42,7 +42,6 @@ async function logResult(result, config) {
     const img = document.createElement('img');
     img.src = `https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`;
     img.alt = 'image';
-    img.loading = 'lazy';
     img.width = 100;
     div.appendChild(img);
     const resp = await fetch(`https://image-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}&metadata=true`);
@@ -119,17 +118,17 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
       case 'price': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod.price = prodElem ? prodElem.textContent.replace(/[^0-9.]/g, '') : '';
-        result.new.price = JSONLDData.offers[0].price;
+        result.new.price = JSONLDData?.offers?.[0]?.price;
         break;
       }
       case 'number of variants': {
         result.prod['number of variants'] = findSwatches([...prodDoc.querySelectorAll('script[type="text/x-magento-init"]')]).length || 1;
-        result.new['number of variants'] = JSONLDData.offers.length;
+        result.new['number of variants'] = JSONLDData?.offers?.length;
         break;
       }
       case 'availability': {
         result.prod.availability = prodDoc.querySelector(item.QuerySelector).textContent.split('/').pop();
-        result.new.availability = JSONLDData.offers[0].availability.split('/').pop();
+        result.new.availability = JSONLDData?.offers?.[0]?.availability.split('/').pop();
         break;
       }
       case 'sku': {
@@ -165,7 +164,7 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
             result.prod[item.Field] = '';
           }
         }
-        result.new[item.Field] = JSONLDData.custom[item.Field];
+        result.new[item.Field] = JSONLDData?.custom?.[item.Field];
     }
   });
 }
@@ -212,6 +211,7 @@ function mapResultValues(result, config) {
 }
 
 async function scanPDP(row, config, reload = false) {
+  console.log(row.Prod, row.New);
   const prodUrl = row.Prod;
   const newUrl = row.New;
 
@@ -228,7 +228,6 @@ async function scanPDP(row, config, reload = false) {
       status: newResponse.status,
     },
   };
-
   if (prodResponse.status !== 200 || newResponse.status !== 200) {
     return result;
   }
