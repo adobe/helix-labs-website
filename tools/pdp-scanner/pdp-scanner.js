@@ -9,7 +9,7 @@ async function corsFetch(url, cache = false, reload = false) {
   return resp;
 }
 
-async function logResult(result, config) {
+async function logResult(result, config, focus) {
   const checkSame = (prop) => {
     if (result.prod[prop] === undefined && result.new[prop] === undefined) {
       return { same: true, value: '' };
@@ -23,6 +23,21 @@ async function logResult(result, config) {
     Prod: result.prod.url,
     New: result.new.url,
   };
+
+  if (focus === 'prod-export') {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="url">${result.prod.url}</td>
+      <td class="status">${result.prod.status}</td>
+    `;
+    config.forEach((item) => {
+      const td = document.createElement('td');
+      td.innerHTML = result.prod[item.Field];
+      row.appendChild(td);
+    });
+    resultsTable.appendChild(row);
+    return;
+  }
 
   const createImage = async (url) => {
     const toHumanReadableAgo = (date) => {
@@ -100,7 +115,7 @@ async function logResult(result, config) {
   resultsTable.appendChild(row);
 }
 
-function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
+function extractData(prodDoc, _newDoc, JSONLDData, config, result, focus) {
   const findSwatches = (scripts) => {
     for (let i = 0; i < scripts.length; i += 1) {
       const script = scripts[i];
@@ -144,7 +159,18 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
       }
       case 'warranty': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
-        if (prodElem) prodElem.querySelectorAll('style').forEach((style) => style.remove());
+        if (prodElem) {
+          prodElem.querySelectorAll('style').forEach((style) => style.remove());
+          if (focus === 'prod-export') {
+            const heading = prodElem.querySelector('h2');
+            const ps = [...prodElem.querySelectorAll('p')];
+            let sanitizedHTML = '';
+            if (heading) sanitizedHTML += `${heading.textContent}<br>`;
+            if (ps.length > 0) sanitizedHTML += `${ps.map((p) => p.innerHTML).join('<br>')}`;
+            result.prod.warranty = sanitizedHTML;
+            break;
+          }
+        }
         result.prod.warranty = prodElem ? prodElem.textContent.trim() : undefined;
         result.new.warranty = JSONLDData.custom?.options?.[0]?.name;
         break;
@@ -210,7 +236,7 @@ function mapResultValues(result, config) {
   });
 }
 
-async function scanPDP(row, config, reload = false) {
+async function scanPDP(row, config, focus, reload = false) {
   console.log(row.Prod, row.New);
   const prodUrl = row.Prod;
   const newUrl = row.New;
@@ -241,9 +267,11 @@ async function scanPDP(row, config, reload = false) {
     JSONLDData = JSON.parse(JSONLD.textContent);
   }
 
-  extractData(prodDoc, newDoc, JSONLDData, config, result);
-  await processAuxRequests(config, result);
-  mapResultValues(result, config);
+  extractData(prodDoc, newDoc, JSONLDData, config, result, focus);
+  if (!focus) {
+    await processAuxRequests(config, result);
+    mapResultValues(result, config);
+  }
   return result;
 }
 
@@ -275,7 +303,7 @@ async function runScan(url, focus, share) {
     urls = json.data;
   }
 
-  if (focus) {
+  if (focus === 'images') {
     config = [];
   }
 
@@ -300,13 +328,15 @@ async function runScan(url, focus, share) {
     tableHead.appendChild(th);
   });
 
-  const thProd = document.createElement('th');
-  thProd.textContent = 'Prod Screenshot';
-  tableHead.appendChild(thProd);
+  if (focus !== 'prod-export') {
+    const thProd = document.createElement('th');
+    thProd.textContent = 'Prod Screenshot';
+    tableHead.appendChild(thProd);
 
-  const thNew = document.createElement('th');
-  thNew.textContent = 'New Screenshot';
-  tableHead.appendChild(thNew);
+    const thNew = document.createElement('th');
+    thNew.textContent = 'New Screenshot';
+    tableHead.appendChild(thNew);
+  }
 
   const params = new URLSearchParams(window.location.search);
   const limit = +params.get('limit') || urls.length;
@@ -315,11 +345,11 @@ async function runScan(url, focus, share) {
   for (let i = 0; i < limit; i += 1) {
     const row = urls[i];
     // eslint-disable-next-line no-await-in-loop
-    const result = await scanPDP(row, config);
+    const result = await scanPDP(row, config, focus);
     result.prod.url = row.Prod;
     result.new.url = row.New;
     // eslint-disable-next-line no-await-in-loop
-    await logResult(result, config);
+    await logResult(result, config, focus);
   }
 }
 
