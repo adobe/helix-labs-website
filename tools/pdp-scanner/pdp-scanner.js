@@ -152,9 +152,12 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result, focus) {
         break;
       }
       case 'productid': {
+        console.log('productid', item.QuerySelector);
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod.productId = prodElem ? prodElem.textContent : undefined;
-        result.new.productId = result.prod.productid;
+        result.new.productId = result.prod.productId;
+        result.prod.productid = result.prod.productId;
+        result.new.productid = result.prod.productId;
         break;
       }
       case 'warranty': {
