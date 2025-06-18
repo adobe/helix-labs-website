@@ -257,6 +257,7 @@ function shareSelected() {
   const selectedRows = resultsTable.querySelectorAll('input[type="checkbox"]:checked');
   const selectedUrls = [...selectedRows].map((row) => JSON.parse(decodeURIComponent(row.dataset.urls)).Prod.split('/').pop());
   const url = new URL(window.location.href);
+  url.searchParams.delete('share');
   for (let i = 0; i < selectedUrls.length; i += 1) {
     url.searchParams.append('share', selectedUrls[i]);
   }

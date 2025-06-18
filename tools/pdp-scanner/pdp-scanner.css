@@ -108,7 +108,7 @@
   display: table-cell;
 }
 
-.pdp-scanner.share h1, .pdp-scanner.share #scanner-form, .pdp-scanner.share header, .pdp-scanner.share footer, .pdp-scanner.share input[type="checkbox"] {
+.pdp-scanner.share h1, .pdp-scanner.share #scanner-form, .pdp-scanner.share header, .pdp-scanner.share footer {
   display: none;
 }
 
