@@ -103,7 +103,7 @@ async function logResult(result, config) {
   resultsTable.appendChild(row);
 }
 
-function extractData(prodDoc, newDoc, JSONLDData, config, result) {
+async function extractData(prodDoc, newDoc, JSONLDData, config, result) {
   const findSwatches = (scripts) => {
     for (let i = 0; i < scripts.length; i += 1) {
       const script = scripts[i];
@@ -116,7 +116,7 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
     return [];
   };
 
-  config.forEach((item) => {
+  config.forEach(async (item) => {
     switch (item.Field) {
       case 'price': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
@@ -161,6 +161,15 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod.specifications = prodElem ? prodElem.textContent.trim().replace(/\s+/g, ' ').replace(/ :/g, ':') : undefined;
         result.new.specifications = `Product Specifications ${newDoc.querySelector('div.specifications')?.textContent.trim()}`;
+        break;
+      }
+
+      case 'custom block': {
+        const prodElem = prodDoc.querySelector(item.QuerySelector);
+        result.prod['custom block'] = prodElem ? 'Yes' : 'No';
+        const fragmentUrl = result.new.url.replace('/products/', '/products/fragments/');
+        const fragmentStatus = (await corsFetch(fragmentUrl)).status;
+        result.new['custom block'] = fragmentStatus === 200 ? 'Yes' : 'No';
         break;
       }
 
@@ -226,7 +235,6 @@ function mapResultValues(result, config) {
 }
 
 async function scanPDP(row, config, reload = false) {
-  console.log(row.Prod, row.New);
   const prodUrl = row.Prod;
   const newUrl = row.New;
 
@@ -238,9 +246,11 @@ async function scanPDP(row, config, reload = false) {
   const result = {
     prod: {
       status: prodResponse.status,
+      url: prodUrl,
     },
     new: {
       status: newResponse.status,
+      url: newUrl,
     },
   };
   if (prodResponse.status !== 200 || newResponse.status !== 200) {
@@ -256,7 +266,7 @@ async function scanPDP(row, config, reload = false) {
     JSONLDData = JSON.parse(JSONLD.textContent);
   }
 
-  extractData(prodDoc, newDoc, JSONLDData, config, result);
+  await extractData(prodDoc, newDoc, JSONLDData, config, result);
   await processAuxRequests(config, result);
   mapResultValues(result, config);
   return result;
@@ -328,12 +338,10 @@ async function runScan(url, focus, share) {
   const limit = +params.get('limit') || urls.length;
 
   shareSelectedButton.addEventListener('click', () => shareSelected());
-  for (let i = 0; i < limit; i += 1) {
+  for (let i = 0; i < limit && i < urls.length; i += 1) {
     const row = urls[i];
     // eslint-disable-next-line no-await-in-loop
     const result = await scanPDP(row, config);
-    result.prod.url = row.Prod;
-    result.new.url = row.New;
     // eslint-disable-next-line no-await-in-loop
     await logResult(result, config);
   }
