@@ -146,7 +146,11 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         if (prodElem) prodElem.querySelectorAll('style').forEach((style) => style.remove());
         result.prod.warranty = prodElem ? prodElem.textContent.trim() : undefined;
-        result.new.warranty = JSONLDData.custom?.options?.[0]?.name;
+        result.new.warranty = JSONLDData.custom.warranty;
+        const div = document.createElement('div');
+        div.innerHTML = result.new.warranty;
+        div.innerHTML = div.textContent;
+        result.new.warranty = div.textContent;
         break;
       }
       default:
