@@ -17,6 +17,9 @@ async function logResult(result, config) {
     if (result.prod[prop] === result.new[prop]) {
       return { same: true, value: result.prod[prop] };
     }
+    if (result.prod[prop]?.length > 100 || result.new[prop]?.length > 100) {
+      return { same: false, value: `${result.prod[prop]}<br><br><br>${result.new[prop]}` };
+    }
     return { same: false, value: `${result.prod[prop]} / ${result.new[prop]}` };
   };
   const urls = {
@@ -81,7 +84,7 @@ async function logResult(result, config) {
 
   config.forEach((item) => {
     const td = document.createElement('td');
-    td.textContent = checkSame(item.Field).value;
+    td.innerHTML = checkSame(item.Field).value;
     td.classList.add(checkSame(item.Field).same ? 'pass' : 'fail');
     td.setAttribute('data-field', item.Field);
     row.appendChild(td);
@@ -100,7 +103,7 @@ async function logResult(result, config) {
   resultsTable.appendChild(row);
 }
 
-function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
+function extractData(prodDoc, newDoc, JSONLDData, config, result) {
   const findSwatches = (scripts) => {
     for (let i = 0; i < scripts.length; i += 1) {
       const script = scripts[i];
@@ -153,6 +156,14 @@ function extractData(prodDoc, _newDoc, JSONLDData, config, result) {
         result.new.warranty = div.textContent;
         break;
       }
+
+      case 'specifications': {
+        const prodElem = prodDoc.querySelector(item.QuerySelector);
+        result.prod.specifications = prodElem ? prodElem.textContent.trim() : undefined;
+        result.new.specifications = `Product Specifications ${newDoc.querySelector('div.specifications')?.textContent.trim()}`;
+        break;
+      }
+
       default:
         if (item.AuxRequest) {
           result.prod[item.Field] = '';
