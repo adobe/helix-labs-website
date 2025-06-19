@@ -159,7 +159,7 @@ function extractData(prodDoc, newDoc, JSONLDData, config, result) {
 
       case 'specifications': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
-        result.prod.specifications = prodElem ? prodElem.textContent.trim() : undefined;
+        result.prod.specifications = prodElem ? prodElem.textContent.trim().replace(/[ ]+/g, ' ').replace(/ :/g, ':') : undefined;
         result.new.specifications = `Product Specifications ${newDoc.querySelector('div.specifications')?.textContent.trim()}`;
         break;
       }
