@@ -127,3 +127,17 @@ td.url {
   display: none;
 }
 
+.diff-added {
+  background-color: var(--green-300);
+  color: var(--green-900);
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
+.diff-removed {
+  background-color: var(--red-300);
+  color: var(--red-900);
+  text-decoration: line-through;
+  padding: 0 4px;
+  border-radius: 2px;
+}

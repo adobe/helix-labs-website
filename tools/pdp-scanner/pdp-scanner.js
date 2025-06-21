@@ -1,3 +1,5 @@
+import { diffChars } from './diff.js';
+
 const scannerForm = document.getElementById('scanner-form');
 const resultsTable = document.querySelector('#results tbody');
 const shareSelectedButton = document.querySelector('#share-selected');
@@ -18,7 +20,17 @@ async function logResult(result, config) {
       return { same: true, value: result.prod[prop] };
     }
     if (result.prod[prop]?.length > 100 || result.new[prop]?.length > 100) {
-      return { same: false, value: `${result.prod[prop]}<br><br><br>${result.new[prop]}` };
+      const diff = diffChars(result.prod[prop], result.new[prop]);
+      const diffHtml = diff.map((part) => {
+        if (part.added) {
+          return `<span class="diff-added">${part.value}</span>`;
+        }
+        if (part.removed) {
+          return `<span class="diff-removed">${part.value}</span>`;
+        }
+        return part.value;
+      }).join('');
+      return { same: false, value: `${diffHtml}` };
     }
     return { same: false, value: `${result.prod[prop]} / ${result.new[prop]}` };
   };
@@ -160,7 +172,7 @@ async function extractData(prodDoc, newDoc, JSONLDData, config, result) {
       case 'specifications': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod.specifications = prodElem ? prodElem.textContent.trim().replace(/\s+/g, ' ').replace(/ :/g, ':') : undefined;
-        result.new.specifications = `Product Specifications ${newDoc.querySelector('div.specifications')?.textContent.trim()}`;
+        result.new.specifications = `Product Specifications ${newDoc.querySelector('div.specifications')?.textContent.trim().replace(/\s+/g, ' ')}`;
         break;
       }
 
@@ -168,8 +180,9 @@ async function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod['custom block'] = prodElem ? 'Yes' : 'No';
         const fragmentUrl = result.new.url.replace('/products/', '/products/fragments/');
-        const fragmentStatus = (await corsFetch(fragmentUrl)).status;
-        result.new['custom block'] = fragmentStatus === 200 ? 'Yes' : 'No';
+        const fragmentResponse = await corsFetch(fragmentUrl);
+        await fragmentResponse.text();
+        result.new['custom block'] = fragmentResponse.status === 200 ? 'Yes' : 'No';
         break;
       }
 
