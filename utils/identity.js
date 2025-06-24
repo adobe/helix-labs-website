@@ -1,5 +1,9 @@
+/* eslint-disable no-return-assign */
+/* eslint-disable no-param-reassign */
+// eslint-disable-next-line max-classes-per-file
 let jimp;
 const sessions = {};
+let identityDB;
 
 /**
  * A simple sequential task queue implementation that will ensure that each `run()` will
@@ -46,6 +50,75 @@ class TaskQueue {
     this.pending = this.#process(...args);
     return this.pending;
   }
+}
+
+class AsyncIndexedDB {
+  constructor(db) {
+    this.db = db;
+
+    // TODO: might need to be configurable?
+    this.db.onversionchange = (event) => {
+      console.debug('Received a versionchange event for AsyncIndexedDB, closing connnection:', event);
+      this.db.close();
+    };
+  }
+
+  static async open(name, schema, version) {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(name, version);
+
+      request.onupgradeneeded = (event) => {
+        if (event.oldVersion === 0) {
+          console.debug('Initializing IndexedDB', name, `(version ${event.newVersion})`);
+        } else {
+          console.debug('Migrating IndexedDB', name, `from version ${event.oldVersion} to ${event.newVersion}`);
+        }
+        schema(event);
+      };
+      request.onsuccess = () => resolve(new AsyncIndexedDB(request.result));
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async add(store, doc) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(store, 'readwrite');
+      const request = tx.objectStore(store).add(doc);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async get(store, index, key) {
+    if (!key) {
+      key = index;
+      index = undefined;
+    }
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(store, 'readonly');
+      const objStore = tx.objectStore(store);
+      const request = index ? objStore.index(index).get(key) : objStore.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+}
+
+async function openIdentityDB() {
+  const schema = (event) => {
+    const { transaction, result: db } = event.target;
+    if (event.oldVersion === 0) {
+      // initialize new DB with current schema
+      db.createObjectStore('images', { keyPath: 'url' });
+    } else if (event.oldVersion < 4) {
+      // v1 => v2 upgrade
+      const store = transaction.objectStore('images');
+      if (store.indexNames.includes('url')) {
+        store.deleteIndex('url');
+      }
+    }
+  };
+  return AsyncIndexedDB.open('identity', schema, 4);
 }
 
 /**
@@ -153,7 +226,40 @@ function jimpImageToOnnxTensorRGB(image, dims, normalize) {
   return new ort.Tensor('float32', float32Data, dims);
 }
 
-async function runImageFingerprint(img) {
+async function runImageFingerprint(img, url) {
+  if (typeof img === 'string') {
+    url = url || img;
+  } else if (img instanceof HTMLImageElement) {
+    url = url || img.src;
+  }
+
+  // ignore data URLs for now
+  if (url && url.startsWith('data:')) {
+    url = undefined;
+  }
+
+  if (!identityDB) {
+    try {
+      identityDB = await openIdentityDB();
+    } catch (error) {
+      console.warn('Error opening identity cache DB. Ignoring.', error);
+    }
+  }
+
+  if (identityDB && url) {
+    try {
+      const image = await identityDB.get('images', url);
+      if (image && image.fingerprint) {
+        console.debug(`Found fingerprint in IndexedDB cache: ${url}`);
+        return image.fingerprint;
+      }
+    } catch (error) {
+      console.warn('Error getting image from identity cache DB. Ignoring.', error);
+    }
+  }
+
+  // calculcate using identity
+
   const INPUT_SIZE = 384;
   const NORMALIZE = {
     mean: [0.485, 0.456, 0.406],
@@ -179,23 +285,14 @@ async function runImageFingerprint(img) {
     throw new Error('Invalid type of img argument in getImageFingerprint()');
   }
 
-  console.debug('Fingerprinting image:', image.width, image.height, image);
+  // console.debug('Fingerprinting image:', image.width, image.height, url);
 
   image.resize({ w: INPUT_SIZE, h: INPUT_SIZE, mode: Jimp.RESIZE_BILINEAR });
 
   const shape = [1, 3, INPUT_SIZE, INPUT_SIZE];
   const inputTensor = jimpImageToOnnxTensorRGB(image, shape, NORMALIZE);
 
-  // console.debug('Image input tensor:', imgInput.dims, imgInput);
-  // logPixel(imgInput, 0, 0);
-  // logPixel(imgInput, 200, 100);
-  // logPixel(imgInput, 300, 200);
-  // logPixel(imgInput, 382, 382);
-  // logPixel(imgInput, 383, 383);
-  // logPixel(imgInput, 3000, 1000);
-  // logPixel(imgInput, image.width - 1, image.height - 1);
-
-  console.debug('Image loaded in', Date.now() - start, 'ms');
+  const loadTime = Date.now() - start;
 
   const startInference = Date.now();
 
@@ -203,7 +300,15 @@ async function runImageFingerprint(img) {
 
   const features = await result.embedding.getData();
 
-  console.debug('Feature vector calculated in', Date.now() - startInference, 'ms');
+  console.debug(`Image loaded in ${loadTime} ms, feature vector calculated in ${Date.now() - startInference} ms: ${url || '<unknown url>'}`);
+
+  if (url) {
+    try {
+      await identityDB.add('images', { url, fingerprint: features });
+    } catch (error) {
+      console.warn('Error adding image to identityDB. Ignoring.', error);
+    }
+  }
 
   return features;
 }
@@ -218,8 +323,10 @@ const queues = {
  * @param {string|HTMLImageElement|ImageData|Buffer|ArrayBuffer} img - The image to fingerprint.
  *                                  Can be a URL, an HTMLImageElement, an ImageData object,
  *                                  a Buffer, or an ArrayBuffer.
+ * @param {string} [url] - Optional URL of the image (identifier) if 'img' object is one without
+ *                         a URL or to set a different URL.
  * @returns {Promise<Float32Array>} A 256-dimension float32 vector fingerprint of the image.
  */
-export async function getImageFingerprint(img) {
-  return queues.imageFingerprint.run(img);
+export async function getImageFingerprint(img, url) {
+  return queues.imageFingerprint.run(img, url);
 }

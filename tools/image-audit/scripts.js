@@ -201,8 +201,9 @@ function findUniqueImages(data) {
 /**
  * Displays a collection of images in the gallery.
  * @param {Object[]} images - Array of image data objects to be displayed.
+ * @param {boolean} [identity=false] - Enable advanced image identity features.
  */
-function displayImages(images) {
+function displayImages(images, identity = false) {
   const gallery = document.getElementById('image-gallery');
   images.forEach((data) => {
     // create a new figure to hold the image and its metadata
@@ -215,31 +216,39 @@ function displayImages(images) {
     // build image
     const { href } = new URL(data.src, data.origin);
     const img = document.createElement('img');
-    img.crossOrigin = 'Anonymous';
-    img.dataset.src = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(href)}`;
+    img.dataset.src = href;
+
+    if (identity) {
+      // load immediately so identity can run in the background
+      // need to proxy so we can access image data from HTMLImageElement for fingerprinting
+      img.src = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(href)}`;
+      img.onload = async () => {
+        // load from HTMLImageElement so that we get support for SVG
+        const fingerprint = await getImageFingerprint(img, img.dataset.src);
+        // console.debug('Fingerprint:', fingerprint);
+        // TODO: what to do with the fingerprint?
+      };
+    } else {
+      // load the image when it comes into view
+      img.loading = 'lazy';
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.timeoutId = setTimeout(() => {
+              img.src = img.dataset.src;
+              observer.disconnect();
+            }, 500); // delay image loading
+          } else {
+            // cancel loading delay if image is scrolled out of view
+            clearTimeout(entry.target.timeoutId);
+          }
+        });
+      }, { threshold: 0 });
+      observer.observe(figure);
+    }
     img.width = data.width;
     img.height = data.height;
-    img.loading = 'lazy';
-    img.onload = async () => {
-      const fingerprint = await getImageFingerprint(img);
-      // console.debug('Fingerprint:', fingerprint);
-    };
     figure.append(img);
-    // load the image when it comes into view
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.timeoutId = setTimeout(() => {
-            img.src = img.dataset.src;
-            observer.disconnect();
-          }, 500); // delay image loading
-        } else {
-          // cancel loading delay if image is scrolled out of view
-          clearTimeout(entry.target.timeoutId);
-        }
-      });
-    }, { threshold: 0 });
-    observer.observe(figure);
     // build info button
     const info = document.createElement('button');
     info.setAttribute('aria-label', 'More information');
@@ -324,7 +333,7 @@ function updateCounter(counter, increment, float = false) {
   const targetValue = increment ? value + increment : 0;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
 }
-async function fetchAndDisplayImages(url) {
+async function fetchAndDisplayImages(url, identity = false) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
@@ -348,7 +357,7 @@ async function fetchAndDisplayImages(url) {
   window.audit.push(...uniqueBatchData);
   const imagesCounter = document.getElementById('images-counter');
   imagesCounter.textContent = parseInt(imagesCounter.textContent, 10) + uniqueBatchData.length;
-  displayImages(uniqueBatchData);
+  displayImages(uniqueBatchData, identity);
   decorateIcons(gallery);
   data.length = 0;
   download.disabled = false;
@@ -573,10 +582,14 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...sortActions, ...filterActions].forEach((action) => action.checked = false);
     const {
-      url, path,
+      url, path, identity,
     } = getFormData(form);
 
-    window.history.pushState({}, '', `${window.location.pathname}?url=${encodeURIComponent(url)}&path=${encodeURIComponent(path)}`);
+    const urlParams = new URLSearchParams();
+    urlParams.set('url', url);
+    urlParams.set('path', path);
+    if (identity) urlParams.set('identity', '1');
+    window.history.pushState({}, '', `${window.location.pathname}?${urlParams.toString()}`);
 
     try {
       const sitemapUrls = url.endsWith('.json') ? fetchQueryIndex(url) : fetchSitemap(url);
@@ -586,7 +599,7 @@ function registerListeners(doc) {
       window.audit = [];
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
-          await fetchAndDisplayImages(sitemapUrl);
+          await fetchAndDisplayImages(sitemapUrl, identity);
         }
       }
       clearInterval(timer);
@@ -705,6 +718,7 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('url')) document.getElementById('url').value = decodeURIComponent(params.get('url'));
   if (params.has('path')) document.getElementById('path').value = decodeURIComponent(params.get('path'));
+  if (params.has('identity')) document.getElementById('identity').checked = ['1', 'true'].includes(params.get('identity'));
   registerListeners(document);
 }
 

@@ -1,0 +1,3 @@
+# we must ensure the models are NOT published on the internet as is
+# hence do not check them into a helix git repo
+models/

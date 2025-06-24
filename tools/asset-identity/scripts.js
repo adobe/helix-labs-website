@@ -1,4 +1,4 @@
-import { initIdentity, getImageFingerprint } from '../../utils/identity.js';
+import { getImageFingerprint } from '../../utils/identity.js';
 
 function disableForm() {
   const viewbox = document.querySelector('.viewbox');
@@ -33,8 +33,12 @@ async function initUpload() {
         disableForm();
 
         const img = imgWrapper.querySelector('img');
-        const fingerprint = await getImageFingerprint(img);
-        console.debug('Fingerprint:', fingerprint);
+        try {
+          const fingerprint = await getImageFingerprint(img, file.name);
+          console.debug('Fingerprint:', fingerprint);
+        } catch (error) {
+          console.error('Error getting fingerprint:', error);
+        }
       });
       reader.readAsDataURL(file);
     }
