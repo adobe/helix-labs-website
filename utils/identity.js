@@ -160,7 +160,7 @@ export async function initIdentity() {
     const EXECUTION_PROVIDERS = [/* 'webnn', */'webgpu', 'wasm'];
     console.debug('Loading fingerprint model with execution provider preference:', EXECUTION_PROVIDERS.join(', '));
     const start = Date.now();
-    const FINGERPRINTER_MODEL_URL = '/tools/asset-identity/models/fingerprinter_behance_c5_grad_v2.onnx';
+    const FINGERPRINTER_MODEL_URL = '/models/fingerprinter_behance_c5_grad_v2.onnx';
     // ort.env.debug = true;
     // ort.env.logLevel = 'verbose';
     sessions.fingerprint = await ort.InferenceSession.create(FINGERPRINTER_MODEL_URL, {
