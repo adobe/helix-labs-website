@@ -191,7 +191,11 @@ function getImageData(imageElement) {
   canvas.height = imageElement.height;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(imageElement, 0, 0);
-  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (e) {
+    throw new Error(`Failed to get image data for ${imageElement.src}: ${e.message}`);
+  }
 }
 
 function jimpImageToOnnxTensorRGB(image, dims, normalize) {
@@ -250,7 +254,7 @@ async function runImageFingerprint(img, url) {
     try {
       const image = await identityDB.get('images', url);
       if (image && image.fingerprint) {
-        console.debug(`Found fingerprint in IndexedDB cache: ${url}`);
+        // console.debug(`Found fingerprint in IndexedDB cache: ${url}`);
         return image.fingerprint;
       }
     } catch (error) {
@@ -329,4 +333,26 @@ const queues = {
  */
 export async function getImageFingerprint(img, url) {
   return queues.imageFingerprint.run(img, url);
+}
+
+/**
+ * Convert a string of comma-separated floating point decimals to a Float32Array.
+ * For example, '1.0,-2.4,3.9' -> [1.0, -2.4, 3.9]
+ *
+ * @param {string} str - The string to convert.
+ * @returns {Float32Array} The Float32Array.
+ */
+export function stringToFloat32Array(str) {
+  return new Float32Array(str.split(',').map(Number));
+}
+
+/**
+ * Convert a string of comma-separated floating point decimals to a Float64Array.
+ * For example, '1.0,-2.4,3.9' -> [1.0, -2.4, 3.9]
+ *
+ * @param {string} str - The string to convert.
+ * @returns {Float64Array} The Float64Array.
+ */
+export function stringToFloat64Array(str) {
+  return new Float64Array(str.split(',').map(Number));
 }
