@@ -166,7 +166,11 @@ async function renderImageCluster(canvas, figures) {
     if (figure.dataset.fingerprint) {
       fingerprints.push(stringToFloat64Array(figure.dataset.fingerprint));
     } else {
-      fingerprints.push(new Float64Array(256).fill(NaN));
+      // using NaN will give only NaN results for many DruidJS algorithms
+      // using 0 is a simple stopgap. ideally we should skip them but then
+      // we'd also need to make sure the data, images and pointStyle arrays
+      // below are in sync
+      fingerprints.push(new Float64Array(256).fill(0));
     }
   }
 
@@ -175,25 +179,16 @@ async function renderImageCluster(canvas, figures) {
   /* global druid */
   const matrix = druid.Matrix.from(fingerprints, 'col');
 
-  // candidates: PCA, T-SNE or UMAP
+  const algorithm = document.getElementById('dr-image-cluster').value;
 
-  // FASTMAP: all become 0,0
-  // PCA: all are NaN
-  // UMAP: well distributed but not much patterns
-  // TSNE: all are NaN
-  const algorithm = 'UMAP';
   const parameters = {};
   if (algorithm === 'UMAP' && fingerprints.length <= 15) {
     parameters.n_neighbors = fingerprints.length - 1;
   }
-  // if (algorithm === 'TSNE') {
-  //   parameters.epsilon = 100;
-  // }
   const dimReduction = new druid[algorithm](matrix, parameters);
   console.debug(`running ${algorithm} dimension reduction`);
   const projection = dimReduction.transform();
   const fingerprints2D = projection.to2dArray;
-  console.debug('fingerprints2D[0]', fingerprints2D[0]);
 
   // prepare data and images for chart
   // chartjs data
@@ -315,20 +310,12 @@ async function renderImageCluster(canvas, figures) {
             external(context) {
               // custom tooltip that shows the image in full size
               const { chart, tooltip } = context;
-              let tooltipEl = chart.canvas.parentNode.querySelector('div');
+              let tooltipEl = chart.canvas.parentNode.querySelector('.image-cluster-tooltip');
 
               // create tooltip container element initially
               if (!tooltipEl) {
                 tooltipEl = document.createElement('div');
-                tooltipEl.style.background = 'rgba(0, 0, 0, 0.7)';
-                tooltipEl.style.borderRadius = '3px';
-                tooltipEl.style.color = 'white';
-                tooltipEl.style.opacity = 1;
-                tooltipEl.style.pointerEvents = 'none';
-                tooltipEl.style.position = 'absolute';
-                tooltipEl.style.transform = 'translate(-50%, 0)';
-                tooltipEl.style.transition = 'all .1s ease';
-
+                tooltipEl.classList.add('image-cluster-tooltip');
                 chart.canvas.parentNode.appendChild(tooltipEl);
               }
 
@@ -390,8 +377,34 @@ async function showImageClusterModal(gallery) {
     h4.innerText = 'Image Clusters';
     // insert h4 before the first child of modal
     modal.insertBefore(h4, modal.firstChild);
+
+    const drSelectWrapper = document.createElement('div');
+    drSelectWrapper.classList.add('dr-dropdown-wrapper');
+    drSelectWrapper.innerHTML = `
+      <label>Clustering Method:&nbsp;
+        <select id="dr-image-cluster">
+          <option selected>UMAP</option>
+          <option>PCA</option>
+          <option>FASTMAP</option>
+          <option>TSNE</option>
+          <option>ISOMAP</option>
+          <option>LTSA</option>
+          <option>MDS</option>
+          <option>TriMap</option>
+          <option>TopoMap</option>
+        </select>
+      </label>
+    `;
+
     const canvas = document.createElement('canvas');
+
+    const drDropdown = drSelectWrapper.querySelector('select');
+    drDropdown.addEventListener('change', () => {
+      renderImageCluster(canvas, figures);
+    });
+
     body.append(canvas);
+    body.append(drSelectWrapper);
     document.body.append(modal);
   }
 

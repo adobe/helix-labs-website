@@ -177,10 +177,27 @@ label, legend, .field-help-text, .form-error {
   height: calc(100vh - 2 * var(--spacing-xl));
 }
 
-.image-audit #image-cluster > div {
+.image-audit #image-cluster > .modal-body {
   position: relative;
   width: 100%;
   height: 100%;
+  padding-bottom: 56px;
+}
+
+.image-audit .image-cluster-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 3px;
+  color: white;
+  opacity: 1;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, 0);
+  transition: all .1s ease;
+}
+
+.image-audit .dr-dropdown-wrapper select {
+  width: auto;
 }
 
 .image-audit i.symbol-square::after {
