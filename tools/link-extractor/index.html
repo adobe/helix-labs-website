@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <script src="link-extractor.js" type="module"></script>
+        <style>
+            .header {
+                background-color: #fff0f0;
+            }
+
+            .footer {
+                background-color: #f0f0ff;
+            }
+
+            .hide-header-and-footer .header,
+            .hide-header-and-footer .footer {
+                display: none;
+            }
+
+            .pending {
+                background-color: #f0f000;
+            }
+
+            input[type="text"] {
+                width: 600px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Link Extractor</h1>
+        <p>Enter a URL to extract links from:</p>
+        <input type="text" id="url" placeholder="https://example.com" value="https://dgs.virginia.gov/dgs/directors-office/pwg/">
+        <input type="checkbox" id="hide-header-and-footer">
+        <button id="extract-links">Extract Links</button>
+        <table>
+            <thead>
+                <tr><th>Path</th><th>Text</th><th>Link</th><th>Destination</th></tr>
+            </thead>
+            <tbody id="links"></tbody>
+        </table>
+    </body>
+</html>
