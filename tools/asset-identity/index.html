@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asset Identity</title>
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="/tools/asset-identity/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/asset-identity/styles.css" />
+</head>
+
+<body class="image-audit">
+  <header></header>
+  <main>
+    <div>
+      <h1>Asset Identity</h1>
+      <p>
+        Playground for bringing asset identity AI into the browser.
+      </p>
+    </div>
+
+    <div class="asset-identity">
+      <form>
+        <div class="viewbox" data-status="upload">
+          <label for="upload">
+            <span class="glyph glyph-upload"></span>
+            <p>Click to upload an image or drag-and-drop one here</p>
+          </label>
+          <input type="file" accept="image/*" name="upload">
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer></footer>
+</body>
+
+</html>

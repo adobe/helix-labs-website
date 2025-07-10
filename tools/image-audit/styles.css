@@ -2,6 +2,10 @@
   display: none;
 }
 
+.image-audit [hidden] {
+  display: none;
+}
+
 .image-audit .field-group {
   display: flex;
   flex-wrap: wrap;
@@ -156,6 +160,45 @@ label, legend, .field-help-text, .form-error {
   border-bottom: var(--border-s) solid var(--gray-300);
 }
 
+.image-audit dialog > .title {
+  position: absolute;
+  top: var(--border-l);
+  margin: 0;
+  padding-top: 5px;
+  padding-left: var(--horizontal-spacing);
+  width: 100%;
+  height: 44px;
+  text-align: center;
+}
+
+.image-audit dialog.fullsize {
+  width: 100%;
+  max-width: calc(100% - var(--horizontal-spacing));
+  height: calc(100vh - 2 * var(--spacing-xl));
+}
+
+.image-audit #image-cluster > .modal-body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding-bottom: 56px;
+}
+
+.image-audit .image-cluster-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 3px;
+  color: white;
+  opacity: 1;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, 0);
+  transition: all .1s ease;
+}
+
+.image-audit .dr-dropdown-wrapper select {
+  width: auto;
+}
 
 .image-audit i.symbol-square::after {
   inset: 0;
