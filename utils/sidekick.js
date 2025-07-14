@@ -1,4 +1,3 @@
-// const SIDEKICK_ID = 'dfeojcdljkdfebmdcmilekahpcjkafdp';
 const SIDEKICK_ID = 'igkmdomcgoebiipaifhmpfjhbjccggml';
 
 export const NO_SIDEKICK = 'no-sidekick';
@@ -13,15 +12,19 @@ export async function messageSidekick(message, callback) {
     const { chrome } = window;
     if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
       let messageResolved = false;
-      chrome.runtime.sendMessage(SIDEKICK_ID, message, (response) => {
-        if (response) {
-          if (callback) {
-            callback(response);
+      chrome.runtime.sendMessage(
+        localStorage.getItem('aem-sidekick-id')?.trim() || SIDEKICK_ID,
+        message,
+        (response) => {
+          if (response) {
+            if (callback) {
+              callback(response);
+            }
+            messageResolved = true;
+            resolve(response);
           }
-          messageResolved = true;
-          resolve(response);
-        }
-      });
+        },
+      );
 
       setTimeout(() => {
         if (!messageResolved) {
@@ -29,7 +32,7 @@ export async function messageSidekick(message, callback) {
           console.warn('Sidekick message not received in time');
           resolve(NO_SIDEKICK);
         }
-      }, 1000);
+      }, 5000);
     }
   });
 }

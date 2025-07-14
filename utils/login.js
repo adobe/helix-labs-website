@@ -1,96 +1,66 @@
-import { messageSidekick } from './sidekick.js';
-
-/**
- * Collapses login dropdowns when clicking anywhere outside of them.
- * @param {Event} e The event object
- */
-function collapseDropdowns(e) {
-  const { target } = e;
-  const { nextElementSibling: next } = target;
-  const hasMenu = next && next.tagName.toLowerCase() === 'ul' && next.classList.contains('menu');
-
-  if (target.closest('ul') || hasMenu) {
-    // ignore click on picker icon or inside dropdown
-    return;
-  }
-  const dropdowns = document.querySelectorAll('ul.menu');
-  dropdowns.forEach((dropdown) => {
-    if (!dropdown.hidden) {
-      dropdown.hidden = true;
-      const button = dropdown.previousElementSibling;
-      button.setAttribute('aria-expanded', false);
-    }
-  });
-  document.removeEventListener('click', collapseDropdowns);
-}
+import { messageSidekick, NO_SIDEKICK } from './sidekick.js';
 
 /**
  * Returns a login button element for the given organization and site.
- * @param {string} org The organization name
- * @param {string} site The site name
- * @param {Function} [callback] The callback function to call after login
- * @param {string[]} [authInfo] The auth info from sidekick (optional)
+ * @param {Object} cfg The login button configuration
+ * @param {string} cfg.org The organization name
+ * @param {string} cfg.site The site name
+ * @param {Function} [cfg.callback] The callback function to call after login
+ * @param {boolean} [cfg.quiet] Whether to use a quiet login button
+ * @param {string} [cfg.text] The override text to display on the login button
  * @returns {HTMLElement} The login button element
  */
-export default function createLoginButton(org, site, callback, authInfo) {
-  // login options
-  const loginContainer = document.createElement('div');
-  loginContainer.classList.add('form-field', 'picker-field');
-  loginContainer.innerHTML = `
-    <input type="button" class="button outline" id="login-button-${org}" title="Sign in"
-      value="${authInfo?.includes(org) ? 'Signed in' : 'Sign in'}"
-      ${authInfo?.includes(org) ? 'disabled' : ''}>
-    <i id="login-button-icon-${org}" class="symbol symbol-chevron" title="Sign in options"
-      ${authInfo?.includes(org) ? 'aria-hidden="true"' : ''}></i>
-    <ul class="menu" id="login-options-${org}" role="listbox" aria-labelledby="login-button-${org}" hidden>
-      <li role="option" aria-selected="false" data-value="default">Default IDP</li>
-      <li role="option" aria-selected="false" data-value="microsoft">Microsoft</li>
-      <li role="option" aria-selected="false" data-value="google">Google</li>
-      <li role="option" aria-selected="false" data-value="adobe">Adobe</li>
-    </ul>
-  `;
-
-  // enable login dropdown
-  const loginPicker = loginContainer.querySelector(`input#login-button-${org}`);
-  const loginPickerIcon = loginContainer.querySelector(`i#login-button-icon-${org}`);
-  const loginDropdown = loginContainer.querySelector(`ul#login-options-${org}`);
-  const loginIdps = loginDropdown.querySelectorAll('[role="option"]');
-
-  // trigger default IDP login on b utton click
-  loginPicker.addEventListener('click', () => {
-    loginDropdown.querySelector('li').click();
+export default async function createLoginButton({
+  org, site, callback, quiet, text,
+}) {
+  const authInfo = await new Promise((resolve) => {
+    messageSidekick({ action: 'getAuthInfo' }, (res) => resolve(res));
+    // if no response after 200ms, resolve with NO_SIDEKICK
+    setTimeout(() => resolve(NO_SIDEKICK), 200);
   });
+  if (authInfo === NO_SIDEKICK) {
+    const msg = document.createElement('span');
+    msg.innerHTML = 'Install <a href="https://chromewebstore.google.com/detail/aem-sidekick/igkmdomcgoebiipaifhmpfjhbjccggml" target="_blank" rel="noopener noreferrer">AEM Sidekick</a> to sign in.';
+    return msg;
+  }
+  const loginText = text || (authInfo?.includes(org) && !quiet ? 'Switch account' : 'Sign in');
 
-  loginPickerIcon.addEventListener('click', (e) => {
-    const { target } = e;
-    const expanded = target.getAttribute('aria-expanded') === 'true';
-    target.setAttribute('aria-expanded', !expanded);
-    loginDropdown.hidden = expanded;
-    setTimeout(() => document.addEventListener('click', collapseDropdowns), 200);
-  });
+  const loginButton = document.createElement('button');
+  loginButton.classList.add('button', 'login');
+  if (quiet) {
+    loginButton.classList.add('quiet');
+  }
+  loginButton.title = loginText;
+  loginButton.textContent = loginText;
 
-  // trigger login on dropdown click
-  loginDropdown.addEventListener('click', async (e) => {
-    const option = e.target.closest('[role="option"]');
-    if (option) {
-      loginPicker.setAttribute('aria-expanded', false);
-      loginDropdown.hidden = true;
-      loginIdps.forEach((o) => o.setAttribute('aria-selected', o === option));
-      const { value: idp } = option.dataset;
-      loginPickerIcon.classList.replace('symbol-chevron', 'symbol-loading');
-      const defaultIdp = idp === 'default';
-      const success = await messageSidekick({
-        action: 'login',
-        org,
-        site,
-        idp: defaultIdp ? null : idp,
-        // selectAccount,
-      });
-      if (typeof callback === 'function') {
-        callback(success);
-      }
+  // trigger login on button click (alt key for microsoft IDP with common tenant)
+  loginButton.addEventListener('click', async () => {
+    loginButton.disabled = true;
+    const altKey = loginButton.classList.contains('ops');
+    const success = await messageSidekick({
+      action: 'login',
+      org,
+      site,
+      idp: altKey ? 'microsoft' : undefined,
+      tenant: altKey ? 'common' : undefined,
+      selectAccount: authInfo?.includes(org),
+    });
+    if (typeof callback === 'function') {
+      callback(success);
     }
   });
 
-  return loginContainer;
+  // add body class if alt key is pressed
+  document.addEventListener('keydown', ({ altKey }) => {
+    if (altKey) {
+      loginButton.classList.add('ops');
+    }
+  });
+  document.addEventListener('keyup', ({ altKey }) => {
+    if (!altKey) {
+      loginButton.classList.remove('ops');
+    }
+  });
+
+  return loginButton;
 }
