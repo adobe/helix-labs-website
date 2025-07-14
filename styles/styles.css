@@ -580,6 +580,12 @@ a:any-link:not(a.button) {
   background-color: var(--gray-100);
 }
 
+.button.login.ops {
+  color: white;
+  background-color: var(--gray-800);
+  border-color: var(--gray-800);
+}
+
 /* form elements */
 input,
 textarea,

@@ -126,7 +126,7 @@ function displayProject(config, editMode = false) {
   return li;
 }
 
-function displayProjects(projects, authInfo) {
+function displayProjects(projects) {
   let message;
   if (projects === NO_SIDEKICK) {
     message = `No sidekick found. Make sure the ${externalLink('https://chromewebstore.google.com/detail/aem-sidekick/igkmdomcgoebiipaifhmpfjhbjccggml?authuser=0&hl=en', 'AEM Sidekick')} extension is installed and enabled.`;
@@ -164,20 +164,20 @@ function displayProjects(projects, authInfo) {
   });
 
   const sortedOrgs = Object.keys(projectsByOrg).sort((a, b) => a.localeCompare(b));
-  sortedOrgs.forEach((org) => {
+  sortedOrgs.forEach(async (org) => {
     const orgContainer = document.createElement('div');
     orgContainer.classList.add('projects-org');
 
     const titleBar = document.createElement('div');
     titleBar.classList.add('projects-title-bar');
     titleBar.innerHTML = `<h3>${org}</h3>`;
-    const loginButton = createLoginButton(
+    const loginButton = await createLoginButton({
       org,
-      projectsByOrg[org][0].site, // default to first site
+      site: projectsByOrg[org][0].site, // default to first site
       // eslint-disable-next-line no-use-before-define
-      () => setTimeout(() => init(), 1000), // refresh UI after login
-      authInfo,
-    );
+      callback: () => setTimeout(() => init(), 1000), // refresh UI after login
+    });
+    loginButton.classList.add('outline');
     titleBar.append(loginButton);
     orgContainer.append(titleBar);
 
@@ -197,9 +197,8 @@ function displayProjects(projects, authInfo) {
 }
 
 async function init() {
-  const authInfo = await messageSidekick({ action: 'getAuthInfo' }) || [];
   const projects = await messageSidekick({ action: 'getSites' }) || [];
-  displayProjects(projects, authInfo);
+  displayProjects(projects);
 
   // recheck authInfo every 10s and update login buttons
   setInterval(async () => {
