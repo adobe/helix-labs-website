@@ -247,9 +247,12 @@ function mapResultValues(result, config) {
   });
 }
 
-async function scanPDP(row, config, reload = false) {
+async function scanPDP(row, config, branchOverride = null, reload = false) {
   const prodUrl = row.Prod;
-  const newUrl = row.New;
+  let newUrl = row.New;
+  if (branchOverride) {
+    newUrl = newUrl.replace('https://main--', `https://${branchOverride}--`);
+  }
 
   const prodResponse = await corsFetch(prodUrl, true, reload, true);
   const prodHtml = await prodResponse.text();
@@ -349,12 +352,13 @@ async function runScan(url, focus, share) {
 
   const params = new URLSearchParams(window.location.search);
   const limit = +params.get('limit') || urls.length;
+  const branchOverride = params.get('branch');
 
   shareSelectedButton.addEventListener('click', () => shareSelected());
   for (let i = 0; i < limit && i < urls.length; i += 1) {
     const row = urls[i];
     // eslint-disable-next-line no-await-in-loop
-    const result = await scanPDP(row, config);
+    const result = await scanPDP(row, config, branchOverride);
     // eslint-disable-next-line no-await-in-loop
     await logResult(result, config);
   }
