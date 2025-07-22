@@ -357,7 +357,7 @@
       console.log(significancetest(keytoarray(res1, 'LCP'), keytoarray(res2, 'LCP')));
       
       // Show significance test section
-      const significanceContainer = document.querySelector('.psi-significance-container');
+      const significanceContainer = document.getElementById('psi-significance-container');
       if (significanceContainer) {
         significanceContainer.style.display = 'block';
       }
@@ -807,7 +807,7 @@
           <div id="output2"></div>
         </div>
         </div>
-        <div class="psi-significance-container" style="display: none;">
+        <div id="psi-significance-container" style="display: none;">
           <div class="psi-significance-wrapper">
             <h3>Statistical Significance Test</h3>
             <ul id="significancetestresults"></ul>
