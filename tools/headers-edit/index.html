@@ -8,19 +8,19 @@
   >
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>robots.txt Editor | AEM Tools</title>
+  <title>HTTP Headers Editor | AEM Tools</title>
   <script nonce="aem" src="/scripts/aem.js" type="module"></script>
   <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
   <link rel="stylesheet" href="/utils/config/config.css" />
   <link rel="stylesheet" href="/styles/styles.css" />
-  <script nonce="aem" src="/tools/robots-edit/robots-edit.js" type="module"></script>
-  <link rel="stylesheet" href="/tools/robots-edit/robots-edit.css" />
+  <script nonce="aem" src="/tools/headers-edit/headers-edit.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/headers-edit/headers-edit.css" />
 </head>
-<body class="robots-edit">
+<body class="headers-edit">
   <header></header>
   <main>
     <div>
-      <h1>robots.txt Editor</h1>
+      <h1>HTTP Headers Editor</h1>
     </div>
 
     <div>
@@ -44,18 +44,24 @@
     </div>
 
     <div>
-      <form id="body-form">
-        <div class="form-field textarea-field">
-          <label for="body">robots.txt</label>
-          <div class="body-wrapper">
-            <textarea id="body" spellcheck="false"></textarea>
+      <form id="headers-form">
+        <div class="headers-container">
+          <div class="headers-list" id="headers-list">
+            <!-- Headers will be dynamically added here -->
           </div>
         </div>
-        <div class="save-wrapper">
-          <p class="button-wrapper">
+        <div class="button-bar" aria-hidden="true">
+          <div class="button-wrapper">
+            <button type="button" id="add-header" class="button outline">Add Header...</button>
+          </div>
+          <div class="button-wrapper">
             <button type="submit" id="save" class="button">Save</button>
-          </p>
+          </div>
         </div>
+        <datalist id="header-keys">
+          <option value="content-security-policy">content-security-policy</option>
+          <option value="access-control-allow-origin">access-control-allow-origin</option>
+        </datalist>
       </form>
     </div>
 
