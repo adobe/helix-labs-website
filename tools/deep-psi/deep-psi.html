@@ -463,17 +463,39 @@
   // Loading animation functions
   function showLoadingAnimation() {
     const submitButton = document.getElementById('button');
+    const resetButton = document.querySelector('button[type="reset"]');
+    const clearCheckbox = document.getElementById('clear');
+    
     if (submitButton) {
       submitButton.disabled = true;
       submitButton.innerHTML = '<span class="loading-spinner"></span> Loading...';
+    }
+    
+    if (resetButton) {
+      resetButton.disabled = true;
+    }
+    
+    if (clearCheckbox) {
+      clearCheckbox.disabled = true;
     }
   }
 
   function hideLoadingAnimation() {
     const submitButton = document.getElementById('button');
+    const resetButton = document.querySelector('button[type="reset"]');
+    const clearCheckbox = document.getElementById('clear');
+    
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.innerHTML = 'Submit';
+    }
+    
+    if (resetButton) {
+      resetButton.disabled = false;
+    }
+    
+    if (clearCheckbox) {
+      clearCheckbox.disabled = false;
     }
   }
 
@@ -493,16 +515,18 @@
       url.searchParams.set('url2', document.getElementById('url2').value);
       window.history.pushState({}, '', url);
 
-      const clearCheckbox = document.getElementById('clear');
-      const output1 = document.getElementById('output1');
-      const output2 = document.getElementById('output2');
-      const significanceResults = document.getElementById('significancetestresults');
-      
-      if (clearCheckbox && clearCheckbox.checked) {
-        if (output1) output1.innerHTML = '';
-        if (output2) output2.innerHTML = '';
-        if (significanceResults) significanceResults.innerHTML = '';
-      }
+          const clearCheckbox = document.getElementById('clear');
+    const output1 = document.getElementById('output1');
+    const output2 = document.getElementById('output2');
+    const significanceResults = document.getElementById('significancetestresults');
+    const significanceContainer = document.getElementById('psi-significance-container');
+    
+    if (clearCheckbox && clearCheckbox.checked) {
+      if (output1) output1.innerHTML = '';
+      if (output2) output2.innerHTML = '';
+      if (significanceResults) significanceResults.innerHTML = '';
+      if (significanceContainer) significanceContainer.style.display = 'none';
+    }
 
       comparePSI();
     });
@@ -516,6 +540,24 @@
     
     if (url1 && url1Element) url1Element.value = url1;
     if (url2 && url2Element) url2Element.value = url2;
+    
+    // Add event listener for clear checkbox
+    const clearCheckbox = document.getElementById('clear');
+    if (clearCheckbox) {
+      clearCheckbox.addEventListener('change', () => {
+        if (clearCheckbox.checked) {
+          const output1 = document.getElementById('output1');
+          const output2 = document.getElementById('output2');
+          const significanceResults = document.getElementById('significancetestresults');
+          const significanceContainer = document.getElementById('psi-significance-container');
+          
+          if (output1) output1.innerHTML = '';
+          if (output2) output2.innerHTML = '';
+          if (significanceResults) significanceResults.innerHTML = '';
+          if (significanceContainer) significanceContainer.style.display = 'none';
+        }
+      });
+    }
   }
 
   // Initialize when DOM is ready
