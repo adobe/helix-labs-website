@@ -150,7 +150,134 @@ function displayModal(figure) {
   modal.showModal();
 }
 
-async function renderImageCluster(canvas, figures) {
+function renderImageClusterChart(canvas, chartData) {
+  canvas.classList.remove('loading-spinner');
+
+  // render cluster using chart.js
+
+  /* global Chart */
+  canvas.chart = new Chart(canvas, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        data: chartData.data,
+        radius: chartData.radius,
+        pointStyle: chartData.pointStyle,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          display: false,
+        },
+        y: {
+          grid: {
+            display: false,
+          },
+          display: false,
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'xy',
+            modifierKey: 'alt',
+            threshold: 0.01,
+          },
+          zoom: {
+            wheel: {
+              enabled: true,
+              speed: 0.05,
+            },
+            pinch: {
+              enabled: true,
+            },
+          },
+        },
+        tooltip: {
+          enabled: false,
+          external(context) {
+            // custom tooltip that shows the image in full size
+            const { chart, tooltip } = context;
+            let tooltipEl = chart.canvas.parentNode.querySelector('.image-cluster-tooltip');
+
+            // create tooltip container element initially
+            if (!tooltipEl) {
+              tooltipEl = document.createElement('div');
+              tooltipEl.classList.add('image-cluster-tooltip');
+              chart.canvas.parentNode.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            if (tooltip.opacity === 0) {
+              tooltipEl.style.opacity = 0;
+              return;
+            }
+
+            // Set tooltip content
+            if (tooltip.body) {
+              // replace tooltip content with image
+              tooltipEl.innerHTML = '';
+
+              const dataIndex = tooltip.dataPoints[0]?.dataIndex;
+              if (dataIndex !== undefined) {
+                let img = chartData.clonedImages[dataIndex];
+                if (!img) {
+                  img = chartData.images[dataIndex];
+                  if (img) {
+                    img = img.cloneNode(true);
+                    chartData.clonedImages[dataIndex] = img;
+                  } else {
+                    chartData.clonedImages[dataIndex] = null;
+                  }
+                }
+                if (img) {
+                  tooltipEl.appendChild(img);
+                }
+              }
+            }
+
+            // Display, position, and set styles for font
+            const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.left = `${positionX + tooltip.caretX}px`;
+            tooltipEl.style.top = `${positionY + tooltip.caretY}px`;
+            tooltipEl.style.padding = `${tooltip.options.padding}px ${tooltip.options.padding}px`;
+          },
+        },
+      },
+      onClick: (event, elements) => {
+        if (event.type === 'click' && elements[0]) {
+          const dataIndex = elements[0].index;
+          const currentFigures = document.querySelectorAll('#canvas .gallery figure');
+          if (currentFigures[dataIndex]) {
+            displayModal(currentFigures[dataIndex]);
+          }
+        }
+      },
+      onHover: (event, chartElement) => {
+        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+      },
+    },
+    plugins: [{
+      beforeDatasetsUpdate(chart) {
+        // some transparency so that multiple images on top of each are visible
+        chart.ctx.globalAlpha = 0.8;
+      },
+    }],
+  });
+}
+
+async function renderImageCluster(canvas, gallery) {
   if (!window.Chart) {
     await loadScript('https://cdn.jsdelivr.net/npm/chart.js');
     await loadScript('https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom');
@@ -162,6 +289,7 @@ async function renderImageCluster(canvas, figures) {
   // collect all fingerprints
   const fingerprints = [];
 
+  const figures = [...gallery.querySelectorAll('figure')];
   for (const figure of figures) {
     if (figure.dataset.fingerprint) {
       fingerprints.push(stringToFloat64Array(figure.dataset.fingerprint));
@@ -177,57 +305,60 @@ async function renderImageCluster(canvas, figures) {
   // reduce dimensionality to 2D
 
   /* global druid */
+  // prep data
   const matrix = druid.Matrix.from(fingerprints, 'col');
 
+  // set algorithm
   const algorithm = document.getElementById('dr-image-cluster').value;
-
   const parameters = {};
   if (algorithm === 'UMAP' && fingerprints.length <= 15) {
     parameters.n_neighbors = fingerprints.length - 1;
   }
   const dimReduction = new druid[algorithm](matrix, parameters);
-  console.debug(`running ${algorithm} dimension reduction`);
-  const projection = dimReduction.transform();
-  const fingerprints2D = projection.to2dArray;
+
+  // reduce dimensionality (can take some time)
+  const fingerprints2D = dimReduction.transform().to2dArray;
 
   // prepare data and images for chart
-  // chartjs data
-  const data = [];
-  // store original images for tooltips
-  const images = [];
-  // images to be rendered as points
-  const pointStyle = [];
-
-  const IMAGE_POINT_SIZE = 32;
+  const chartData = {
+    // chartjs data
+    data: [],
+    // store original images for tooltips
+    images: [],
+    clonedImages: [],
+    // images to be rendered as points
+    pointStyle: [],
+    radius: 32,
+  };
 
   for (let i = 0; i < fingerprints2D.length; i += 1) {
     const fingerprint = fingerprints2D[i];
     if (fingerprint) {
-      data.push({ x: fingerprint[0], y: fingerprint[1] });
+      chartData.data.push({ x: fingerprint[0], y: fingerprint[1] });
 
       const img = figures[i].querySelector('img');
       if (img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
-        images.push(img);
+        chartData.images.push(img);
 
         const ratio = img.width / img.height;
         if (ratio > 1) {
-          // set custom draw size - see below
-          img.chartDrawWidth = IMAGE_POINT_SIZE;
-          img.chartDrawHeight = IMAGE_POINT_SIZE / ratio;
+        // set custom draw size - see below
+          img.chartDrawWidth = chartData.radius;
+          img.chartDrawHeight = chartData.radius / ratio;
         } else {
-          img.chartDrawHeight = IMAGE_POINT_SIZE;
-          img.chartDrawWidth = IMAGE_POINT_SIZE * ratio;
+          img.chartDrawHeight = chartData.radius;
+          img.chartDrawWidth = chartData.radius * ratio;
         }
-        pointStyle.push(img);
+        chartData.pointStyle.push(img);
       } else {
         // fingerprint but no image
-        images.push(null);
-        pointStyle.push('rect');
+        chartData.images.push(null);
+        chartData.pointStyle.push('rect');
       }
     } else {
       // no fingerprint, no image
-      data.push({});
-      images.push(null);
+      chartData.data.push({});
+      chartData.images.push(null);
     }
   }
 
@@ -250,117 +381,24 @@ async function renderImageCluster(canvas, figures) {
 
   // wait for cloned point images (in pointStyle[]) to be resized
   setTimeout(() => {
-    // render cluster using chart.js
-
-    if (canvas.chart) {
-      canvas.chart.destroy();
-    }
-
-    /* global Chart */
-    // eslint-disable-next-line no-new
-    canvas.chart = new Chart(canvas, {
-      type: 'scatter',
-      data: {
-        datasets: [{
-          data,
-          radius: IMAGE_POINT_SIZE,
-          pointStyle,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            grid: {
-              display: false,
-            },
-            display: false,
-          },
-          y: {
-            grid: {
-              display: false,
-            },
-            display: false,
-          },
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-          zoom: {
-            pan: {
-              enabled: true,
-              mode: 'xy',
-              modifierKey: 'alt',
-              threshold: 0.01,
-            },
-            zoom: {
-              wheel: {
-                enabled: true,
-                speed: 0.05,
-              },
-              pinch: {
-                enabled: true,
-              },
-            },
-          },
-          tooltip: {
-            enabled: false,
-            external(context) {
-              // custom tooltip that shows the image in full size
-              const { chart, tooltip } = context;
-              let tooltipEl = chart.canvas.parentNode.querySelector('.image-cluster-tooltip');
-
-              // create tooltip container element initially
-              if (!tooltipEl) {
-                tooltipEl = document.createElement('div');
-                tooltipEl.classList.add('image-cluster-tooltip');
-                chart.canvas.parentNode.appendChild(tooltipEl);
-              }
-
-              // Hide if no tooltip
-              if (tooltip.opacity === 0) {
-                tooltipEl.style.opacity = 0;
-                return;
-              }
-
-              // Set tooltip content
-              if (tooltip.body) {
-                // replace tooltip content with image
-                tooltipEl.innerHTML = '';
-
-                const dataIndex = tooltip.dataPoints[0]?.dataIndex;
-                if (dataIndex !== undefined) {
-                  const img = images[dataIndex];
-                  if (img) {
-                    tooltipEl.appendChild(img);
-                  }
-                }
-              }
-
-              // Display, position, and set styles for font
-              const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
-              tooltipEl.style.opacity = 1;
-              tooltipEl.style.left = `${positionX + tooltip.caretX}px`;
-              tooltipEl.style.top = `${positionY + tooltip.caretY}px`;
-              tooltipEl.style.padding = `${tooltip.options.padding}px ${tooltip.options.padding}px`;
-            },
-          },
-        },
-      },
-      plugins: [{
-        beforeDatasetsUpdate(chart) {
-          // some transparency so that multiple images on top of each are visible
-          chart.ctx.globalAlpha = 0.8;
-        },
-      }],
-    });
+    renderImageClusterChart(canvas, chartData);
   }, 0);
 }
 
-async function showImageClusterModal(gallery) {
-  const figures = [...gallery.querySelectorAll('figure')];
+async function updateImageCluster(canvas, gallery) {
+  if (canvas.chart) {
+    canvas.chart.destroy();
+  }
+
+  // show loading animation while clusters are being calculated
+  canvas.classList.add('loading-spinner');
+
+  setTimeout(() => {
+    renderImageCluster(canvas, gallery);
+  }, 0);
+}
+
+function showImageClusterModal(gallery) {
   const id = 'image-cluster';
 
   // check if a modal with this ID already exists
@@ -384,9 +422,9 @@ async function showImageClusterModal(gallery) {
       <label>Clustering Method:&nbsp;
         <select id="dr-image-cluster">
           <option selected>UMAP</option>
+          <option>TSNE</option>
           <option>PCA</option>
           <option>FASTMAP</option>
-          <option>TSNE</option>
           <option>ISOMAP</option>
           <option>LTSA</option>
           <option>MDS</option>
@@ -400,7 +438,7 @@ async function showImageClusterModal(gallery) {
 
     const drDropdown = drSelectWrapper.querySelector('select');
     drDropdown.addEventListener('change', () => {
-      renderImageCluster(canvas, figures);
+      updateImageCluster(canvas, gallery);
     });
 
     body.append(canvas);
@@ -408,11 +446,11 @@ async function showImageClusterModal(gallery) {
     document.body.append(modal);
   }
 
+  modal.showModal();
+
   // render fresh each time the modal is shown
   const canvas = modal.querySelector('canvas');
-  await renderImageCluster(canvas, figures);
-
-  modal.showModal();
+  updateImageCluster(canvas, gallery);
 }
 
 /* image processing and display */
