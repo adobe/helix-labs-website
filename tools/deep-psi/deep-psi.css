@@ -1,4 +1,10 @@
 /* Deep PSI specific styles */
+.deep-psi main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-l);
+}
+
 .deep-psi form#psi-form {
   display: grid;
   grid-template:
@@ -55,7 +61,20 @@
 .deep-psi .psi-output-grid {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
+  gap: calc(var(--spacing-xl) * 2); /* 2x spacing-xl */
+}
+
+@media (width >= 900px) {
+  .deep-psi .psi-output-grid {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: calc(var(--spacing-xl) * 2); /* 2x spacing-xl */
+  }
+  
+  .deep-psi .psi-output-grid > div {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .deep-psi .psi-significance-wrapper {
@@ -95,12 +114,29 @@
   box-shadow: var(--shadow-default);
 }
 
+@media (width >= 900px) {
+  .deep-psi table {
+    font-size: var(--detail-size-s);
+  }
+  
+  .deep-psi table th,
+  .deep-psi table td {
+    padding: var(--spacing-s);
+  }
+}
+
 .deep-psi .table-container {
   max-height: 400px;
   overflow-y: auto;
   border-radius: 0.5rem;
   box-shadow: var(--shadow-default);
   background: var(--layer-elevated);
+}
+
+@media (width >= 900px) {
+  .deep-psi .table-container {
+    max-height: 500px;
+  }
 }
 
 .deep-psi .table-container table {
@@ -151,6 +187,20 @@
   padding: var(--spacing-l);
 }
 
+.deep-psi table tr.average .score-circle {
+  width: 40px;
+  height: 40px;
+  font-size: var(--detail-size-l);
+}
+
+@media (width >= 900px) {
+  .deep-psi table tr.average .score-circle {
+    width: 45px;
+    height: 45px;
+    font-size: var(--detail-size-m);
+  }
+}
+
 /* Score circle styles */
 .deep-psi .score-circle {
   display: inline-flex;
@@ -165,13 +215,28 @@
   box-shadow: var(--shadow-default);
 }
 
+@media (width >= 900px) {
+  .deep-psi .score-circle {
+    width: 45px;
+    height: 45px;
+    font-size: var(--detail-size-m);
+  }
+}
+
 .deep-psi .score-container {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 40px;
 }
 
-/* Equal column widths */
+@media (width >= 900px) {
+  .deep-psi .score-container {
+    min-height: 45px;
+  }
+}
+
+/* Column width distribution */
 .deep-psi table {
   table-layout: fixed;
 }
@@ -180,6 +245,21 @@
 .deep-psi table th {
   width: auto;
   max-width: none;
+}
+
+/* Give more width to the Score column */
+.deep-psi table th:last-child,
+.deep-psi table td:last-child {
+  width: 80px;
+  min-width: 80px;
+}
+
+@media (width >= 900px) {
+  .deep-psi table th:last-child,
+  .deep-psi table td:last-child {
+    width: 100px;
+    min-width: 100px;
+  }
 }
 
 /* Loading and status messages */
@@ -233,4 +313,21 @@
   background: var(--gray-50);
   border-radius: 0.5rem;
   border-left: 4px solid var(--blue-500);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-s);
+}
+
+.deep-psi .table-url-header.loading {
+  color: var(--gray-600);
+  border-left-color: var(--orange-500);
+}
+
+.deep-psi .table-url-header .loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 } 

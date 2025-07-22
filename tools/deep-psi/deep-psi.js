@@ -432,8 +432,8 @@ async function executePSI(num) {
   
   // Add URL header above the table
   const urlHeader = document.createElement('h3');
-  urlHeader.className = 'table-url-header';
-  urlHeader.textContent = `URL ${num}: ${url}`;
+  urlHeader.className = 'table-url-header loading';
+  urlHeader.innerHTML = `<span class="loading-spinner"></span> Loading URL ${num}...`;
   output.appendChild(urlHeader);
   
   // Determine number of API calls based on environment
@@ -476,6 +476,14 @@ async function executePSI(num) {
   
   const avgs = {};
   output.append(createTable(results, avgs));
+  
+  // Update URL header to show final URL and remove loading state
+  const existingUrlHeader = output.querySelector('.table-url-header');
+  if (existingUrlHeader) {
+    existingUrlHeader.className = 'table-url-header';
+    existingUrlHeader.textContent = `URL ${num}: ${url}`;
+  }
+  
   const p = document.createElement('p');
   p.innerHTML = `<a target="_blank" href="https://googlechrome.github.io/lighthouse/scorecalc/#FCP=${avgs.FCP}&TTI=${avgs.TTI}&SI=${avgs.SI}&TBT=${avgs.TBT}&LCP=${avgs.LCP}&CLS=${avgs.CLS}&device=mobile&version=10">Overall Best Stable Score</a>`;
 
