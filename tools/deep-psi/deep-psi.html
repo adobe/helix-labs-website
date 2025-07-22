@@ -403,7 +403,7 @@
     
     // Determine number of API calls based on environment
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const apiCalls = isLocalhost ? 2 : 1;
+    const apiCalls = isLocalhost ? 2 : 20;
     const rawResults = await getResults(url, apiCalls);
     const categs = ['first-contentful-paint', 'speed-index', 'largest-contentful-paint', 'interactive', 'total-blocking-time', 'cumulative-layout-shift'];
     const names = ['FCP', 'SI', 'LCP', 'TTI', 'TBT', 'CLS'];
