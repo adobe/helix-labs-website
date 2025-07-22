@@ -1,11 +1,6 @@
 import { sampleRUM } from '../../scripts/aem.js';
 import pLimit from 'https://cdn.skypack.dev/p-limit@4.0.0';
 
-// Disable AEM block loading for this tool
-if (window.hlx) {
-  window.hlx.blockLoadingDisabled = true;
-}
-
 const parallelism = new URL(window.location.href).searchParams.get('parallelism');
 // parse number
 const limit = pLimit(parallelism ? parseInt(parallelism) : 10);
@@ -292,9 +287,14 @@ function getScoreColor(score) {
 /**
  * @param {number[]} arr1 - array of numbers
  * @param {number[]} arr2 - array of numbers
- * @returns {number} - the p-value of the two independent samples
+ * @returns {Promise<number>} - the p-value of the two independent samples
  */
-function significancetest(arr1, arr2) {
+async function significancetest(arr1, arr2) {
+  // Dynamically load jStat only when needed
+  if (typeof jStat === 'undefined') {
+    await loadJStat();
+  }
+  
   const n1 = arr1.length;
   const n2 = arr2.length;
   const mean1 = mean(arr1);
@@ -306,6 +306,22 @@ function significancetest(arr1, arr2) {
   const df = n1 + n2 - 2;
   const p = 1 - jStat.studentt.cdf(Math.abs(t), df);
   return p;
+}
+
+// Function to dynamically load jStat
+async function loadJStat() {
+  return new Promise((resolve, reject) => {
+    if (typeof jStat !== 'undefined') {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = '//cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load jStat'));
+    document.head.appendChild(script);
+  });
 }
 
 async function comparePSI() {
@@ -361,7 +377,6 @@ async function comparePSI() {
   // Only show significance test if both URLs have results
   if (res1 && res2) {
     console.log(keytoarray(res1, 'LCP'), keytoarray(res2, 'LCP'));
-    console.log(significancetest(keytoarray(res1, 'LCP'), keytoarray(res2, 'LCP')));
     
     // Show significance test section
     const significanceContainer = document.getElementById('psi-significance-container');
@@ -372,12 +387,25 @@ async function comparePSI() {
     const significancetestresults = document.getElementById('significancetestresults');
     if (significancetestresults) {
       significancetestresults.innerHTML = ''; // Clear previous results
-      Object.keys(res1[0]).forEach((key) => {
-        const p = significancetest(keytoarray(res1, key), keytoarray(res2, key));
-        const li = document.createElement('li');
-        li.innerHTML = `<code>${key}</code>: ${Intl.NumberFormat({ maximumSignificantDigits: 3 }).format(p)}`;
-        significancetestresults.append(li);
+      
+      // Process significance tests asynchronously
+      const significancePromises = Object.keys(res1[0]).map(async (key) => {
+        try {
+          const p = await significancetest(keytoarray(res1, key), keytoarray(res2, key));
+          const li = document.createElement('li');
+          li.innerHTML = `<code>${key}</code>: ${Intl.NumberFormat({ maximumSignificantDigits: 3 }).format(p)}`;
+          return li;
+        } catch (error) {
+          console.error(`Error calculating significance for ${key}:`, error);
+          const li = document.createElement('li');
+          li.innerHTML = `<code>${key}</code>: Error calculating significance`;
+          return li;
+        }
       });
+      
+      // Wait for all significance tests to complete
+      const significanceResults = await Promise.all(significancePromises);
+      significanceResults.forEach(li => significancetestresults.append(li));
     }
   }
   
