@@ -91,12 +91,12 @@ async function init() {
     }
   } else if (state === 'review') {
     if (manifest.review === 'requested') {
-      REVIEW_STATUS.textContent = 'Review requested';
+      REVIEW_STATUS.textContent = 'Review submitted';
       REVIEW_REQUEST.disabled = true;
       REVIEW_REJECT.disabled = false;
       REVIEW_APPROVE.disabled = false;
     } else if (manifest.resources.length > 0) {
-      REVIEW_STATUS.textContent = 'Review not requested';
+      REVIEW_STATUS.textContent = 'Preparing for review';
       REVIEW_REQUEST.disabled = false;
       REVIEW_REJECT.disabled = true;
       REVIEW_APPROVE.disabled = true;
