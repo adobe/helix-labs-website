@@ -67,7 +67,11 @@ function validateJSON(code) {
     const json = JSON.parse(code);
     previewWrapper.removeAttribute('data-line');
     previewWrapper.removeAttribute('data-error');
+    document.getElementById('save').disabled = false;
+    document.getElementById('body').classList.remove('error');
   } catch (error) {
+    document.getElementById('save').disabled = true;
+    document.getElementById('body').classList.add('error');
     // json is INVALID
     const { message } = error;
     // extract line of error (if it exists)

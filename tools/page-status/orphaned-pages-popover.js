@@ -103,6 +103,7 @@ function displayJobDetails() {
 }
 
 async function unpublishOrphanedPages(paths) {
+  // eslint-disable-next-line no-console
   console.log('Unpublishing', paths);
   const options = {
     body: JSON.stringify({
