@@ -31,6 +31,10 @@
   height: 66vmin;
 }
 
+.admin-edit textarea#body.error {
+  border-color: var(--red-900);
+}
+
 /**
  * "Creating an Editable Textarea That Supports Syntax Highlighted Code" by Oliver Geer
  * Published on CSS-Tricks: https://css-tricks.com/creating-an-editable-textarea-that-supports-syntax-highlighted-code/

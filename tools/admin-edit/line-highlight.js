@@ -59,8 +59,8 @@
       // add data attributes
       const { error } = element.dataset;
       if (error) {
-        highlight.dataset.error = error;
-        highlight.classList.add('error-hover');
+        // highlight.dataset.error = error;
+        // highlight.classList.add('error-hover');
       }
       if (!hasClass(element, 'line-numbers')) {
         highlight.dataset.start = startLine;
