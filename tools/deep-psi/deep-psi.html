@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deep PSI</title>
   <meta
     http-equiv="Content-Security-Policy"
     content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
     move-to-http-header="true"
   >
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deep PSI</title>
   <script nonce="aem" src="/scripts/aem.js" type="module"></script>
   <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
   <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="deep-psi.js" type="module"></script>
   <link rel="stylesheet" href="deep-psi.css" />
 </head>
-<script nonce="aem" src="deep-psi.js" type="module"></script>
 
 <body class="deep-psi">
   <header></header>
@@ -29,17 +29,17 @@
     <div>
       <form id="psi-form" aria-hidden="false">
         <section class="psi-form-section">
-          <div class="psi-url-field">
+          <div class="form-field psi-url-field">
             <label for="url1">First URL</label>
             <input name="url1" id="url1" type="url" autocomplete="on" required />
           </div>
-          <div class="psi-url-field">
+          <div class="form-field psi-url-field">
             <label for="url2">Second URL (Optional)</label>
             <input name="url2" id="url2" type="url" autocomplete="on" />
           </div>
         </section>
 
-        <p class="psi-button-group">
+        <p class="button-wrapper psi-button-group">
           <button type="submit" id="button" class="button">Submit</button>
           <button type="reset" class="button outline">Reset</button>
           <label class="psi-checkbox-wrapper">

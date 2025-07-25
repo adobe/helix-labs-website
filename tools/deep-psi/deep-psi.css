@@ -1,8 +1,6 @@
 /* Deep PSI specific styles */
 .deep-psi main {
   max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 var(--spacing-l);
 }
 
 .deep-psi form#psi-form {
@@ -37,10 +35,7 @@
 
 .deep-psi form#psi-form > .psi-button-group {
   grid-area: button;
-  display: flex;
-  gap: var(--spacing-s);
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .deep-psi .psi-checkbox-wrapper {
