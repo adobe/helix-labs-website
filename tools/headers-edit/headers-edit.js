@@ -42,7 +42,7 @@ function createHeaderItem(header = '', value = '') {
   headerInput.classList.add('header-key');
 
   headerInput.setAttribute('list', 'header-keys');
-  const valueInput = header === 'content-security-policy'
+  const valueInput = header.toLowerCase() === 'content-security-policy'
     ? document.createElement('textarea')
     : document.createElement('input');
   valueInput.placeholder = 'Header value';
@@ -52,7 +52,7 @@ function createHeaderItem(header = '', value = '') {
 
   headerInput.addEventListener('change', (e) => {
     e.target.value = e.target.value.trim();
-    if (e.target.value === 'content-security-policy' && valueInput.value === '') {
+    if (e.target.value.toLowerCase() === 'content-security-policy' && valueInput.value === '') {
       const textarea = document.createElement('textarea');
       textarea.placeholder = 'Header value';
       textarea.value = '';
@@ -137,11 +137,13 @@ async function init() {
       originalHeaders = (await resp.json());
 
       const headers = originalHeaders['/**'];
+      if (headers) {
+        // Add each header
+        headers.forEach(({ key, value }) => {
+          headersList.append(createHeaderItem(key, value));
+        });
+      }
 
-      // Add each header
-      headers.forEach(({ key, value }) => {
-        headersList.append(createHeaderItem(key, value));
-      });
       buttonBar.setAttribute('aria-hidden', 'false');
     } else if (resp.status === 404) {
       originalHeaders = {};
