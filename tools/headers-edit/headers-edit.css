@@ -112,3 +112,20 @@
 .headers-edit .button-bar[aria-hidden='true'] {
   display: none;
 }
+
+.headers-edit .headers-non-standard-warning {
+  background-color: var(--yellow-100);
+  padding: var(--spacing-s);
+  border-radius: var(--rounding-m);
+  border: var(--border-m) solid var(--yellow-900);
+  color: black;
+}
+
+.headers-edit .headers-non-standard-warning a:any-link{
+  color: black;
+  font-weight: bold;
+}
+
+.headers-edit .headers-non-standard-warning[aria-hidden='true'] {
+  display: none;
+}

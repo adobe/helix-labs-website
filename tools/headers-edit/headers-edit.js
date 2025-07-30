@@ -136,6 +136,15 @@ async function init() {
     if (resp.status === 200) {
       originalHeaders = (await resp.json());
 
+      const nonStandardWarning = document.querySelector('.headers-non-standard-warning');
+      nonStandardWarning.setAttribute('aria-hidden', 'true');
+
+      Object.keys(originalHeaders).forEach((key) => {
+        if (key !== '/**') {
+          nonStandardWarning.removeAttribute('aria-hidden');
+        }
+      });
+
       const headers = originalHeaders['/**'];
       if (headers) {
         // Add each header
