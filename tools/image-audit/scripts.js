@@ -2,7 +2,7 @@
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
 import { decorateIcons } from '../../scripts/aem.js';
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { initConfigField } from '../../utils/config/config.js';
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
@@ -206,6 +206,8 @@ function displayImages(images) {
     // create a new figure to hold the image and its metadata
     const figure = document.createElement('figure');
     figure.dataset.alt = validateAlt(data.alt, data.count);
+    figure.dataset.altText = data.alt.join(' ');
+    figure.dataset.pages = data.site.join(' ');
     figure.dataset.aspect = data.aspectRatio;
     figure.dataset.count = data.count;
     // build image
@@ -255,11 +257,10 @@ function displayImages(images) {
  * @returns {Promise<HTMLElement|null>} - Promise that resolves to HTML (or `null` if fetch fails).
  */
 async function fetchPage(url) {
-  const req = await fetch(url, { redirect: 'manual' });
+  const req = await fetch(`https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(url)}`, { redirect: 'manual' });
   if (req.ok) {
-    const temp = document.createElement('div');
-    temp.innerHTML = await req.text();
-    return temp;
+    const html = await req.text();
+    return new DOMParser().parseFromString(html, 'text/html');
   }
   return null;
 }
@@ -275,12 +276,13 @@ async function fetchImageDataFromPage(url) {
     if (html) {
       const images = html.querySelectorAll('img[src]');
       const imgData = [...images].map((img) => {
-        const src = img.getAttribute('src').split('?')[0];
+        const originURL = new URL(img.getAttribute('src'), pageUrl);
+        const src = originURL.href.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
         const alt = img.getAttribute('alt') || '';
         const width = img.getAttribute('width') || img.naturalWidth;
         const height = img.getAttribute('height') || img.naturalHeight;
         const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
-        const fileType = src.split('.').pop();
+        const fileType = src.split('.').pop().split('?')[0];
         return {
           site: pageUrl,
           origin: new URL(pageUrl).origin,
@@ -417,42 +419,17 @@ function disableForm(form) {
   });
 }
 /* fetching data */
-/**
- * Fetches the live and preview host URLs for org/site.
- * @param {string} org - Organization name.
- * @param {string} site - Site name within org.
- * @returns {Promise<>} Object with `live` and `preview` hostnames.
- */
-async function fetchHosts(org, site) {
-  let status;
-  try {
-    const url = `https://admin.hlx.page/status/${org}/${site}/main`;
-    const res = await fetch(url);
-    status = res.status;
-    const json = await res.json();
-    return {
-      status,
-      live: new URL(json.live.url).host,
-      preview: new URL(json.preview.url).host,
-    };
-  } catch (error) {
-    return {
-      status,
-      live: null,
-      preview: null,
-    };
-  }
-}
 
 /**
  * Fetches URLs from a sitemap.
  * @param {string} sitemap - URL of the sitemap to fetch.
  * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
  */
-async function* fetchSitemap(sitemapPath, liveHost) {
-  const res = await fetch(`https://${liveHost}${sitemapPath}`);
+async function* fetchSitemap(sitemapURL) {
+  const fetchUrl = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(sitemapURL)}`;
+  const res = await fetch(fetchUrl);
   if (!res.ok) {
-    if (res.status === 404) throw new Error(`Not found: ${sitemapPath}`);
+    if (res.status === 404) throw new Error(`Not found: ${sitemapURL}`);
     throw new Error('Failed on initial fetch of sitemap.', res.status);
   }
 
@@ -465,7 +442,7 @@ async function* fetchSitemap(sitemapPath, liveHost) {
   for (let i = 0; i < sitemapLocs.length; i += 1) {
     const loc = sitemapLocs[i];
     const liveUrl = new URL(loc.textContent);
-    const resucrsiveResults = fetchSitemap(liveUrl.pathname, liveHost);
+    const resucrsiveResults = fetchSitemap(liveUrl);
     // eslint-disable-next-line no-restricted-syntax, no-await-in-loop
     for await (const url of resucrsiveResults) {
       yield url;
@@ -475,19 +452,31 @@ async function* fetchSitemap(sitemapPath, liveHost) {
   const urlLocs = doc.querySelectorAll('url > loc');
   for (let i = 0; i < urlLocs.length; i += 1) {
     const loc = urlLocs[i];
-    const url = new URL(loc.textContent, `https://${liveHost}`);
-    url.host = liveHost;
+    const url = new URL(loc.textContent);
     yield url;
+  }
+}
+
+async function* fetchFromRobotsTxt(origin) {
+  const fullOrigin = origin.includes('/') ? origin : `https://${origin}/`;
+  const robotsTxtUrl = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(fullOrigin)}robots.txt`;
+  const robotsTxt = await fetch(robotsTxtUrl);
+  const text = await robotsTxt.text();
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (line.startsWith('Sitemap:')) {
+      const sitemapUrl = line.split('Sitemap:')[1].trim();
+      yield* fetchSitemap(sitemapUrl);
+    }
   }
 }
 
 /**
  * Fetches URLs from a query index.
- * @param {string} queryIndexPath - Path to the query index.
- * @param {string} liveHost - Live hostname.
+ * @param {string} indexUrl - URL of the query index.
  * @returns {AsyncGenerator<URL>} - Async generator of URLs.
  */
-async function* fetchQueryIndex(queryIndexPath, liveHost) {
+async function* fetchQueryIndex(indexUrl) {
   const limit = 512;
   let offset = 0;
   let more = true;
@@ -496,13 +485,13 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
     let res;
     try {
       // eslint-disable-next-line no-await-in-loop
-      res = await fetch(`https://${liveHost}${queryIndexPath}?offset=${offset}&limit=${limit}`);
+      res = await fetch(`https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(indexUrl)}?offset=${offset}&limit=${limit}`);
     } catch (err) {
       throw new Error('Failed on initial fetch of index.', err);
     }
 
     if (!res.ok) {
-      throw new Error(`Not found: ${queryIndexPath}`);
+      throw new Error(`Not found: ${indexUrl}`);
     }
     // eslint-disable-next-line no-await-in-loop
     const json = await res.json();
@@ -510,8 +499,8 @@ async function* fetchQueryIndex(queryIndexPath, liveHost) {
     more = json.data.length > 0;
     for (let i = 0; i < json.data.length; i += 1) {
       const item = json.data[i];
-      const url = new URL(item.path, `https://${liveHost}`);
-      url.host = liveHost;
+      const path = item.path || item.Path;
+      const url = new URL(path, indexUrl);
       yield url;
     }
   } while (more);
@@ -570,6 +559,7 @@ function registerListeners(doc) {
   const filterActions = actionbar.querySelectorAll('input[name="filter"]');
   const imagesCounter = document.getElementById('images-counter');
   const pagesCounter = document.getElementById('pages-counter');
+
   /**
    * Handles admin form submission.
    * @param {Event} e - Submit event
@@ -578,7 +568,7 @@ function registerListeners(doc) {
   // handle form submission
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    updateConfig();
+    disableForm(form);
     errorWrapper.setAttribute('aria-hidden', 'true');
     errorTitle.textContent = 'Error';
     errorMsg.textContent = '';
@@ -590,20 +580,16 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...sortActions, ...filterActions].forEach((action) => action.checked = false);
     const {
-      org, site, sitemap, path,
+      url, path,
     } = getFormData(form);
-    // fetch host config
-    const { status, live } = await fetchHosts(org, site);
-    disableForm(form);
-    if (!live || status !== 200) {
-      clearInterval(timer);
-      updateError(errorWrapper, status, org, site, sitemap);
-      enableForm(form);
-      return;
-    }
+
+    window.history.pushState({}, '', `${window.location.pathname}?url=${encodeURIComponent(url)}&path=${encodeURIComponent(path)}`);
 
     try {
-      const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
+      let sitemapUrls;
+      if (url.endsWith('.json')) sitemapUrls = fetchQueryIndex(url);
+      if (url.endsWith('.xml')) sitemapUrls = fetchSitemap(url);
+      if (url.endsWith('/') || !url.includes('/')) sitemapUrls = fetchFromRobotsTxt(url);
 
       imagesCounter.textContent = 0;
       pagesCounter.textContent = 0;
@@ -619,11 +605,11 @@ function registerListeners(doc) {
       // eslint-disable-next-line no-console
       console.error(err.message);
       if (err.message.startsWith('Failed to fetch')) {
-        updateError(errorWrapper, 499, org, site);
+        updateError(errorWrapper, 499, url);
       } else if (err.message.startsWith('Not found')) {
-        updateError(errorWrapper, 404, org, site, sitemap);
+        updateError(errorWrapper, 404, url);
       } else {
-        updateError(errorWrapper, 500, org, site);
+        updateError(errorWrapper, 500, url);
       }
     } finally {
       clearInterval(timer);
@@ -678,9 +664,10 @@ function registerListeners(doc) {
   });
 
   filterActions.forEach((action) => {
-    action.addEventListener('change', () => {
+    action.addEventListener('input', () => {
       const checked = [...filterActions].filter((a) => a.checked).map((a) => a.value);
       const figures = [...gallery.querySelectorAll('figure')];
+      const textFilter = actionbar.querySelector('#filter-text');
 
       figures.forEach((figure) => {
         const hasAlt = figure.dataset.alt === 'true';
@@ -707,6 +694,16 @@ function registerListeners(doc) {
           // show all figures
           hide = false;
         }
+        if (!hide && textFilter.value) {
+          // show figures that match the text filter
+          const alt = figure.dataset.altText || '';
+          const pages = figure.dataset.pages || '';
+
+          const matchesAlt = alt.toLowerCase().includes(textFilter.value.toLowerCase());
+          const matchesSrc = pages.toLowerCase().includes(textFilter.value.toLowerCase());
+
+          hide = !(matchesAlt || matchesSrc);
+        }
         figure.setAttribute('aria-hidden', hide);
       });
     });
@@ -715,6 +712,9 @@ function registerListeners(doc) {
 
 async function init() {
   await initConfigField();
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('url')) document.getElementById('url').value = decodeURIComponent(params.get('url'));
+  if (params.has('path')) document.getElementById('path').value = decodeURIComponent(params.get('path'));
   registerListeners(document);
 }
 

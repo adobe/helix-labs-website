@@ -6,6 +6,8 @@
  * This file was pulled from https://www.aem.live/tools/rum/loader.js on Nov 8, 2024
  * TODO: It should be replaced with an import once it's placed in a distribution point.
  */
+
+// eslint-disable-next-line import/no-unresolved
 import { utils } from '@adobe/rum-distiller';
 
 const { addCalculatedProps } = utils;

@@ -5,7 +5,7 @@
   <meta
     http-equiv="Content-Security-Policy"
     content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
-    move-as-header="true"
+    move-to-http-header="true"
   >
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="/tools/snapshot-admin/snapshot-admin.css" />
 </head>
 
-<body class="snapshot-admin">
+<body class="snapshot-admin appear">
   <header></header>
   <main>
     <!-- TITLE -->
@@ -49,6 +49,21 @@
       <form id="snapshot-edit-form">
         <fieldset>
           <textarea rows="20" id="snapshot-resources"></textarea>
+          <details id="snapshot-metadata">
+            <summary>Snapshot metadata</summary>
+            <label>
+              Title
+              <input type="text" id="snapshot-title">
+            </label>
+            <label>
+              Description
+              <textarea id="snapshot-description"></textarea>
+            </label>
+            <label>
+              Password (shared secret for reviews)
+              <input type="password" id="snapshot-password">
+            </label>
+          </details>
           <div>
             <button id="snapshot-save" class="button" disabled>Save</button>  
             <span id="snapshot-status"></span>

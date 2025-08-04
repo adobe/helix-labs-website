@@ -10,6 +10,8 @@ const params = new URLSearchParams(window.location.search);
 const referrer = new URL(params.get('referrer'));
 const OWNER = params.get('owner');
 const REPO = params.get('repo');
+const CUSTOM_REVIEW_HOST = params.get('reviewHost');
+const CUSTOM_LIVE_HOST = params.get('liveHost');
 const SNAPSHOT = 'default';
 const PATHNAME = referrer.pathname;
 
@@ -30,7 +32,7 @@ const PAGE_STATUS_WRAPPER = document.getElementById('page-status-wrapper');
 async function init() {
   const state = referrer.hostname.includes('reviews') ? 'review' : 'page';
 
-  REVIEWS_LINK.href = `https://${SNAPSHOT}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
+  REVIEWS_LINK.href = (CUSTOM_REVIEW_HOST && !CUSTOM_REVIEW_HOST.endsWith('.aem.reviews')) ? `https://${CUSTOM_REVIEW_HOST}${PATHNAME}` : `https://${SNAPSHOT}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
   ADMIN_LINK.href = `/tools/snapshot-admin/index.html?snapshot=https://main--${REPO}--${OWNER}.aem.page/.snapshots/${SNAPSHOT}/.manifest.json`;
 
   if (state === 'page') {
@@ -45,6 +47,21 @@ async function init() {
   const manifest = await fetchSnapshotManifest(OWNER, REPO, SNAPSHOT);
   SPINNER.setAttribute('aria-hidden', 'true');
   const { locked } = manifest;
+
+  const pageList = document.getElementById('page-list');
+  pageList.innerHTML = manifest.resources.map((e) => `<li><span>${e.path}</span><span class="page-list-remove" role="button" aria-label="Remove">&#x274C;</span></li>`).join('');
+  pageList.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('page-list-remove')) {
+      const path = e.target.parentElement.firstElementChild.textContent.trim();
+      // eslint-disable-next-line no-alert
+      const confirmed = window.confirm(`Are you sure you want to remove ${path} from this snapshot?`);
+      if (confirmed) {
+        SPINNER.setAttribute('aria-hidden', 'false');
+        await deleteFromSnapshot(OWNER, REPO, SNAPSHOT, path);
+        init();
+      }
+    }
+  });
 
   if (state === 'page') {
     const previewDate = status.preview.preview.lastModified;
@@ -69,17 +86,17 @@ async function init() {
         ADD.disabled = true;
         REMOVE.disabled = false;
         UPDATE.disabled = true;
-        PAGE_STATUS.textContent = 'Page is snapshot';
+        PAGE_STATUS.textContent = 'Page is in snapshot';
       }
     }
   } else if (state === 'review') {
     if (manifest.review === 'requested') {
-      REVIEW_STATUS.textContent = 'Review requested';
+      REVIEW_STATUS.textContent = 'Review submitted';
       REVIEW_REQUEST.disabled = true;
       REVIEW_REJECT.disabled = false;
       REVIEW_APPROVE.disabled = false;
     } else if (manifest.resources.length > 0) {
-      REVIEW_STATUS.textContent = 'Review not requested';
+      REVIEW_STATUS.textContent = 'Preparing for review';
       REVIEW_REQUEST.disabled = false;
       REVIEW_REJECT.disabled = true;
       REVIEW_APPROVE.disabled = true;
@@ -125,7 +142,7 @@ REVIEW_REJECT.addEventListener('click', async () => {
 REVIEW_APPROVE.addEventListener('click', async () => {
   SPINNER.setAttribute('aria-hidden', 'false');
   await updateReviewStatus(OWNER, REPO, SNAPSHOT, 'approve');
-  init();
+  window.parent.location.href = CUSTOM_LIVE_HOST ? `https://${CUSTOM_LIVE_HOST}${PATHNAME}` : `https://main--${REPO}--${OWNER}.aem.live${PATHNAME}`;
 });
 
 init();

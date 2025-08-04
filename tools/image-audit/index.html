@@ -5,7 +5,7 @@
   <meta
     http-equiv="Content-Security-Policy"
     content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
-    move-as-header="true"
+    move-to-http-header="true"
   >
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,26 +30,13 @@
     <div>
       <form id="search-form" aria-hidden="false">
         <section class="form-field config-field">
-          <div class="form-field org-field">
-            <label for="org">Organization</label>
-            <input name="org" id="org" list="org-list" autocomplete="off" required />
-            <datalist id="org-list"></datalist>
-          </div>
-          <div class="form-field site-field">
-            <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" autocomplete="off" disabled required />
-            <datalist id="site-list"></datalist>
+          <div class="form-field url-field">
+            <label for="url">Site, Sitemap or Query Index</label>
+            <input name="url" id="url" required />
           </div>
         </section>
 
         <div class="field-group">
-          <div class="form-field text-field">
-            <label for="sitemap">Sitemap or Query Index</label>
-            <input name="sitemap" id="sitemap" data-default-value="/sitemap-index.xml" placeholder="/sitemap-index.xml" />
-            <div class="field-help-text">
-              <p>Path to sitemap or query index</p>
-            </div>
-          </div>
           
           <div class="form-field text-field path-filter-field">
             <label for="path">Path Filter</label>
@@ -58,7 +45,7 @@
         </div>
 
         <p class="button-wrapper">
-          <button type="submit" class="button">Submit</button>
+          <button type="submit" class="button">Start Audit</button>
           <button type="reset" id="form-reset" class="button outline">Reset</button>
         </p>
       </form>
@@ -95,6 +82,11 @@
           <div class="form-field checkbox-field">
             <p>Filter by:</p>
             <ul>
+              <li>
+                <label>
+                  <input placeholder="Search" type="input" name="filter" id="filter-text">
+                </label>
+              </li>
               <li>
                 <label>
                   <input type="checkbox" name="filter" value="missing-alt" id="filter-missing-alt">

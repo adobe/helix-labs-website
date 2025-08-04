@@ -5,6 +5,10 @@ body {
   padding: 0 8px;
 }
 
+body.standalone {
+  background-color: #000;
+}
+
 p, details {
   margin: 4px 0;
   font-size: 12px;
@@ -89,22 +93,12 @@ details[open] {
   width: 100%;
 }
 
-#page-list {
-  background-color: #0008;
-  font-family: 'Courier New', Courier, monospace;
+#orphaned-pages-list {
   list-style: none;
-  padding: 3px;
-  margin: 5px -5px;
-  border-radius: 5px;
-  border: 2px solid #DBDBDB;
-  overflow-x: scroll;
+  padding: 0;
+  margin: 10px 0;
 }
 
-#page-list li {
-  display: flex;
-  justify-content: space-between;
-}
-
-.snapshot-admin-oinw {
-  transform: scale(0.75) translateX(-0.3em) translateY(0.3em);
+.hide-drafts li.draft {
+  display: none;
 }

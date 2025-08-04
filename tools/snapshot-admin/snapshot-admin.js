@@ -14,6 +14,10 @@ const snapshotPublish = document.getElementById('snapshot-publish');
 const reviewRequest = document.getElementById('review-request');
 const reviewReject = document.getElementById('review-reject');
 const reviewApprove = document.getElementById('review-approve');
+const snapshotTitle = document.getElementById('snapshot-title');
+const snapshotDescription = document.getElementById('snapshot-description');
+const snapshotPassword = document.getElementById('snapshot-password');
+const snapshotMetadata = document.getElementById('snapshot-metadata');
 
 let manifest = {};
 let adminURL = '';
@@ -129,6 +133,17 @@ async function deleteFromSnapshot(path) {
   logResponse([resp.status, 'DELETE', `${url}`, resp.headers.get('x-error') || '']);
 }
 
+function hasMetadataChanges() {
+  let changes = false;
+  const existingTitle = manifest.title || '';
+  const existingDescription = manifest.description || '';
+  const existingReviewPassword = manifest.metadata ? manifest.metadata.reviewPassword : '';
+  if (snapshotTitle.value !== existingTitle) changes = true;
+  if (snapshotDescription.value !== existingDescription) changes = true;
+  if (snapshotPassword.value !== existingReviewPassword) changes = true;
+  return changes;
+}
+
 async function saveSnapshot() {
   const fieldset = editForm.querySelector('fieldset');
   fieldset.disabled = true;
@@ -138,6 +153,17 @@ async function saveSnapshot() {
     // eslint-disable-next-line no-await-in-loop
     await deleteFromSnapshot(deletedItems[i]);
   }
+
+  if (hasMetadataChanges()) {
+    await updateSnapshot({
+      title: snapshotTitle.value,
+      description: snapshotDescription.value,
+      metadata: {
+        reviewPassword: snapshotPassword.value,
+      },
+    });
+  }
+
   fieldset.disabled = false;
 }
 
@@ -145,6 +171,9 @@ function displaySnapshot() {
   const { owner, repo, branch } = snapshotInfo;
   snapshotResources.value = manifest.resources.map((e) => `https://${branch}--${repo}--${owner}.aem.page${e.path}`).join('\r\n');
   snapshotElem.ariaHidden = false;
+  snapshotTitle.value = manifest.title || '';
+  snapshotDescription.value = manifest.description || '';
+  snapshotPassword.value = manifest.metadata ? manifest.metadata.reviewPassword : '';
   updateStatus();
   snapshotLock.disabled = manifest.locked;
   snapshotUnlock.disabled = !manifest.locked;
@@ -172,6 +201,15 @@ async function fetchSnapshotManifest(urlString) {
     manifest = (await resp.json()).manifest;
     displaySnapshot();
   }
+  if (resp.status === 404) {
+    manifest = {
+      title: '',
+      description: '',
+      resources: [],
+    };
+    snapshotMetadata.open = true;
+    displaySnapshot();
+  }
   logResponse([resp.status, 'GET', adminURL, resp.headers.get('x-error') || '']);
 }
 
@@ -193,10 +231,16 @@ const params = new URLSearchParams(window.location.search);
 snapshotURL.value = params.get('snapshot') || localStorage.getItem('snapshot');
 if (snapshotURL.value) fetchSnapshotManifest(snapshotURL.value);
 
-snapshotResources.addEventListener('input', () => {
+function updateSaveButton() {
   const changes = updateStatus();
-  snapshotSave.disabled = !changes;
-});
+  const metaChanges = hasMetadataChanges();
+  snapshotSave.disabled = !changes && !metaChanges;
+}
+
+snapshotResources.addEventListener('input', updateSaveButton);
+snapshotTitle.addEventListener('input', updateSaveButton);
+snapshotDescription.addEventListener('input', updateSaveButton);
+snapshotPassword.addEventListener('input', updateSaveButton);
 
 snapshotSave.addEventListener('click', async (e) => {
   e.preventDefault();
