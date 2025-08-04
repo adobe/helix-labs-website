@@ -1,8 +1,8 @@
-.image-audit [aria-hidden='true'] {
+.assets [aria-hidden='true'] {
   display: none;
 }
 
-.image-audit .gallery button {
+.assets .gallery button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,43 +15,43 @@
   cursor: context-menu;
 }
 
-.image-audit .gallery figure {
+.assets .gallery figure {
   min-height: 44px;
   cursor: context-menu;
 }
 
-.image-audit .gallery figure button {
+.assets .gallery figure button {
   border-radius: 0 0 0 50%;
   background-color: var(--transparent-white-700);
   transition: background-color 0.2s;
 }
 
-.image-audit .gallery figure:hover button {
+.assets .gallery figure:hover button {
   background-color: var(--transparent-white-100);
 }
 
-.image-audit dialog {
+.assets dialog {
   font-size: var(--body-size-s);
 }
 
-.image-audit dialog table td {
+.assets dialog table td {
   vertical-align: top;
 }
 
-.image-audit dialog table tr td:first-of-type {
+.assets dialog table tr td:first-of-type {
   width: max-content;
   font-weight: bold;
 }
 
-.image-audit dialog table td p:first-of-type {
+.assets dialog table td p:first-of-type {
   margin-top: 0;
 }
 
-.image-audit dialog table td p:last-of-type {
+.assets dialog table td p:last-of-type {
   margin-bottom: 0;
 }
 
-.image-audit dialog img {
+.assets dialog img {
   width: auto;
   max-width: 100%;
   height: auto;
@@ -67,52 +67,52 @@
   background-position: 0 0, 8px 0, 8px -8px, 0px 8px;
 }
 
-.image-audit dialog table td {
+.assets dialog table td {
   padding: 0.6em 0.7em;
 }
 
-.image-audit dialog table tr:not(:last-of-type) td {
+.assets dialog table tr:not(:last-of-type) td {
   border-bottom: var(--border-s) solid var(--gray-300);
 }
 
-.image-audit i.symbol-square::after {
+.assets i.symbol-square::after {
   inset: 0;
   border: var(--border-m) solid;
   border-radius: var(--rounding-s);
 }
 
-.image-audit i.symbol-portrait::after {
+.assets i.symbol-portrait::after {
   inset: 0 10%;
   border: var(--border-m) solid;
   border-radius: var(--rounding-s);
 }
 
-.image-audit i.symbol-landscape::after {
+.assets i.symbol-landscape::after {
   inset: 10% 0;
   border: var(--border-m) solid;
   border-radius: var(--rounding-s);
 }
 
-.image-audit i.symbol-widescreen::after {
+.assets i.symbol-widescreen::after {
   inset: 20% 0;
   border: var(--border-m) solid;
   border-radius: var(--rounding-s);
 }
 
-.image-audit .canvas {
+.assets .canvas {
   position: relative;
 }
 
-/* Ensure .image-audit and .progress-bar take full width */
-.image-audit {
+/* Ensure .assets and .progress-bar take full width */
+.assets {
   width: 100%;
 }
 
-.image-audit .progress-bar-container {
+.assets .progress-bar-container {
   width: 100%;
 }
 
-.image-audit .progress-bar-container ul {
+.assets .progress-bar-container ul {
   list-style-type: none;
   padding: 0;
   margin: 0;
@@ -121,12 +121,12 @@
   justify-content: space-between;
 }
 
-.image-audit .progress-bar-container li {
+.assets .progress-bar-container li {
   margin-right: 10px;
 }
 
 /* Set .progress-area to dynamically take up 80% of its container */
-.image-audit .progress-bar {
+.assets .progress-bar {
   flex-basis: 100%; /* Flex setting to take 80% width */
   max-width: 100%;  /* Prevents overflow beyond 80% */
   height: 20px;
@@ -135,36 +135,36 @@
   overflow: hidden;
 }
 
-.image-audit .progress {
+.assets .progress {
   height: 100%;
   background-color: #ED2224;
   width: 0%; /* Start empty, dynamically adjust */
   transition: width 0.2s;
 }
 
-.image-audit .stop-button-container {
+.assets .stop-button-container {
   margin-right: 0px;
 }
 
-.image-audit .stop-button-container #stop-button {
+.assets .stop-button-container #stop-button {
   font-size: 1.6em;
   cursor: pointer;
   padding-top: 2px;
   padding-left: 5px;
 }
 
-.image-audit .stop-button-container #stop-button:focus {
+.assets .stop-button-container #stop-button:focus {
   outline: none;
   border: none;
 }
 
-.image-audit .stop-button-container #stop-button:active {
+.assets .stop-button-container #stop-button:active {
   border: none;
   animation: stop-pulse 1.5s infinite;
 }
 
 /* This will apply the pulse animation once the class is added via JS */
-.image-audit .stop-button-container #stop-button.stop-pulsing {
+.assets .stop-button-container #stop-button.stop-pulsing {
   animation: stop-pulse 1.5s infinite;
 }
 
@@ -184,17 +184,17 @@
   }
 }
 
-.image-audit .canvas .action-bar-wrapper {
+.assets .canvas .action-bar-wrapper {
   position: sticky;
   top: var(--horizontal-spacing);
   z-index: 1;
 }
 
-.image-audit .canvas .action-bar button[aria-selected='true'] {
+.assets .canvas .action-bar button[aria-selected='true'] {
   background-color: var(--gray-300);
 }
 
-.image-audit .color-span {
+.assets .color-span {
   display: inline-block;
   width: 25px;
   height: 25px;
@@ -203,21 +203,21 @@
   position: relative;
 }
 
-.image-audit .color-span.selected {
+.assets .color-span.selected {
   border: 2px solid white;
   outline: 4px solid black;
 }
 
-.image-audit .color-span:hover::after {
+.assets .color-span:hover::after {
   opacity: 1;
   visibility: visible;
 }
 
-.image-audit .color-span.unknown {
+.assets .color-span.unknown {
   background-color: whitesmoke;
 }
 
-.image-audit .color-span.alpha {
+.assets .color-span.alpha {
   display: inline-block;
   border: 1px solid #ccc;
   position: relative;
@@ -228,16 +228,16 @@
   background-position: 0 0, 5px 5px;
 }
 
-.image-audit .color-list-item {
+.assets .color-list-item {
   list-style-type: none;
 }
 
-.image-audit .color-label {
+.assets .color-label {
   display: inline-block;
   margin: -1;
 }
 
-.image-audit .sitemap-form {
+.assets .sitemap-form {
   display: flex;
   flex-wrap: wrap;
   gap: var(--horizontal-spacing);
@@ -248,39 +248,39 @@
   border-radius: var(--rounding-l);
 }
 
-.image-audit .sitemap-form ul {
+.assets .sitemap-form ul {
   width: 100%;
   list-style-type: none; /* Remove default list dots */
   padding: 0; /* Remove padding */
   margin: 0; /* Remove margin */
 }
 
-.image-audit .sitemap-form li {
+.assets .sitemap-form li {
   margin-bottom: 1rem;
 }
 
 
-.image-audit .sitemap-form .file-field {
+.assets .sitemap-form .file-field {
   min-height: auto;
 }
 
-.image-audit .sitemap-form #identity-selectors {
+.assets .sitemap-form #identity-selectors {
   display: flex;
   flex-wrap: wrap;
 }
 
-.image-audit .sitemap-form label {
+.assets .sitemap-form label {
   display: inline-block;
   margin-right: 0.5rem;
 }
 
-.image-audit .sitemap-form input[type="checkbox"] {
+.assets .sitemap-form input[type="checkbox"] {
   vertical-align: middle;
   margin-left: 2rem;
   margin-right: 0.5rem;
 }
 
-.image-audit .sitemap-form .button-wrapper{
+.assets .sitemap-form .button-wrapper{
   justify-content: right;
   margin-top: 2rem;
   margin-right: 2rem;
@@ -316,6 +316,6 @@
   }
 }
 
-.image-audit .download-pulse {
+.assets .download-pulse {
   animation: pulse 1s ease-in-out 2; /* Pulses 2 times */
 }

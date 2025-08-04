@@ -11,7 +11,7 @@ class IndexedDBCachProvider extends AbstractCacheProvider {
     const domain = identityValues.replacementDomain?.toLowerCase()
       || new URL(identityValues.href).hostname.toLowerCase();
 
-    const dbName = `image-audit-${domain}`;
+    const dbName = `assets-${domain}`;
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(dbName, 1);
 
