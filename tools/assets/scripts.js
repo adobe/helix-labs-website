@@ -229,14 +229,25 @@ class RewrittenData {
 
   site(value) {
     if (!value) return '-';
-    const sites = value.map((site, i) => {
+
+    // Count occurrences of each site
+    const counts = value.reduce((acc, site) => {
+      acc[site] = (acc[site] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Render unique sites only
+    const sites = Object.keys(counts).map((site, i) => {
       let alt = null;
       if (this.data.alt.length <= i) {
         alt = this.data.alt[i]; // this is not technically correct. They arent 1:1
       }
-      const a = `<a href="${new URL(site, this.data.origin).href}" target="_blank">${new URL(site).pathname}</a>`;
+      const usageText = counts[site] > 1 ? ` (Usages: ${counts[site]})` : '';
+      const a = `<a href="${new URL(site, this.data.origin).href}" target="_blank">${new URL(site).pathname}</a>${usageText}`;
+
       return alt ? `<p>${a} (${alt})</p>` : `<p>${a}</p>`;
     });
+
     return sites.join(' ');
   }
 
@@ -1488,6 +1499,16 @@ function registerListeners(doc) {
       a.click();
       document.body.removeChild(a);
     });
+
+  const domainKeyInput = doc.getElementById('domain-key');
+
+  domainKeyInput.addEventListener('focus', () => {
+    domainKeyInput.type = 'text';
+  });
+
+  domainKeyInput.addEventListener('blur', () => {
+    domainKeyInput.type = 'password';
+  });
 }
 
 function addReportsToDropdown(doc) {
