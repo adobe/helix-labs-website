@@ -22,6 +22,30 @@ const container = document.querySelector('.snapshot-admin-container');
 init(container);
 ```
 
+### URL Parameters
+
+The snapshot admin supports automatic loading via URL parameters:
+
+#### Snapshot URL Parameter
+You can link directly to a specific snapshot using the `snapshot` parameter:
+
+```
+/tools/snapshot-admin/index.html?snapshot=https://main--demo--org.aem.page/.snapshots/name/.manifest.json
+```
+
+This will:
+- Automatically parse the org, site, and snapshot name from the URL
+- Set the site path and load all snapshots for that org/site
+- Automatically expand the specified snapshot
+- Scroll to the snapshot for easy viewing
+
+#### Site Path Parameter
+Alternatively, you can use the `sitePath` parameter for org/site combinations:
+
+```
+/tools/snapshot-admin/index.html?sitePath=org/site
+```
+
 ### Features
 
 - **Site Path Management**: Enter org/site path to fetch snapshots

@@ -365,17 +365,94 @@ snapshotsList.addEventListener('click', async (e) => {
   }
 });
 
+/**
+ * Parse snapshot URL to extract org, site, and snapshot name
+ * @param {string} snapshotUrl - URL like https://main--demo--org.aem.page/.snapshots/name/.manifest.json
+ * @returns {Object|null} - {org, site, snapshotName} or null if invalid
+ */
+function parseSnapshotUrl(snapshotUrl) {
+  try {
+    const { hostname, pathname } = new URL(snapshotUrl);
+
+    // Parse hostname pattern: main--{site}--{org}.aem.page
+    const hostParts = hostname.split('--');
+    if (hostParts.length !== 3 || !hostname.endsWith('.aem.page')) {
+      return null;
+    }
+
+    const [, site, orgWithDomain] = hostParts;
+    const org = orgWithDomain.replace('.aem.page', '');
+
+    // Parse path pattern: /.snapshots/{snapshotName}/.manifest.json
+    const pathMatch = pathname.match(/^\/\.snapshots\/([^/]+)\/\.manifest\.json$/);
+    if (!pathMatch) {
+      return null;
+    }
+
+    const snapshotName = pathMatch[1];
+
+    return { org, site, snapshotName };
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Auto-expand a specific snapshot after loading
+ * @param {string} targetSnapshotName - Name of snapshot to expand
+ */
+async function autoExpandSnapshot(targetSnapshotName) {
+  const targetCard = document.querySelector(`[data-snapshot="${targetSnapshotName}"]`);
+  if (targetCard) {
+    const editButton = targetCard.querySelector('[data-action="edit"]');
+    if (editButton) {
+      editButton.click();
+      // Scroll to the snapshot card
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
 // Initialize from URL parameters or localStorage
 const params = new URLSearchParams(window.location.search);
+const snapshotParam = params.get('snapshot');
 const sitePath = params.get('sitePath') || localStorage.getItem('snapshot-admin-site-path');
 
-if (sitePath) {
+// Check if we have a snapshot URL parameter
+if (snapshotParam) {
+  const parsed = parseSnapshotUrl(snapshotParam);
+  if (parsed) {
+    const { org, site, snapshotName } = parsed;
+    const autoSitePath = `${org}/${site}`;
+
+    // Set the site path input
+    sitePathInput.value = autoSitePath;
+    currentOrg = org;
+    currentSite = site;
+
+    // Load snapshots and auto-expand the target snapshot
+    await loadSnapshots();
+    await autoExpandSnapshot(snapshotName);
+
+    // Update localStorage and URL
+    localStorage.setItem('snapshot-admin-site-path', autoSitePath);
+    const url = new URL(window.location);
+    url.searchParams.set('sitePath', autoSitePath);
+    // eslint-disable-next-line no-restricted-globals
+    window.history.replaceState({}, '', url);
+  } else {
+    // Invalid snapshot URL format
+    // eslint-disable-next-line no-alert
+    alert('Invalid snapshot URL format. Please check the URL and try again.');
+  }
+} else if (sitePath) {
+  // Fallback to sitePath parameter or localStorage
   sitePathInput.value = sitePath;
   try {
     const { org, site } = parseSitePath(sitePath);
     currentOrg = org;
     currentSite = site;
-    loadSnapshots();
+    await loadSnapshots();
   } catch (error) {
     // eslint-disable-next-line no-alert
     console.error(`Invalid site path: ${error.message}`);
