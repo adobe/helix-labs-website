@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Palette Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .iframe-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .feature-list {
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+        .feature-list li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Snapshot Admin Palette</h1>
+    
+    <div class="demo-section">
+        <h2>Features</h2>
+        <ul class="feature-list">
+            <li><strong>Multi-Snapshot Selection:</strong> Users can now select from multiple available snapshots instead of being limited to just the 'default' snapshot</li>
+            <li><strong>Dynamic Snapshot Loading:</strong> The palette automatically loads all available snapshots for the project</li>
+            <li><strong>Auto-Selection:</strong> If a 'default' snapshot exists, it will be automatically selected for convenience</li>
+            <li><strong>Enhanced UI:</strong> Added a dropdown selector at the top of the palette for snapshot selection</li>
+            <li><strong>Contextual Status:</strong> Page and review status updates based on the selected snapshot</li>
+            <li><strong>Modern Implementation:</strong> Uses modern JavaScript utilities without external framework dependencies</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>Usage</h2>
+        <p>To use the enhanced palette:</p>
+        <ol>
+            <li>Open the palette.html file with URL parameters: <code>?referrer=[PAGE_URL]&owner=[OWNER]&repo=[REPO]</code></li>
+            <li>Select a snapshot from the dropdown at the top</li>
+            <li>The palette will update to show the status of the current page in relation to the selected snapshot</li>
+            <li>Use the Add/Update/Remove buttons to manage the page in the selected snapshot</li>
+            <li>Use the review workflow buttons if you're on a review site</li>
+        </ol>
+    </div>
+
+    <div class="demo-section">
+        <h2>Integration</h2>
+        <p>The palette can be integrated into other tools or used as a popup by:</p>
+        <ul>
+            <li>Opening it in an iframe or popup window</li>
+            <li>Passing the appropriate URL parameters</li>
+            <li>Styling it to match your application's theme</li>
+        </ul>
+        
+        <p><strong>Example URL:</strong></p>
+        <code>/tools/snapshot-admin/palette.html?referrer=https://main--site--org.aem.page/path&owner=org&repo=site&reviewHost=custom.reviews.com&liveHost=custom.live.com</code>
+    </div>
+
+    <div class="demo-section">
+        <h2>Files Added/Modified</h2>
+        <ul>
+            <li><strong>palette.html</strong> - Enhanced HTML with snapshot selector</li>
+            <li><strong>palette.css</strong> - Updated styles with selector styling</li>
+            <li><strong>palette.js</strong> - Complete rewrite to support multiple snapshots</li>
+            <li><strong>index.html</strong> - Main entry point for the snapshot admin</li>
+        </ul>
+    </div>
+</body>
+</html>

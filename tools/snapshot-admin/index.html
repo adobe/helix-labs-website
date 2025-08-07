@@ -25,64 +25,43 @@
       <h1>Snapshot Admin</h1>
     </div> 
 
-    <!-- ADMIN FORM -->
+    <!-- SITE PATH FORM -->
     <div>
-      <form id="snapshot-admin-form">
+      <form id="site-path-form">
         <div class="form-field url-field">
-          <label for="snapshot-url">Snapshot URL</label>
-          <input name="snapshot-url" id="snapshot-url" required />
+          <label for="site-path">Site Path (org/site)</label>
+          <input name="site-path" id="site-path" placeholder="org/site" required />
           <div class="field-help-text">
             <p>
-              Make sure you are logged into sidekick on a project of the org selected
+              Enter the organization and site (e.g., "adobe/franklin-docs")
             </p>
           </div>
         </div>
         <p class="button-wrapper">
-          <button type="submit" id="load" class="button">Load</button>
+          <button type="submit" id="load-snapshots" class="button">Load Snapshots</button>
           <button type="reset" id="reset" class="button outline">Reset</button>
         </p>
       </form>
     </div>
 
-    <!-- BODY FORM -->
-    <div id="snapshot" aria-hidden="true">
-      <form id="snapshot-edit-form">
-        <fieldset>
-          <textarea rows="20" id="snapshot-resources"></textarea>
-          <details id="snapshot-metadata">
-            <summary>Snapshot metadata</summary>
-            <label>
-              Title
-              <input type="text" id="snapshot-title">
-            </label>
-            <label>
-              Description
-              <textarea id="snapshot-description"></textarea>
-            </label>
-            <label>
-              Password (shared secret for reviews)
-              <input type="password" id="snapshot-password">
-            </label>
-          </details>
-          <div>
-            <button id="snapshot-save" class="button" disabled>Save</button>  
-            <span id="snapshot-status"></span>
+    <!-- SNAPSHOTS LIST -->
+    <div id="snapshots-container" aria-hidden="true">
+      <h2>Snapshots</h2>
+      <div id="snapshots-list"></div>
+      
+      <!-- CREATE NEW SNAPSHOT -->
+      <div class="create-snapshot-section">
+        <h3>Create New Snapshot</h3>
+        <form id="create-snapshot-form">
+          <div class="form-field">
+            <label for="new-snapshot-name">Snapshot Name</label>
+            <input name="new-snapshot-name" id="new-snapshot-name" required />
           </div>
-          <div id="snapshot-actions">
-            <h2>Snapshot actions</h2>
-            <button id="snapshot-lock" class="button">Lock</button>
-            <button id="snapshot-unlock" class="button">Unlock</button>
-            <button id="snapshot-publish" class="button">Publish</button>
-          </div>
-          <div id="snapshot-review-actions">
-            <h2>Review actions</h2>
-            <button id="review-request" class="button">Request Review</button>
-            <button id="review-reject" class="button">Reject Review</button>
-            <button id="review-approve" class="button">Approve Review</button>
-            <a id="snapshot-review" href="" target="_blank" class="button">Open Review <span class="snapshot-admin-oinw"></span></a>
-          </div>
-        </fieldset>
-      </form>
+          <p class="button-wrapper">
+            <button type="submit" class="button">Create Snapshot</button>
+          </p>
+        </form>
+      </div>
     </div>
 
     <!-- CONSOLE -->
