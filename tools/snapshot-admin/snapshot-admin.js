@@ -473,11 +473,6 @@ try {
   // Continue loading the page even if config initialization fails
 }
 
-// // Ensure site field is enabled when org field has a value
-// orgInput.addEventListener('input', () => {
-//   siteInput.disabled = !orgInput.value;
-// });
-
 // Check if we have a snapshot URL parameter
 if (snapshotParam) {
   const parsed = parseSnapshotUrl(snapshotParam);
