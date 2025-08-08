@@ -6,10 +6,12 @@ import {
   setOrgSite,
   deleteSnapshot,
 } from './utils.js';
+import { initConfigField } from '../../utils/config/config.js';
 
 // DOM Elements
 const sitePathForm = document.getElementById('site-path-form');
-const sitePathInput = document.getElementById('site-path');
+const orgInput = document.getElementById('org');
+const siteInput = document.getElementById('site');
 const snapshotsContainer = document.getElementById('snapshots-container');
 const snapshotsList = document.getElementById('snapshots-list');
 const createSnapshotForm = document.getElementById('create-snapshot-form');
@@ -331,22 +333,32 @@ sitePathForm.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   try {
-    const { org, site } = parseSitePath(sitePathInput.value);
+    const org = orgInput.value.trim();
+    const site = siteInput.value.trim();
+
+    if (!org || !site) {
+      // eslint-disable-next-line no-alert
+      alert('Please enter both organization and site');
+      return;
+    }
+
     currentOrg = org;
     currentSite = site;
 
-    localStorage.setItem('snapshot-admin-site-path', sitePathInput.value);
+    const sitePath = `${org}/${site}`;
+    localStorage.setItem('snapshot-admin-site-path', sitePath);
 
     await loadSnapshots();
 
     // Update URL
     const url = new URL(window.location);
-    url.searchParams.set('sitePath', sitePathInput.value);
+    url.searchParams.set('org', org);
+    url.searchParams.set('site', site);
     // eslint-disable-next-line no-restricted-globals
     window.history.pushState({}, '', url);
   } catch (error) {
     // eslint-disable-next-line no-alert
-    alert(`Invalid site path: ${error.message}`);
+    alert(`Error loading snapshots: ${error.message}`);
   }
 });
 
@@ -437,17 +449,22 @@ async function autoExpandSnapshot(targetSnapshotName) {
 // Initialize from URL parameters or localStorage
 const params = new URLSearchParams(window.location.search);
 const snapshotParam = params.get('snapshot');
+const orgParam = params.get('org');
+const siteParam = params.get('site');
 const sitePath = params.get('sitePath') || localStorage.getItem('snapshot-admin-site-path');
+
+// Initialize config fields
+await initConfigField();
 
 // Check if we have a snapshot URL parameter
 if (snapshotParam) {
   const parsed = parseSnapshotUrl(snapshotParam);
   if (parsed) {
     const { org, site, snapshotName } = parsed;
-    const autoSitePath = `${org}/${site}`;
 
-    // Set the site path input
-    sitePathInput.value = autoSitePath;
+    // Set the org and site inputs
+    orgInput.value = org;
+    siteInput.value = site;
     currentOrg = org;
     currentSite = site;
 
@@ -456,9 +473,11 @@ if (snapshotParam) {
     await autoExpandSnapshot(snapshotName);
 
     // Update localStorage and URL
+    const autoSitePath = `${org}/${site}`;
     localStorage.setItem('snapshot-admin-site-path', autoSitePath);
     const url = new URL(window.location);
-    url.searchParams.set('sitePath', autoSitePath);
+    url.searchParams.set('org', org);
+    url.searchParams.set('site', site);
     // eslint-disable-next-line no-restricted-globals
     window.history.replaceState({}, '', url);
   } else {
@@ -466,11 +485,19 @@ if (snapshotParam) {
     // eslint-disable-next-line no-alert
     alert('Invalid snapshot URL format. Please check the URL and try again.');
   }
+} else if (orgParam && siteParam) {
+  // Use org and site parameters
+  orgInput.value = orgParam;
+  siteInput.value = siteParam;
+  currentOrg = orgParam;
+  currentSite = siteParam;
+  await loadSnapshots();
 } else if (sitePath) {
   // Fallback to sitePath parameter or localStorage
-  sitePathInput.value = sitePath;
   try {
     const { org, site } = parseSitePath(sitePath);
+    orgInput.value = org;
+    siteInput.value = site;
     currentOrg = org;
     currentSite = site;
     await loadSnapshots();

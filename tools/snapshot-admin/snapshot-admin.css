@@ -46,25 +46,45 @@
   font-size: var(--body-size-m);
 }
 
+.snapshot-admin .button-wrapper {
+  margin-top: var(--spacing-300);
+}
+
 /* Site path form using project form styles */
-.site-path-form {
+#site-path-form {
   margin-bottom: var(--spacing-500);
 }
 
-.site-path-form .form-field {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--spacing-300);
-  align-items: end;
-}
-
-.site-path-form input {
-  width: 100%;
-}
-
-.site-path-form .button-wrapper {
+#site-path-form .button-wrapper {
   display: flex;
   gap: var(--spacing-200);
+}
+
+/* Config field styling for org/site fields */
+.form-field.config-field {
+  display: grid;
+}
+
+@media (width >= 600px) {
+  .form-field.config-field {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-l);
+  }
+
+  .form-field.config-field .form-field {
+    margin-top: 0;
+  }
+
+  .form-field.config-field .site-field {
+    position: relative;
+  }
+
+  .form-field.config-field .site-field::before {
+    content: '/';
+    position: absolute;
+    left: calc((var(--spacing-l) + 0.5ch) / -2);
+    bottom: calc(var(--border-m) + 0.4em);
+  }
 }
 
 /* Snapshot list */
@@ -708,10 +728,7 @@
     padding: 0 var(--spacing-400);
   }
   
-  .site-path-form .form-field {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-300);
-  }
+
   
   .sa-snapshot-details {
     grid-template-columns: 1fr;

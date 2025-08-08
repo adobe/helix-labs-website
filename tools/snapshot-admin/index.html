@@ -28,15 +28,18 @@
     <!-- SITE PATH FORM -->
     <div>
       <form id="site-path-form">
-        <div class="form-field url-field">
-          <label for="site-path">Site Path (org/site)</label>
-          <input name="site-path" id="site-path" placeholder="org/site" required />
-          <div class="field-help-text">
-            <p>
-              Enter the organization and site (e.g., "adobe/franklin-docs")
-            </p>
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" autocomplete="off" required />
+            <datalist id="org-list"></datalist>
           </div>
-        </div>
+          <div class="form-field site-field">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" autocomplete="off" disabled />
+            <datalist id="site-list"></datalist>
+          </div>
+        </section>
         <p class="button-wrapper">
           <button type="submit" id="load-snapshots" class="button">Load Snapshots</button>
           <button type="reset" id="reset" class="button outline">Reset</button>
