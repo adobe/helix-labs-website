@@ -9,7 +9,7 @@ function formatError(resp) {
   if (resp.status === 401 || resp.status === 403) {
     return { error: 'You do not have privileges to take this snapshot action.' };
   }
-  return { error: 'Not a valid project.' };
+  return { error: `Error: ${resp.headers.get('x-error') || resp.status}` };
 }
 
 function formatResources(name, resources) {
