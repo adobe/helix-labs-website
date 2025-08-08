@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const RUN_REPORT_BUTTON = document.getElementById('run-report');
 const ORPHANED_PAGES_LIST = document.getElementById('orphaned-pages-list');
 const SPINNER = document.getElementById('spinner');
