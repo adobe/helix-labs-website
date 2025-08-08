@@ -294,6 +294,20 @@ async function loadSnapshotDetails(snapshotName) {
       urlsTextarea.value = urlList.join('\n');
     }
 
+    // Enable/disable lock and unlock buttons based on locked status
+    const lockButton = document.querySelector(`[data-action="lock"][data-snapshot="${snapshotName}"]`);
+    const unlockButton = document.querySelector(`[data-action="unlock"][data-snapshot="${snapshotName}"]`);
+
+    if (lockButton && unlockButton) {
+      const isLocked = !!manifest.locked; // Convert timestamp to boolean
+
+      // Enable lock button if snapshot is unlocked, disable if locked
+      lockButton.disabled = isLocked;
+
+      // Enable unlock button if snapshot is locked, disable if unlocked
+      unlockButton.disabled = !isLocked;
+    }
+
     logResponse([200, 'GET', `snapshot/${snapshotName}`, 'Details loaded']);
   } catch (error) {
     logResponse([500, 'GET', `snapshot/${snapshotName}`, error.message]);
@@ -416,7 +430,7 @@ async function handleReviewAction(snapshotName, action) {
       // Update manifest with locked state
       const updatedManifest = {
         ...currentManifest,
-        locked: isLocked,
+        locked: isLocked ? new Date().toISOString() : null,
       };
 
       const result = await saveManifest(snapshotName, updatedManifest);
