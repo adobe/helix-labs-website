@@ -5,6 +5,7 @@ import {
   saveManifest,
   setOrgSite,
   deleteSnapshot,
+  reviewSnapshot,
 } from './utils.js';
 import { initConfigField } from '../../utils/config/config.js';
 
@@ -18,9 +19,78 @@ const createSnapshotForm = document.getElementById('create-snapshot-form');
 const newSnapshotNameInput = document.getElementById('new-snapshot-name');
 const logTable = document.querySelector('table tbody');
 
+// Modal Elements
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modal-title');
+const modalMessage = document.getElementById('modal-message');
+const modalClose = document.querySelector('.modal-close');
+const modalOk = document.querySelector('.modal-ok');
+const modalOverlay = document.querySelector('.modal-overlay');
+
 let currentOrg = '';
 let currentSite = '';
 let snapshots = [];
+
+/**
+ * Shows a modal dialog
+ * @param {string} title - Modal title
+ * @param {string} message - Modal message
+ * @param {boolean} isConfirm - Whether this is a confirmation dialog
+ * @returns {Promise<boolean>} - Promise that resolves to true if confirmed, false if cancelled
+ */
+function showModal(title, message, isConfirm = false) {
+  return new Promise((resolve) => {
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    modal.removeAttribute('aria-hidden');
+
+    // Update button text for confirmation dialogs
+    if (isConfirm) {
+      modalOk.textContent = 'OK';
+      // Add Cancel button for confirmations
+      if (!document.querySelector('.modal-cancel')) {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'button outline modal-cancel';
+        cancelBtn.textContent = 'Cancel';
+        modalOk.parentNode.insertBefore(cancelBtn, modalOk);
+      }
+    } else {
+      modalOk.textContent = 'OK';
+      // Remove Cancel button for regular dialogs
+      const cancelBtn = document.querySelector('.modal-cancel');
+      if (cancelBtn) {
+        cancelBtn.remove();
+      }
+    }
+
+    const closeModal = (confirmed = false) => {
+      modal.setAttribute('aria-hidden', 'true');
+      modalClose.removeEventListener('click', closeModal);
+      modalOk.removeEventListener('click', closeModal);
+      modalOverlay.removeEventListener('click', closeModal);
+      const cancelBtn = document.querySelector('.modal-cancel');
+      if (cancelBtn) {
+        cancelBtn.removeEventListener('click', closeModal);
+      }
+      resolve(confirmed);
+    };
+
+    const handleOk = () => closeModal(true);
+    const handleCancel = () => closeModal(false);
+
+    modalClose.addEventListener('click', handleCancel);
+    modalOk.addEventListener('click', handleOk);
+    modalOverlay.addEventListener('click', handleCancel);
+
+    const cancelBtn = document.querySelector('.modal-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', handleCancel);
+    }
+
+    // Focus the OK button for accessibility
+    modalOk.focus();
+  });
+}
 
 /**
  * Logs the response information to the log table.
@@ -183,8 +253,7 @@ async function loadSnapshots() {
 
     if (result.error) {
       logResponse([400, 'GET', 'snapshots', result.error]);
-      // eslint-disable-next-line no-alert
-      alert(`Error loading snapshots: ${result.error}`);
+      await showModal('Error', `Error loading snapshots: ${result.error}`);
       return;
     }
 
@@ -206,6 +275,7 @@ async function loadSnapshotDetails(snapshotName) {
 
     if (manifest.error) {
       logResponse([400, 'GET', `snapshot/${snapshotName}`, manifest.error]);
+      await showModal('Error', `Error loading snapshot details: ${manifest.error}`);
       return;
     }
 
@@ -252,16 +322,15 @@ async function saveSnapshot(snapshotName) {
 
     if (result.error) {
       logResponse([400, 'POST', `snapshot/${snapshotName}`, result.error]);
-      // eslint-disable-next-line no-alert
-      alert(`Error saving snapshot: ${result.error}`);
+      await showModal('Error', `Error saving snapshot: ${result.error}`);
       return;
     }
 
     logResponse([200, 'POST', `snapshot/${snapshotName}`, 'Saved successfully']);
-    // eslint-disable-next-line no-alert
-    alert('Snapshot saved successfully!');
+    await showModal('Success', 'Snapshot saved successfully!');
   } catch (error) {
     logResponse([500, 'POST', `snapshot/${snapshotName}`, error.message]);
+    await showModal('Error', `Error saving snapshot: ${error.message}`);
   }
 }
 
@@ -269,8 +338,7 @@ async function saveSnapshot(snapshotName) {
  * Delete a snapshot
  */
 async function deleteSnapshotAction(snapshotName) {
-  // eslint-disable-next-line no-alert
-  const confirmed = window.confirm(`Are you sure you want to delete the snapshot "${snapshotName}"?`);
+  const confirmed = await showModal('Confirm Delete', `Are you sure you want to delete the snapshot "${snapshotName}"?`, true);
   if (!confirmed) return;
 
   try {
@@ -278,8 +346,7 @@ async function deleteSnapshotAction(snapshotName) {
 
     if (result.error) {
       logResponse([400, 'DELETE', `snapshot/${snapshotName}`, result.error]);
-      // eslint-disable-next-line no-alert
-      alert(`Error deleting snapshot: ${result.error}`);
+      await showModal('Error', `Error deleting snapshot: ${result.error}`);
       return;
     }
 
@@ -289,6 +356,7 @@ async function deleteSnapshotAction(snapshotName) {
     await loadSnapshots();
   } catch (error) {
     logResponse([500, 'DELETE', `snapshot/${snapshotName}`, error.message]);
+    await showModal('Error', `Error deleting snapshot: ${error.message}`);
   }
 }
 
@@ -307,8 +375,7 @@ async function createSnapshot(snapshotName) {
 
     if (result.error) {
       logResponse([400, 'POST', `snapshot/${snapshotName}`, result.error]);
-      // eslint-disable-next-line no-alert
-      alert(`Error creating snapshot: ${result.error}`);
+      await showModal('Error', `Error creating snapshot: ${result.error}`);
       return;
     }
 
@@ -321,6 +388,90 @@ async function createSnapshot(snapshotName) {
     newSnapshotNameInput.value = '';
   } catch (error) {
     logResponse([500, 'POST', `snapshot/${snapshotName}`, error.message]);
+    await showModal('Error', `Error creating snapshot: ${error.message}`);
+  }
+}
+
+/**
+ * Handle review actions (lock, unlock, request-review, approve-review, reject-review)
+ * @param {string} snapshotName - Name of the snapshot
+ * @param {string} action - The action to perform
+ */
+async function handleReviewAction(snapshotName, action) {
+  try {
+    // Handle lock/unlock actions by updating the manifest
+    if (action === 'lock' || action === 'unlock') {
+      const isLocked = action === 'lock';
+
+      logResponse([200, 'POST', `snapshot/${snapshotName}/manifest`, `Setting locked to: ${isLocked}`]);
+
+      // Get current manifest to preserve existing data
+      const currentManifest = await fetchManifest(snapshotName);
+      if (currentManifest.error) {
+        logResponse([400, 'GET', `snapshot/${snapshotName}/manifest`, currentManifest.error]);
+        await showModal('Error', `Error loading manifest: ${currentManifest.error}`);
+        return;
+      }
+
+      // Update manifest with locked state
+      const updatedManifest = {
+        ...currentManifest,
+        locked: isLocked,
+      };
+
+      const result = await saveManifest(snapshotName, updatedManifest);
+
+      if (result.error) {
+        logResponse([400, 'POST', `snapshot/${snapshotName}/manifest`, result.error]);
+        await showModal('Error', `Error ${action}: ${result.error}`);
+        return;
+      }
+
+      logResponse([200, 'POST', `snapshot/${snapshotName}/manifest`, `${action} successful`]);
+      await showModal('Success', `${action} successful!`);
+
+      // Reload snapshot details to reflect the new state
+      await loadSnapshotDetails(snapshotName);
+      return;
+    }
+
+    // Handle review state actions
+    let reviewState;
+
+    // Map actions to review states
+    switch (action) {
+      case 'request-review':
+        reviewState = 'request';
+        break;
+      case 'approve-review':
+        reviewState = 'approve';
+        break;
+      case 'reject-review':
+        reviewState = 'reject';
+        break;
+      default:
+        await showModal('Error', `Unknown action: ${action}`);
+        return;
+    }
+
+    logResponse([200, 'POST', `snapshot/${snapshotName}/review`, `Setting review state to: ${reviewState}`]);
+
+    const result = await reviewSnapshot(snapshotName, reviewState);
+
+    if (result.error) {
+      logResponse([400, 'POST', `snapshot/${snapshotName}/review`, result.error]);
+      await showModal('Error', `Error ${action}: ${result.error}`);
+      return;
+    }
+
+    logResponse([200, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
+    await showModal('Success', `${action} successful!`);
+
+    // Reload snapshot details to reflect the new state
+    await loadSnapshotDetails(snapshotName);
+  } catch (error) {
+    logResponse([500, 'POST', `snapshot/${snapshotName}/manifest`, error.message]);
+    await showModal('Error', `Error ${action}: ${error.message}`);
   }
 }
 
@@ -337,8 +488,7 @@ sitePathForm.addEventListener('submit', async (e) => {
     const site = siteInput.value.trim();
 
     if (!org || !site) {
-      // eslint-disable-next-line no-alert
-      alert('Please enter both organization and site');
+      await showModal('Missing Information', 'Please enter both organization and site');
       return;
     }
 
@@ -357,8 +507,7 @@ sitePathForm.addEventListener('submit', async (e) => {
     // eslint-disable-next-line no-restricted-globals
     window.history.pushState({}, '', url);
   } catch (error) {
-    // eslint-disable-next-line no-alert
-    alert(`Error loading snapshots: ${error.message}`);
+    await showModal('Error', `Error loading snapshots: ${error.message}`);
   }
 });
 
@@ -370,8 +519,7 @@ createSnapshotForm.addEventListener('submit', async (e) => {
   const snapshotName = newSnapshotNameInput.value.trim();
 
   if (!snapshotName) {
-    // eslint-disable-next-line no-alert
-    alert('Please enter a snapshot name');
+    await showModal('Missing Information', 'Please enter a snapshot name');
     return;
   }
 
@@ -432,9 +580,7 @@ snapshotsList.addEventListener('click', async (e) => {
     case 'request-review':
     case 'approve-review':
     case 'reject-review':
-      // These would integrate with the review system
-      // eslint-disable-next-line no-alert
-      alert(`${action} functionality would be implemented here`);
+      await handleReviewAction(snapshotName, action);
       break;
     default:
       break;
@@ -499,8 +645,7 @@ if (snapshotParam) {
     window.history.replaceState({}, '', url);
   } else {
     // Invalid snapshot URL format
-    // eslint-disable-next-line no-alert
-    alert('Invalid snapshot URL format. Please check the URL and try again.');
+    await showModal('Error', 'Invalid snapshot URL format. Please check the URL and try again.');
   }
 } else if (orgParam && siteParam) {
   // Use org and site parameters
@@ -519,7 +664,8 @@ if (snapshotParam) {
     currentSite = site;
     await loadSnapshots();
   } catch (error) {
-    // eslint-disable-next-line no-alert
+    // eslint-disable-next-line no-console
     console.error(`Invalid site path: ${error.message}`);
+    await showModal('Error', `Invalid site path: ${error.message}`);
   }
 }
