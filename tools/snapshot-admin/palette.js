@@ -144,6 +144,7 @@ async function updateSnapshotUI() {
     pageList.addEventListener('click', async (e) => {
       if (e.target.classList.contains('page-list-remove')) {
         const path = e.target.parentElement.firstElementChild.textContent.trim();
+        // eslint-disable-next-line no-alert
         const confirmed = window.confirm(`Are you sure you want to remove ${path} from this snapshot?`);
         if (confirmed) {
           SPINNER.setAttribute('aria-hidden', 'false');
@@ -198,6 +199,7 @@ async function updateSnapshotUI() {
       }
     }
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error updating snapshot UI:', error);
     PAGE_STATUS.textContent = 'Error loading snapshot data';
     REVIEW_STATUS.textContent = 'Error loading snapshot data';
@@ -254,6 +256,7 @@ async function loadSnapshots() {
       onSnapshotChange();
     }
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error loading snapshots:', error);
     SNAPSHOT_SELECT.innerHTML = '<option value="">Error loading snapshots</option>';
   }

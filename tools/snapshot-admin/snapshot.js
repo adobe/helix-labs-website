@@ -3,7 +3,6 @@ import {
   deleteSnapshot,
   fetchManifest,
   saveManifest,
-  copyManifest,
   updatePaths,
   reviewSnapshot,
 } from './utils.js';
@@ -72,12 +71,6 @@ export default class SnapshotComponent {
           break;
         case 'review':
           this.handleReview(param);
-          break;
-        case 'copy':
-          this.handleCopyUrls(param);
-          break;
-        case 'share':
-          this.handleShare();
           break;
         case 'edit-urls':
           this.handleUrls();
@@ -156,35 +149,6 @@ export default class SnapshotComponent {
     this.handleSave(false);
   }
 
-  handleShare() {
-    const aemPaths = this.manifest.resources.map((res) => res.aemPreview);
-    const text = aemPaths.join('\n');
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        this.showMessage('Copied', 'URLs copied to clipboard.');
-      }).catch(() => {
-        this.fallbackCopyToClipboard(text);
-      });
-    } else {
-      this.fallbackCopyToClipboard(text);
-    }
-  }
-
-  fallbackCopyToClipboard(text) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      this.showMessage('Copied', 'URLs copied to clipboard.');
-    } catch (err) {
-      this.showMessage('Error', 'Could not copy URLs to clipboard.');
-    }
-    document.body.removeChild(textArea);
-  }
-
   async handleDelete() {
     const result = await deleteSnapshot(this.basics.name);
     if (result.error) {
@@ -207,14 +171,6 @@ export default class SnapshotComponent {
       return;
     }
     this.loadManifest();
-  }
-
-  async handleCopyUrls(direction) {
-    this.setAction(direction === 'fork'
-      ? 'Forking content into snapshot.'
-      : 'Promoting content from snapshot.');
-    await copyManifest(this.basics.name, this.manifest.resources, direction);
-    this.setAction(null);
   }
 
   getValue(selector) {
@@ -301,16 +257,7 @@ export default class SnapshotComponent {
                       title="${this.manifest?.locked ? 'Unlock snapshot to edit URLs.' : ''}">
                 ${showEdit ? 'Cancel' : 'Edit'}
               </button>
-              ${!showEdit ? '<button data-action="share">Share</button>' : ''}
             </p>
-            ${!showEdit ? `
-              <div class="sa-snapshot-sub-heading-actions">
-                <p>Sources:</p>
-                <button data-action="copy" data-param="fork">Sync</button>
-                <p>|</p>
-                <button data-action="copy" data-param="promote">Promote</button>
-              </div>
-            ` : ''}
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
         </div>
