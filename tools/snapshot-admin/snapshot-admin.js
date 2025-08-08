@@ -107,6 +107,38 @@ function createSnapshotCard(snapshot) {
 }
 
 /**
+ * Parse snapshot URL to extract org, site, and snapshot name
+ * @param {string} snapshotUrl - URL like https://main--demo--org.aem.page/.snapshots/name/.manifest.json
+ * @returns {Object|null} - {org, site, snapshotName} or null if invalid
+ */
+function parseSnapshotUrl(snapshotUrl) {
+  try {
+    const { hostname, pathname } = new URL(snapshotUrl);
+
+    // Parse hostname pattern: main--{site}--{org}.aem.page
+    const hostParts = hostname.split('--');
+    if (hostParts.length !== 3 || !hostname.endsWith('.aem.page')) {
+      return null;
+    }
+
+    const [, site, orgWithDomain] = hostParts;
+    const org = orgWithDomain.replace('.aem.page', '');
+
+    // Parse path pattern: /.snapshots/{snapshotName}/.manifest.json
+    const pathMatch = pathname.match(/^\/\.snapshots\/([^/]+)\/\.manifest\.json$/);
+    if (!pathMatch) {
+      return null;
+    }
+
+    const snapshotName = pathMatch[1];
+
+    return { org, site, snapshotName };
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
  * Display snapshots in the UI
  */
 function displaySnapshots() {
@@ -115,7 +147,28 @@ function displaySnapshots() {
     return;
   }
 
-  snapshotsList.innerHTML = snapshots.map(createSnapshotCard).join('');
+  // Check if we have a snapshot parameter to filter by
+  const params = new URLSearchParams(window.location.search);
+  const snapshotParam = params.get('snapshot');
+
+  let snapshotsToDisplay = snapshots;
+
+  if (snapshotParam) {
+    // Parse the snapshot URL to get the snapshot name
+    const parsed = parseSnapshotUrl(snapshotParam);
+    if (parsed) {
+      const { snapshotName } = parsed;
+      // Filter to show only the specified snapshot
+      snapshotsToDisplay = snapshots.filter((snapshot) => snapshot.name === snapshotName);
+
+      if (snapshotsToDisplay.length === 0) {
+        snapshotsList.innerHTML = `<p>Snapshot "${snapshotName}" not found for this site.</p>`;
+        return;
+      }
+    }
+  }
+
+  snapshotsList.innerHTML = snapshotsToDisplay.map(createSnapshotCard).join('');
 }
 
 /**
@@ -364,38 +417,6 @@ snapshotsList.addEventListener('click', async (e) => {
       break;
   }
 });
-
-/**
- * Parse snapshot URL to extract org, site, and snapshot name
- * @param {string} snapshotUrl - URL like https://main--demo--org.aem.page/.snapshots/name/.manifest.json
- * @returns {Object|null} - {org, site, snapshotName} or null if invalid
- */
-function parseSnapshotUrl(snapshotUrl) {
-  try {
-    const { hostname, pathname } = new URL(snapshotUrl);
-
-    // Parse hostname pattern: main--{site}--{org}.aem.page
-    const hostParts = hostname.split('--');
-    if (hostParts.length !== 3 || !hostname.endsWith('.aem.page')) {
-      return null;
-    }
-
-    const [, site, orgWithDomain] = hostParts;
-    const org = orgWithDomain.replace('.aem.page', '');
-
-    // Parse path pattern: /.snapshots/{snapshotName}/.manifest.json
-    const pathMatch = pathname.match(/^\/\.snapshots\/([^/]+)\/\.manifest\.json$/);
-    if (!pathMatch) {
-      return null;
-    }
-
-    const snapshotName = pathMatch[1];
-
-    return { org, site, snapshotName };
-  } catch (error) {
-    return null;
-  }
-}
 
 /**
  * Auto-expand a specific snapshot after loading
