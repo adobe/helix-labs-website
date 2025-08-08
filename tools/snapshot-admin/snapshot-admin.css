@@ -250,8 +250,54 @@
   color: var(--color-text);
 }
 
+/* Review button styling */
+.review-actions button[data-action="approve-review"] {
+  background-color: var(--green-600);
+  border-color: var(--green-600);
+  color: white;
+}
+
+.review-actions button[data-action="approve-review"]:hover {
+  background-color: var(--green-700);
+  border-color: var(--green-700);
+}
+
+.review-actions button[data-action="reject-review"] {
+  background-color: var(--red-600);
+  border-color: var(--red-600);
+  color: white;
+}
+
+.review-actions button[data-action="reject-review"]:hover {
+  background-color: var(--red-700);
+  border-color: var(--red-700);
+}
+
+/* Lock/Unlock button styling */
+.snapshot-actions button[data-action="lock"] {
+  background-color: var(--red-600);
+  border-color: var(--red-600);
+  color: white;
+}
+
+.snapshot-actions button[data-action="lock"]:hover {
+  background-color: var(--red-700);
+  border-color: var(--red-700);
+}
+
+.snapshot-actions button[data-action="unlock"] {
+  background-color: var(--green-600);
+  border-color: var(--green-600);
+  color: white;
+}
+
+.snapshot-actions button[data-action="unlock"]:hover {
+  background-color: var(--green-700);
+  border-color: var(--green-700);
+}
+
 /* Create snapshot section */
-.create-snapshot-section {
+#create-snapshot-section {
   margin-top: var(--spacing-600);
   padding: var(--spacing-400);
   background: var(--gray-100);
@@ -259,7 +305,7 @@
   border: var(--border-s) solid var(--gray-200);
 }
 
-.create-snapshot-section h3 {
+#create-snapshot-section h3 {
   color: var(--color-text);
   margin-bottom: var(--spacing-300);
 }

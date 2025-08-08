@@ -72,37 +72,37 @@ function createSnapshotCard(snapshot) {
         </div>
       </div>
       <div class="snapshot-details" id="details-${name}" style="display: none;">
-        <div class="snapshot-edit-form">
+        <form class="snapshot-edit-form" id="form-${name}">
           <div class="form-field">
-            <label>Title</label>
-            <input type="text" id="title-${name}" placeholder="Snapshot title">
+            <label for="title-${name}">Title</label>
+            <input type="text" id="title-${name}" name="title" placeholder="Snapshot title" autocomplete="on">
           </div>
           <div class="form-field">
-            <label>Description</label>
-            <textarea id="description-${name}" placeholder="Snapshot description"></textarea>
+            <label for="description-${name}">Description</label>
+            <textarea id="description-${name}" name="description" placeholder="Snapshot description" autocomplete="on"></textarea>
           </div>
           <div class="form-field">
-            <label>Password (for reviews)</label>
-            <input type="password" id="password-${name}" placeholder="Review password">
+            <label for="password-${name}">Password (for reviews)</label>
+            <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password">
           </div>
           <div class="form-field">
-            <label>URLs (one per line)</label>
-            <textarea id="urls-${name}" rows="10" placeholder="Enter URLs, one per line"></textarea>
+            <label for="urls-${name}">URLs (one per line)</label>
+            <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on"></textarea>
           </div>
           <div class="snapshot-actions">
-            <button class="button" data-action="save" data-snapshot="${name}">Save</button>
-            <button class="button outline" data-action="cancel" data-snapshot="${name}">Cancel</button>
-            <button class="button" data-action="lock" data-snapshot="${name}">Lock</button>
-            <button class="button" data-action="unlock" data-snapshot="${name}">Unlock</button>
+            <button type="submit" class="button" data-action="save" data-snapshot="${name}">Save</button>
+            <button type="button" class="button outline" data-action="cancel" data-snapshot="${name}">Cancel</button>
+            <button type="button" class="button" data-action="lock" data-snapshot="${name}">Lock</button>
+            <button type="button" class="button" data-action="unlock" data-snapshot="${name}">Unlock</button>
           </div>
           <div class="review-actions">
             <h4>Review Actions</h4>
-            <button class="button" data-action="request-review" data-snapshot="${name}">Request Review</button>
-            <button class="button" data-action="approve-review" data-snapshot="${name}">Approve Review</button>
-            <button class="button" data-action="reject-review" data-snapshot="${name}">Reject Review</button>
+            <button type="button" class="button" data-action="request-review" data-snapshot="${name}">Request Review</button>
+            <button type="button" class="button" data-action="approve-review" data-snapshot="${name}">Approve Review</button>
+            <button type="button" class="button" data-action="reject-review" data-snapshot="${name}">Reject Review</button>
             <a class="button" href="https://${name}--main--${currentSite}--${currentOrg}.aem.reviews/" target="_blank">Open Review</a>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   `;
@@ -379,6 +379,17 @@ createSnapshotForm.addEventListener('submit', async (e) => {
 });
 
 /**
+ * Handle snapshot edit form submissions using event delegation
+ */
+snapshotsList.addEventListener('submit', async (e) => {
+  if (e.target.classList.contains('snapshot-edit-form')) {
+    e.preventDefault();
+    const snapshotName = e.target.id.replace('form-', '');
+    await saveSnapshot(snapshotName);
+  }
+});
+
+/**
  * Handle clicks on snapshot actions using event delegation
  */
 snapshotsList.addEventListener('click', async (e) => {
@@ -454,7 +465,18 @@ const siteParam = params.get('site');
 const sitePath = params.get('sitePath') || localStorage.getItem('snapshot-admin-site-path');
 
 // Initialize config fields
-await initConfigField();
+try {
+  await initConfigField();
+} catch (error) {
+  // eslint-disable-next-line no-console
+  console.error('Failed to initialize config fields:', error);
+  // Continue loading the page even if config initialization fails
+}
+
+// // Ensure site field is enabled when org field has a value
+// orgInput.addEventListener('input', () => {
+//   siteInput.disabled = !orgInput.value;
+// });
 
 // Check if we have a snapshot URL parameter
 if (snapshotParam) {
@@ -462,7 +484,7 @@ if (snapshotParam) {
   if (parsed) {
     const { org, site, snapshotName } = parsed;
 
-    // Set the org and site inputs
+    // Set the org and site inputs (extracted from snapshot URL)
     orgInput.value = org;
     siteInput.value = site;
     currentOrg = org;
