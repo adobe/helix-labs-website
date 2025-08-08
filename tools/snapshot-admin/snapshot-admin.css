@@ -312,6 +312,20 @@
   color: var(--gray-400);
 }
 
+/* Disabled request review button styles */
+.review-actions button[data-action="request-review"]:disabled {
+  background-color: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.review-actions button[data-action="request-review"]:disabled:hover {
+  background-color: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+}
+
 /* Create snapshot section */
 #create-snapshot-section {
   margin-top: var(--spacing-600);

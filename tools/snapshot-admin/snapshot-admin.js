@@ -294,18 +294,19 @@ async function loadSnapshotDetails(snapshotName) {
       urlsTextarea.value = urlList.join('\n');
     }
 
-    // Enable/disable lock and unlock buttons based on locked status
+    // Enable/disable lock, unlock, and request review buttons based on locked status
     const lockButton = document.querySelector(`[data-action="lock"][data-snapshot="${snapshotName}"]`);
     const unlockButton = document.querySelector(`[data-action="unlock"][data-snapshot="${snapshotName}"]`);
+    const requestReviewButton = document.querySelector(`[data-action="request-review"][data-snapshot="${snapshotName}"]`);
+    const isLocked = !!manifest.locked;
 
     if (lockButton && unlockButton) {
-      const isLocked = !!manifest.locked; // Convert timestamp to boolean
-
-      // Enable lock button if snapshot is unlocked, disable if locked
       lockButton.disabled = isLocked;
-
-      // Enable unlock button if snapshot is locked, disable if unlocked
       unlockButton.disabled = !isLocked;
+    }
+
+    if (requestReviewButton) {
+      requestReviewButton.disabled = isLocked;
     }
 
     logResponse([200, 'GET', `snapshot/${snapshotName}`, 'Details loaded']);
