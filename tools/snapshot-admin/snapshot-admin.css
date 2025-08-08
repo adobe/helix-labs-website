@@ -296,6 +296,22 @@
   border-color: var(--green-700);
 }
 
+/* Disabled lock/unlock button styles */
+.snapshot-actions button[data-action="lock"]:disabled,
+.snapshot-actions button[data-action="unlock"]:disabled {
+  background-color: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.snapshot-actions button[data-action="lock"]:disabled:hover,
+.snapshot-actions button[data-action="unlock"]:disabled:hover {
+  background-color: var(--gray-100);
+  border-color: var(--gray-200);
+  color: var(--gray-400);
+}
+
 /* Create snapshot section */
 #create-snapshot-section {
   margin-top: var(--spacing-600);
