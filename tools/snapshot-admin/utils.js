@@ -59,11 +59,16 @@ export async function saveManifest(name, manifestToSave) {
 }
 
 export async function reviewSnapshot(name, state) {
+  const message = `Snapshot ${name} request ${state}`;
   const opts = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      review: state,
+      message,
+    }),
   };
   // Review status
   const review = `?review=${state}`;
