@@ -141,7 +141,13 @@ async function updateSnapshotUI() {
     const pageList = document.getElementById('page-list');
     pageList.innerHTML = manifest.resources.map((e) => `<li><span>${e.path}</span><span class="page-list-remove" role="button" aria-label="Remove">&#x274C;</span></li>`).join('');
 
-    pageList.addEventListener('click', async (e) => {
+    // Remove existing event listener if it exists
+    if (pageList.clickHandler) {
+      pageList.removeEventListener('click', pageList.clickHandler);
+    }
+
+    // Store reference to the handler
+    pageList.clickHandler = async (e) => {
       if (e.target.classList.contains('page-list-remove')) {
         const path = e.target.parentElement.firstElementChild.textContent.trim();
         // eslint-disable-next-line no-alert
@@ -152,7 +158,10 @@ async function updateSnapshotUI() {
           updateSnapshotUI();
         }
       }
-    });
+    };
+
+    // Add new event listener
+    pageList.addEventListener('click', pageList.clickHandler);
 
     if (state === 'page') {
       const previewDate = status.preview.preview.lastModified;
