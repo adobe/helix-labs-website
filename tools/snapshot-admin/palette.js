@@ -141,8 +141,18 @@ async function updateSnapshotUI() {
     const pageList = document.getElementById('page-list');
     pageList.innerHTML = manifest.resources.map((e) => `<li><span>${e.path}</span><span class="page-list-remove" role="button" aria-label="Remove">&#x274C;</span></li>`).join('');
 
-    // eslint-disable-next-line no-use-before-define
-    registerRemovePageListener();
+    pageList.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('page-list-remove')) {
+        const path = e.target.parentElement.firstElementChild.textContent.trim();
+        // eslint-disable-next-line no-alert
+        const confirmed = window.confirm(`Are you sure you want to remove ${path} from this snapshot?`);
+        if (confirmed) {
+          SPINNER.setAttribute('aria-hidden', 'false');
+          await deleteFromSnapshot(OWNER, REPO, currentSnapshot, path);
+          updateSnapshotUI();
+        }
+      }
+    });
 
     if (state === 'page') {
       const previewDate = status.preview.preview.lastModified;
@@ -253,21 +263,19 @@ async function loadSnapshots() {
 }
 
 // Event Listeners
-function registerRemovePageListener() {
-  REMOVE.addEventListener('click', async () => {
-    if (!currentSnapshot) return;
-    SPINNER.setAttribute('aria-hidden', 'false');
-    await deleteFromSnapshot(OWNER, REPO, currentSnapshot, PATHNAME);
-    updateSnapshotUI();
-  });
-}
-
 SNAPSHOT_SELECT.addEventListener('change', onSnapshotChange);
 
 ADD.addEventListener('click', async () => {
   if (!currentSnapshot) return;
   SPINNER.setAttribute('aria-hidden', 'false');
   await addToSnapshot(OWNER, REPO, currentSnapshot, [PATHNAME]);
+  updateSnapshotUI();
+});
+
+REMOVE.addEventListener('click', async () => {
+  if (!currentSnapshot) return;
+  SPINNER.setAttribute('aria-hidden', 'false');
+  await deleteFromSnapshot(OWNER, REPO, currentSnapshot, PATHNAME);
   updateSnapshotUI();
 });
 
@@ -300,8 +308,6 @@ REVIEW_APPROVE.addEventListener('click', async () => {
     ? `https://${CUSTOM_LIVE_HOST}${PATHNAME}`
     : `https://main--${REPO}--${OWNER}.aem.live${PATHNAME}`;
 });
-
-registerRemovePageListener();
 
 // Initialize
 async function init() {
