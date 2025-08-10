@@ -7,9 +7,15 @@ let site;
 
 function formatError(resp) {
   if (resp.status === 401 || resp.status === 403) {
-    return { error: 'You do not have privileges to take this snapshot action.' };
+    return {
+      error: 'You do not have privileges to take this snapshot action.',
+      status: resp.status,
+    };
   }
-  return { error: `Error: ${resp.headers.get('x-error') || resp.status}` };
+  return {
+    error: `Error: ${resp.headers.get('x-error') || resp.status}`,
+    status: resp.status,
+  };
 }
 
 function formatResources(name, resources) {
@@ -55,7 +61,7 @@ export async function saveManifest(name, manifestToSave) {
   if (!resp.ok) return formatError(resp);
   const { manifest } = await resp.json();
   manifest.resources = formatResources(name, manifest.resources);
-  return manifest;
+  return { manifest, status: resp.status };
 }
 
 export async function reviewSnapshot(name, state) {
@@ -74,7 +80,7 @@ export async function reviewSnapshot(name, state) {
   const review = `?review=${state}`;
   const resp = await fetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${review}`, opts);
   if (!resp.ok) return formatError(resp);
-  return { success: true };
+  return { success: true, status: resp.status };
 }
 
 export async function fetchManifest(name) {
@@ -86,7 +92,7 @@ export async function fetchManifest(name) {
   if (!resp.ok) return formatError(resp);
   const { manifest } = await resp.json();
   manifest.resources = formatResources(name, manifest.resources);
-  return manifest;
+  return { manifest, status: resp.status };
 }
 
 export async function fetchSnapshots() {
@@ -102,7 +108,7 @@ export async function fetchSnapshots() {
     { org, site, name: snapshot }
   ));
 
-  return { snapshots };
+  return { snapshots, status: resp.status };
 }
 
 export async function deleteSnapshot(name, paths = ['/*']) {

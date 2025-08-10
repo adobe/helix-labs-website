@@ -1,4 +1,3 @@
-/* eslint-disable no-alert */
 import {
   fetchSnapshots,
   fetchManifest,
@@ -252,7 +251,7 @@ async function loadSnapshots() {
     const result = await fetchSnapshots();
 
     if (result.error) {
-      logResponse([400, 'GET', 'snapshots', result.error]);
+      logResponse([result.status, 'GET', 'snapshots', result.error]);
       await showModal('Error', `Error loading snapshots: ${result.error}`);
       return;
     }
@@ -260,7 +259,7 @@ async function loadSnapshots() {
     snapshots = result.snapshots || [];
     displaySnapshots();
     snapshotsContainer.setAttribute('aria-hidden', 'false');
-    logResponse([200, 'GET', 'snapshots', `${snapshots.length} snapshots loaded`]);
+    logResponse([result.status, 'GET', 'snapshots', `${snapshots.length} snapshots loaded`]);
   } catch (error) {
     logResponse([500, 'GET', 'snapshots', error.message]);
   }
@@ -271,14 +270,15 @@ async function loadSnapshots() {
  */
 async function loadSnapshotDetails(snapshotName) {
   try {
-    const manifest = await fetchManifest(snapshotName);
+    const result = await fetchManifest(snapshotName);
 
-    if (manifest.error) {
-      logResponse([400, 'GET', `snapshot/${snapshotName}`, manifest.error]);
-      await showModal('Error', `Error loading snapshot details: ${manifest.error}`);
+    if (result.error) {
+      logResponse([result.status, 'GET', `snapshot/${snapshotName}`, result.error]);
+      await showModal('Error', `Error loading snapshot details: ${result.error}`);
       return;
     }
 
+    const { manifest } = result;
     // Populate form fields
     const titleInput = document.getElementById(`title-${snapshotName}`);
     const descInput = document.getElementById(`description-${snapshotName}`);
@@ -336,12 +336,12 @@ async function saveSnapshot(snapshotName) {
     const result = await saveManifest(snapshotName, manifest);
 
     if (result.error) {
-      logResponse([400, 'POST', `snapshot/${snapshotName}`, result.error]);
+      logResponse([result.status, 'POST', `snapshot/${snapshotName}`, result.error]);
       await showModal('Error', `Error saving snapshot: ${result.error}`);
       return;
     }
 
-    logResponse([200, 'POST', `snapshot/${snapshotName}`, 'Saved successfully']);
+    logResponse([result.status, 'POST', `snapshot/${snapshotName}`, 'Saved successfully']);
     await showModal('Success', 'Snapshot saved successfully!');
   } catch (error) {
     logResponse([500, 'POST', `snapshot/${snapshotName}`, error.message]);
@@ -360,7 +360,7 @@ async function deleteSnapshotAction(snapshotName) {
     const result = await deleteSnapshot(snapshotName);
 
     if (result.error) {
-      logResponse([400, 'DELETE', `snapshot/${snapshotName}`, result.error]);
+      logResponse([result.status, 'DELETE', `snapshot/${snapshotName}`, result.error]);
       await showModal('Error', `Error deleting snapshot: ${result.error}`);
       return;
     }
@@ -389,12 +389,12 @@ async function createSnapshot(snapshotName) {
     const result = await saveManifest(snapshotName, manifest);
 
     if (result.error) {
-      logResponse([400, 'POST', `snapshot/${snapshotName}`, result.error]);
+      logResponse([result.status, 'POST', `snapshot/${snapshotName}`, result.error]);
       await showModal('Error', `Error creating snapshot: ${result.error}`);
       return;
     }
 
-    logResponse([200, 'POST', `snapshot/${snapshotName}`, 'Created successfully']);
+    logResponse([result.status, 'POST', `snapshot/${snapshotName}`, 'Created successfully']);
 
     // Reload snapshots list
     await loadSnapshots();
@@ -418,31 +418,29 @@ async function handleReviewAction(snapshotName, action) {
     if (action === 'lock' || action === 'unlock') {
       const isLocked = action === 'lock';
 
-      logResponse([200, 'POST', `snapshot/${snapshotName}/manifest`, `Setting locked to: ${isLocked}`]);
-
       // Get current manifest to preserve existing data
-      const currentManifest = await fetchManifest(snapshotName);
-      if (currentManifest.error) {
-        logResponse([400, 'GET', `snapshot/${snapshotName}/manifest`, currentManifest.error]);
-        await showModal('Error', `Error loading manifest: ${currentManifest.error}`);
+      const resp = await fetchManifest(snapshotName);
+      if (resp.error) {
+        logResponse([resp.status, 'GET', `snapshot/${snapshotName}/manifest`, resp.error]);
+        await showModal('Error', `Error loading manifest: ${resp.error}`);
         return;
       }
 
       // Update manifest with locked state
       const updatedManifest = {
-        ...currentManifest,
+        ...resp.manifest,
         locked: isLocked ? new Date().toISOString() : null,
       };
 
       const result = await saveManifest(snapshotName, updatedManifest);
 
       if (result.error) {
-        logResponse([400, 'POST', `snapshot/${snapshotName}/manifest`, result.error]);
+        logResponse([result.status, 'POST', `snapshot/${snapshotName}/manifest`, result.error]);
         await showModal('Error', `Error ${action}: ${result.error}`);
         return;
       }
 
-      logResponse([200, 'POST', `snapshot/${snapshotName}/manifest`, `${action} successful`]);
+      logResponse([result.status, 'POST', `snapshot/${snapshotName}/manifest`, `${action} successful`]);
       await showModal('Success', `${action} successful!`);
 
       // Reload snapshot details to reflect the new state
@@ -469,17 +467,15 @@ async function handleReviewAction(snapshotName, action) {
         return;
     }
 
-    logResponse([200, 'POST', `snapshot/${snapshotName}/review`, `Setting review state to: ${reviewState}`]);
-
     const result = await reviewSnapshot(snapshotName, reviewState);
 
     if (result.error) {
-      logResponse([400, 'POST', `snapshot/${snapshotName}/review`, result.error]);
+      logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, result.error]);
       await showModal('Error', `Error ${action}: ${result.error}`);
       return;
     }
 
-    logResponse([200, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
+    logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
     await showModal('Success', `${action} successful!`);
 
     // Reload snapshot details to reflect the new state
