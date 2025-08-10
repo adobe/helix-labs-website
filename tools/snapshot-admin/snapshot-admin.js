@@ -324,6 +324,7 @@ async function saveSnapshot(snapshotName) {
     const descInput = document.getElementById(`description-${snapshotName}`);
     const passwordInput = document.getElementById(`password-${snapshotName}`);
     const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
+    const resources = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
 
     const manifest = {
       title: titleInput.value,
@@ -331,7 +332,7 @@ async function saveSnapshot(snapshotName) {
       metadata: {
         reviewPassword: passwordInput.value,
       },
-      resources: urlsTextarea.value.split('\n').map((url) => ({ path: url })),
+      resources,
     };
 
     // Save manifest
