@@ -6,9 +6,15 @@ let org;
 let site;
 
 function formatError(resp) {
-  if (resp.status === 401 || resp.status === 403) {
+  if (resp.status === 401) {
     return {
-      error: 'You do not have privileges to take this snapshot action.',
+      error: 'Unauthorized. Please make sure you are logged in to the sidekick for the correct organization and site.',
+      status: resp.status,
+    };
+  }
+  if (resp.status === 403) {
+    return {
+      error: 'Forbidden. Please make sure your user has the correct permissions to take this action.',
       status: resp.status,
     };
   }
