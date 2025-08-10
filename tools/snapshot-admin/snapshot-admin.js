@@ -7,7 +7,6 @@ import {
   reviewSnapshot,
   updatePaths,
 } from './utils.js';
-import { initConfigField } from '../../utils/config/config.js';
 
 // DOM Elements
 const sitePathForm = document.getElementById('site-path-form');
@@ -248,7 +247,6 @@ function displaySnapshots() {
  */
 async function loadSnapshots() {
   try {
-    setOrgSite(currentOrg, currentSite);
     const result = await fetchSnapshots();
 
     if (result.error) {
@@ -639,16 +637,7 @@ const orgParam = params.get('org');
 const siteParam = params.get('site');
 const sitePath = params.get('sitePath') || localStorage.getItem('snapshot-admin-site-path');
 
-// Initialize config fields
-try {
-  await initConfigField();
-} catch (error) {
-  // eslint-disable-next-line no-console
-  console.error('Failed to initialize config fields:', error);
-  // Continue loading the page even if config initialization fails
-}
-
-// Check if we have a snapshot URL parameter
+// Check if we have a snapshot URL parameter FIRST
 if (snapshotParam) {
   const parsed = parseSnapshotUrl(snapshotParam);
   if (parsed) {
@@ -659,6 +648,9 @@ if (snapshotParam) {
     siteInput.value = site;
     currentOrg = org;
     currentSite = site;
+
+    // Ensure setOrgSite is called before loadSnapshots
+    setOrgSite(currentOrg, currentSite);
 
     // Load snapshots and auto-expand the target snapshot
     await loadSnapshots();
@@ -676,25 +668,41 @@ if (snapshotParam) {
     // Invalid snapshot URL format
     await showModal('Error', 'Invalid snapshot URL format. Please check the URL and try again.');
   }
-} else if (orgParam && siteParam) {
-  // Use org and site parameters
-  orgInput.value = orgParam;
-  siteInput.value = siteParam;
-  currentOrg = orgParam;
-  currentSite = siteParam;
-  await loadSnapshots();
-} else if (sitePath) {
-  // Fallback to sitePath parameter or localStorage
+} else {
+  // No snapshot parameter, initialize config fields normally
   try {
-    const { org, site } = parseSitePath(sitePath);
-    orgInput.value = org;
-    siteInput.value = site;
-    currentOrg = org;
-    currentSite = site;
-    await loadSnapshots();
+    const { initConfigField } = await import('../../utils/config/config.js');
+    await initConfigField();
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error(`Invalid site path: ${error.message}`);
-    await showModal('Error', `Invalid site path: ${error.message}`);
+    console.error('Failed to initialize config fields:', error);
+    // Continue loading the page even if config initialization fails
+  }
+
+  if (orgParam && siteParam) {
+    // Use org and site parameters
+    orgInput.value = orgParam;
+    siteInput.value = siteParam;
+    currentOrg = orgParam;
+    currentSite = siteParam;
+    // Ensure setOrgSite is called before loadSnapshots
+    setOrgSite(currentOrg, currentSite);
+    await loadSnapshots();
+  } else if (sitePath) {
+    // Fallback to sitePath parameter or localStorage
+    try {
+      const { org, site } = parseSitePath(sitePath);
+      orgInput.value = org;
+      siteInput.value = site;
+      currentOrg = org;
+      currentSite = site;
+      // Ensure setOrgSite is called before loadSnapshots
+      setOrgSite(currentOrg, currentSite);
+      await loadSnapshots();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Invalid site path: ${error.message}`);
+      await showModal('Error', `Invalid site path: ${error.message}`);
+    }
   }
 }
