@@ -558,13 +558,11 @@ createSnapshotForm.addEventListener('submit', async (e) => {
 });
 
 /**
- * Handle snapshot edit form submissions using event delegation
+ * prevent default form submission for snapshot edit form
  */
 snapshotsList.addEventListener('submit', async (e) => {
   if (e.target.classList.contains('snapshot-edit-form')) {
     e.preventDefault();
-    // const snapshotName = e.target.id.replace('form-', '');
-    // await saveSnapshot(snapshotName);
   }
 });
 
