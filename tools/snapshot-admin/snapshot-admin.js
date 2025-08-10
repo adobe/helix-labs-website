@@ -563,101 +563,60 @@ createSnapshotForm.addEventListener('submit', async (e) => {
 snapshotsList.addEventListener('submit', async (e) => {
   if (e.target.classList.contains('snapshot-edit-form')) {
     e.preventDefault();
-    const target = e.target.closest('[data-action]');
-    if (!target) return;
-    const { action, snapshot: snapshotName } = target.dataset;
-
-    switch (action) {
-      case 'edit': {
-        const details = document.getElementById(`details-${snapshotName}`);
-        if (details.style.display === 'none') {
-          await loadSnapshotDetails(snapshotName);
-          details.style.display = 'block';
-          target.textContent = 'Hide';
-        } else {
-          details.style.display = 'none';
-          target.textContent = 'Edit';
-        }
-        break;
-      }
-
-      case 'save':
-        await saveSnapshot(snapshotName);
-        break;
-
-      case 'cancel': {
-        document.getElementById(`details-${snapshotName}`).style.display = 'none';
-        const editBtn = document.querySelector(`[data-action="edit"][data-snapshot="${snapshotName}"]`);
-        if (editBtn) editBtn.textContent = 'Edit';
-        break;
-      }
-
-      case 'delete':
-        await deleteSnapshotAction(snapshotName);
-        break;
-
-      case 'lock':
-      case 'unlock':
-      case 'request-review':
-      case 'approve-review':
-      case 'reject-review':
-        await handleReviewAction(snapshotName, action);
-        break;
-      default:
-        break;
-    }
+    // const snapshotName = e.target.id.replace('form-', '');
+    // await saveSnapshot(snapshotName);
   }
 });
 
 /**
  * Handle clicks on snapshot actions using event delegation
  */
-// snapshotsList.addEventListener('click', async (e) => {
-//   const target = e.target.closest('[data-action]');
-//   if (!target) return;
+snapshotsList.addEventListener('click', async (e) => {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
 
-//   const { action, snapshot: snapshotName } = target.dataset;
+  const { action, snapshot: snapshotName } = target.dataset;
 
-//   switch (action) {
-//     case 'edit': {
-//       const details = document.getElementById(`details-${snapshotName}`);
-//       if (details.style.display === 'none') {
-//         await loadSnapshotDetails(snapshotName);
-//         details.style.display = 'block';
-//         target.textContent = 'Hide';
-//       } else {
-//         details.style.display = 'none';
-//         target.textContent = 'Edit';
-//       }
-//       break;
-//     }
+  switch (action) {
+    case 'edit': {
+      const details = document.getElementById(`details-${snapshotName}`);
+      if (details.style.display === 'none') {
+        await loadSnapshotDetails(snapshotName);
+        details.style.display = 'block';
+        target.textContent = 'Hide';
+      } else {
+        details.style.display = 'none';
+        target.textContent = 'Edit';
+      }
+      break;
+    }
 
-//     case 'save':
-//       await saveSnapshot(snapshotName);
-//       break;
+    case 'save':
+      await saveSnapshot(snapshotName);
+      break;
 
-//     case 'cancel': {
-//       document.getElementById(`details-${snapshotName}`).style.display = 'none';
-//       const editBtn = document.querySelector(`[data-action="edit"][data-snapshot="${snapshotName}"]`);
-//       if (editBtn) editBtn.textContent = 'Edit';
-//       break;
-//     }
+    case 'cancel': {
+      document.getElementById(`details-${snapshotName}`).style.display = 'none';
+      const editBtn = document.querySelector(`[data-action="edit"][data-snapshot="${snapshotName}"]`);
+      if (editBtn) editBtn.textContent = 'Edit';
+      break;
+    }
 
-//     case 'delete':
-//       await deleteSnapshotAction(snapshotName);
-//       break;
+    case 'delete':
+      await deleteSnapshotAction(snapshotName);
+      break;
 
-//     case 'lock':
-//     case 'unlock':
-//     case 'request-review':
-//     case 'approve-review':
-//     case 'reject-review':
-//       await handleReviewAction(snapshotName, action);
-//       break;
-//     default:
-//       break;
-//   }
-// });
+    case 'lock':
+    case 'unlock':
+    case 'request-review':
+    case 'approve-review':
+    case 'reject-review':
+      await handleReviewAction(snapshotName, action);
+      break;
+    default:
+      break;
+  }
+});
 
 /**
  * Auto-expand a specific snapshot after loading
