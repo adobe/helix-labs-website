@@ -507,6 +507,13 @@ async function handleReviewAction(snapshotName, action) {
 // Event Listeners
 
 /**
+ * Handle org input changes to enable/disable site field
+ */
+orgInput.addEventListener('input', () => {
+  siteInput.disabled = !orgInput.value.trim();
+});
+
+/**
  * Handle site path form submission
  */
 sitePathForm.addEventListener('submit', async (e) => {
@@ -649,6 +656,9 @@ if (snapshotParam) {
     currentOrg = org;
     currentSite = site;
 
+    // Enable the site field since we have both org and site values
+    siteInput.disabled = false;
+
     // Ensure setOrgSite is called before loadSnapshots
     setOrgSite(currentOrg, currentSite);
 
@@ -685,6 +695,8 @@ if (snapshotParam) {
     siteInput.value = siteParam;
     currentOrg = orgParam;
     currentSite = siteParam;
+    // Enable the site field since we have both org and site values
+    siteInput.disabled = false;
     // Ensure setOrgSite is called before loadSnapshots
     setOrgSite(currentOrg, currentSite);
     await loadSnapshots();
@@ -696,6 +708,8 @@ if (snapshotParam) {
       siteInput.value = site;
       currentOrg = org;
       currentSite = site;
+      // Enable the site field since we have both org and site values
+      siteInput.disabled = false;
       // Ensure setOrgSite is called before loadSnapshots
       setOrgSite(currentOrg, currentSite);
       await loadSnapshots();
