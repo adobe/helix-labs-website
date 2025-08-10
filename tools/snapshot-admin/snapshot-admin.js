@@ -5,6 +5,7 @@ import {
   setOrgSite,
   deleteSnapshot,
   reviewSnapshot,
+  updatePaths,
 } from './utils.js';
 import { initConfigField } from '../../utils/config/config.js';
 
@@ -324,27 +325,43 @@ async function saveSnapshot(snapshotName) {
     const descInput = document.getElementById(`description-${snapshotName}`);
     const passwordInput = document.getElementById(`password-${snapshotName}`);
     const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
-    const resources = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
+    const updatedPaths = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
 
-    const manifest = {
+    const newManifest = {
       title: titleInput.value,
       description: descInput.value,
       metadata: {
         reviewPassword: passwordInput.value,
       },
-      resources,
     };
 
-    // Save manifest
-    const result = await saveManifest(snapshotName, manifest);
-
-    if (result.error) {
-      logResponse([result.status, 'POST', `snapshot/${snapshotName}`, result.error]);
-      await showModal('Error', `Error saving snapshot: ${result.error}`);
+    // get resources from current manifest to compare with updated paths
+    const currentManifest = await fetchManifest(snapshotName);
+    if (currentManifest.error) {
+      logResponse([currentManifest.status, 'GET', `snapshot/${snapshotName}`, currentManifest.error]);
+      await showModal('Error', `Error loading manifest: ${currentManifest.error}`);
       return;
     }
 
-    logResponse([result.status, 'POST', `snapshot/${snapshotName}`, 'Saved successfully']);
+    // Save the manifest first
+    const saveResult = await saveManifest(snapshotName, newManifest);
+
+    if (saveResult.error) {
+      logResponse([saveResult.status, 'POST', `snapshot/${snapshotName}`, saveResult.error]);
+      await showModal('Error', `Error saving snapshot: ${saveResult.error}`);
+      return;
+    }
+    logResponse([saveResult.status, 'POST', `snapshot/${snapshotName}`, 'Manifest saved successfully']);
+
+    const currentPaths = currentManifest.manifest.resources.map((resource) => resource.path);
+    const newPaths = updatedPaths.map((path) => path.path);
+    const updateResult = await updatePaths(snapshotName, currentPaths, newPaths);
+    if (updateResult.error) {
+      logResponse([updateResult.status, 'POST', `snapshot/${snapshotName}`, updateResult.error]);
+      await showModal('Error', `Error updating paths: ${updateResult.error}`);
+      return;
+    }
+    logResponse([200, 'POST', `snapshot/${snapshotName}`, 'Paths updated successfully']);
     await showModal('Success', 'Snapshot saved successfully!');
   } catch (error) {
     logResponse([500, 'POST', `snapshot/${snapshotName}`, error.message]);
