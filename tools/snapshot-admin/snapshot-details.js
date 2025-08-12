@@ -318,10 +318,11 @@ async function handleReviewAction(snapshotName, action) {
     // Handle lock/unlock actions by updating the manifest
     if (action === 'lock' || action === 'unlock') {
       const isLocked = action === 'lock';
-
       // Update manifest with locked state
       const updatedManifest = {
-        ...currentManifest,
+        title: currentManifest.title,
+        description: currentManifest.description,
+        metadata: currentManifest.metadata,
         locked: isLocked,
       };
 
@@ -335,41 +336,37 @@ async function handleReviewAction(snapshotName, action) {
 
       logResponse([result.status, 'POST', `snapshot/${snapshotName}/manifest`, `${action} successful`]);
       await showModal('Success', `${action} successful!`);
+    } else {
+      // Handle review state actions
+      let reviewState;
 
-      // Reload snapshot details to reflect the new state
-      await loadSnapshotDetails();
-      return;
-    }
+      // Map actions to review states
+      switch (action) {
+        case 'request-review':
+          reviewState = 'request';
+          break;
+        case 'approve-review':
+          reviewState = 'approve';
+          break;
+        case 'reject-review':
+          reviewState = 'reject';
+          break;
+        default:
+          await showModal('Error', `Unknown action: ${action}`);
+          return;
+      }
 
-    // Handle review state actions
-    let reviewState;
+      const result = await reviewSnapshot(snapshotName, reviewState);
 
-    // Map actions to review states
-    switch (action) {
-      case 'request-review':
-        reviewState = 'request';
-        break;
-      case 'approve-review':
-        reviewState = 'approve';
-        break;
-      case 'reject-review':
-        reviewState = 'reject';
-        break;
-      default:
-        await showModal('Error', `Unknown action: ${action}`);
+      if (result.error) {
+        logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, result.error]);
+        await showModal('Error', `Error ${action}: ${result.error}`);
         return;
+      }
+
+      logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
+      await showModal('Success', `${action} successful!`);
     }
-
-    const result = await reviewSnapshot(snapshotName, reviewState);
-
-    if (result.error) {
-      logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, result.error]);
-      await showModal('Error', `Error ${action}: ${result.error}`);
-      return;
-    }
-
-    logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
-    await showModal('Success', `${action} successful!`);
 
     // Reload snapshot details to reflect the new state
     await loadSnapshotDetails();
