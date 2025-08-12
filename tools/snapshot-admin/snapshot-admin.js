@@ -1,11 +1,7 @@
 import {
   fetchSnapshots,
-  fetchManifest,
   saveManifest,
   setOrgSite,
-  deleteSnapshot,
-  reviewSnapshot,
-  updatePaths,
 } from './utils.js';
 
 // DOM Elements
@@ -116,17 +112,6 @@ function logResponse(cols) {
 }
 
 /**
- * Parse site path into org and site
- */
-function parseSitePath(sitePath) {
-  const parts = sitePath.split('/');
-  if (parts.length !== 2) {
-    throw new Error('Site path must be in format "org/site"');
-  }
-  return { org: parts[0], site: parts[1] };
-}
-
-/**
  * Create snapshot card HTML
  */
 function createSnapshotCard(snapshot) {
@@ -136,7 +121,7 @@ function createSnapshotCard(snapshot) {
       <div class="snapshot-header">
         <h3>${name}</h3>
         <div class="snapshot-actions">
-          <button class="button small edit-snapshot" data-action="edit" data-snapshot="${name}">Edit</button>
+          <a href="snapshot-details.html?snapshot=https://main--${currentSite}--${currentOrg}.aem.page/.snapshots/${name}/.manifest.json" class="button small edit-snapshot">Edit</a>
           <button class="button small outline delete-snapshot" data-action="delete" data-snapshot="${name}">Delete</button>
         </div>
       </div>
@@ -265,135 +250,6 @@ async function loadSnapshots() {
 }
 
 /**
- * Load snapshot details for editing
- */
-async function loadSnapshotDetails(snapshotName) {
-  try {
-    const result = await fetchManifest(snapshotName);
-
-    if (result.error) {
-      logResponse([result.status, 'GET', `snapshot/${snapshotName}`, result.error]);
-      await showModal('Error', `Error loading snapshot details: ${result.error}`);
-      return;
-    }
-
-    const { manifest } = result;
-    // Populate form fields
-    const titleInput = document.getElementById(`title-${snapshotName}`);
-    const descInput = document.getElementById(`description-${snapshotName}`);
-    const passwordInput = document.getElementById(`password-${snapshotName}`);
-    const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
-
-    if (titleInput) titleInput.value = manifest.title || '';
-    if (descInput) descInput.value = manifest.description || '';
-    if (passwordInput) passwordInput.value = manifest.metadata?.reviewPassword || '';
-
-    if (urlsTextarea && manifest.resources) {
-      const urlList = manifest.resources.map((resource) => `https://main--${currentSite}--${currentOrg}.aem.page${resource.path}`);
-      urlsTextarea.value = urlList.join('\n');
-    }
-
-    // Enable/disable lock, unlock, and request review buttons based on locked status
-    const lockButton = document.querySelector(`[data-action="lock"][data-snapshot="${snapshotName}"]`);
-    const unlockButton = document.querySelector(`[data-action="unlock"][data-snapshot="${snapshotName}"]`);
-    const requestReviewButton = document.querySelector(`[data-action="request-review"][data-snapshot="${snapshotName}"]`);
-    const isLocked = !!manifest.locked;
-
-    if (lockButton && unlockButton) {
-      lockButton.disabled = isLocked;
-      unlockButton.disabled = !isLocked;
-    }
-
-    if (requestReviewButton) {
-      requestReviewButton.disabled = isLocked;
-    }
-
-    logResponse([200, 'GET', `snapshot/${snapshotName}`, 'Details loaded']);
-  } catch (error) {
-    logResponse([500, 'GET', `snapshot/${snapshotName}`, error.message]);
-  }
-}
-
-/**
- * Save snapshot changes
- */
-async function saveSnapshot(snapshotName) {
-  try {
-    const titleInput = document.getElementById(`title-${snapshotName}`);
-    const descInput = document.getElementById(`description-${snapshotName}`);
-    const passwordInput = document.getElementById(`password-${snapshotName}`);
-    const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
-    const updatedPaths = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
-
-    const newManifest = {
-      title: titleInput.value,
-      description: descInput.value,
-      metadata: {
-        reviewPassword: passwordInput.value,
-      },
-    };
-
-    // get resources from current manifest to compare with updated paths
-    const currentManifest = await fetchManifest(snapshotName);
-    if (currentManifest.error) {
-      logResponse([currentManifest.status, 'GET', `snapshot/${snapshotName}`, currentManifest.error]);
-      await showModal('Error', `Error loading manifest: ${currentManifest.error}`);
-      return;
-    }
-
-    // Save the manifest first
-    const saveResult = await saveManifest(snapshotName, newManifest);
-
-    if (saveResult.error) {
-      logResponse([saveResult.status, 'POST', `snapshot/${snapshotName}`, saveResult.error]);
-      await showModal('Error', `Error saving snapshot: ${saveResult.error}`);
-      return;
-    }
-    logResponse([saveResult.status, 'POST', `snapshot/${snapshotName}`, 'Manifest saved successfully']);
-
-    const currentPaths = currentManifest.manifest.resources.map((resource) => resource.path);
-    const newPaths = updatedPaths.map((path) => path.path);
-    const updateResult = await updatePaths(snapshotName, currentPaths, newPaths);
-    if (updateResult.error) {
-      logResponse([updateResult.status, 'POST', `snapshot/${snapshotName}`, updateResult.error]);
-      await showModal('Error', `Error updating paths: ${updateResult.error}`);
-      return;
-    }
-    logResponse([200, 'POST', `snapshot/${snapshotName}`, 'Paths updated successfully']);
-    await showModal('Success', 'Snapshot saved successfully!');
-  } catch (error) {
-    logResponse([500, 'POST', `snapshot/${snapshotName}`, error.message]);
-    await showModal('Error', `Error saving snapshot: ${error.message}`);
-  }
-}
-
-/**
- * Delete a snapshot
- */
-async function deleteSnapshotAction(snapshotName) {
-  const confirmed = await showModal('Confirm Delete', `Are you sure you want to delete the snapshot "${snapshotName}"?`, true);
-  if (!confirmed) return;
-
-  try {
-    const result = await deleteSnapshot(snapshotName);
-
-    if (result.error) {
-      logResponse([result.status, 'DELETE', `snapshot/${snapshotName}`, result.error]);
-      await showModal('Error', `Error deleting snapshot: ${result.error}`);
-      return;
-    }
-
-    logResponse([200, 'DELETE', `snapshot/${snapshotName}`, 'Deleted successfully']);
-
-    // Reload snapshots list
-    await loadSnapshots();
-  } catch (error) {
-    logResponse([500, 'DELETE', `snapshot/${snapshotName}`, error.message]);
-    await showModal('Error', `Error deleting snapshot: ${error.message}`);
-  }
-}
-
-/**
  * Create a new snapshot
  */
 async function createSnapshot(snapshotName) {
@@ -424,87 +280,6 @@ async function createSnapshot(snapshotName) {
     await showModal('Error', `Error creating snapshot: ${error.message}`);
   }
 }
-
-/**
- * Handle review actions (lock, unlock, request-review, approve-review, reject-review)
- * @param {string} snapshotName - Name of the snapshot
- * @param {string} action - The action to perform
- */
-async function handleReviewAction(snapshotName, action) {
-  try {
-    // Handle lock/unlock actions by updating the manifest
-    if (action === 'lock' || action === 'unlock') {
-      const isLocked = action === 'lock';
-
-      // Get current manifest to preserve existing data
-      const resp = await fetchManifest(snapshotName);
-      if (resp.error) {
-        logResponse([resp.status, 'GET', `snapshot/${snapshotName}/manifest`, resp.error]);
-        await showModal('Error', `Error loading manifest: ${resp.error}`);
-        return;
-      }
-
-      // Update manifest with locked state
-      const updatedManifest = {
-        ...resp.manifest,
-        locked: isLocked ? new Date().toISOString() : null,
-      };
-
-      const result = await saveManifest(snapshotName, updatedManifest);
-
-      if (result.error) {
-        logResponse([result.status, 'POST', `snapshot/${snapshotName}/manifest`, result.error]);
-        await showModal('Error', `Error ${action}: ${result.error}`);
-        return;
-      }
-
-      logResponse([result.status, 'POST', `snapshot/${snapshotName}/manifest`, `${action} successful`]);
-      await showModal('Success', `${action} successful!`);
-
-      // Reload snapshot details to reflect the new state
-      await loadSnapshotDetails(snapshotName);
-      return;
-    }
-
-    // Handle review state actions
-    let reviewState;
-
-    // Map actions to review states
-    switch (action) {
-      case 'request-review':
-        reviewState = 'request';
-        break;
-      case 'approve-review':
-        reviewState = 'approve';
-        break;
-      case 'reject-review':
-        reviewState = 'reject';
-        break;
-      default:
-        await showModal('Error', `Unknown action: ${action}`);
-        return;
-    }
-
-    const result = await reviewSnapshot(snapshotName, reviewState);
-
-    if (result.error) {
-      logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, result.error]);
-      await showModal('Error', `Error ${action}: ${result.error}`);
-      return;
-    }
-
-    logResponse([result.status, 'POST', `snapshot/${snapshotName}/review`, `${action} successful`]);
-    await showModal('Success', `${action} successful!`);
-
-    // Reload snapshot details to reflect the new state
-    await loadSnapshotDetails(snapshotName);
-  } catch (error) {
-    logResponse([500, 'POST', `snapshot/${snapshotName}/manifest`, error.message]);
-    await showModal('Error', `Error ${action}: ${error.message}`);
-  }
-}
-
-// Event Listeners
 
 /**
  * Handle org input changes to enable/disable site field
@@ -586,122 +361,15 @@ createSnapshotForm.addEventListener('submit', async (e) => {
   await createSnapshot(snapshotName);
 });
 
-/**
- * prevent default form submission for snapshot edit form
- */
-snapshotsList.addEventListener('submit', async (e) => {
-  if (e.target.classList.contains('snapshot-edit-form')) {
-    e.preventDefault();
-  }
-});
-
-/**
- * Handle clicks on snapshot actions using event delegation
- */
-snapshotsList.addEventListener('click', async (e) => {
-  const target = e.target.closest('[data-action]');
-  if (!target) return;
-
-  const { action, snapshot: snapshotName } = target.dataset;
-
-  switch (action) {
-    case 'edit': {
-      const details = document.getElementById(`details-${snapshotName}`);
-      if (details.style.display === 'none') {
-        await loadSnapshotDetails(snapshotName);
-        details.style.display = 'block';
-        target.textContent = 'Hide';
-      } else {
-        details.style.display = 'none';
-        target.textContent = 'Edit';
-      }
-      break;
-    }
-
-    case 'save':
-      await saveSnapshot(snapshotName);
-      break;
-
-    case 'cancel': {
-      document.getElementById(`details-${snapshotName}`).style.display = 'none';
-      const editBtn = document.querySelector(`[data-action="edit"][data-snapshot="${snapshotName}"]`);
-      if (editBtn) editBtn.textContent = 'Edit';
-      break;
-    }
-
-    case 'delete':
-      await deleteSnapshotAction(snapshotName);
-      break;
-
-    case 'lock':
-    case 'unlock':
-    case 'request-review':
-    case 'approve-review':
-    case 'reject-review':
-      await handleReviewAction(snapshotName, action);
-      break;
-    default:
-      break;
-  }
-});
-
-/**
- * Auto-expand a specific snapshot after loading
- * @param {string} targetSnapshotName - Name of snapshot to expand
- */
-async function autoExpandSnapshot(targetSnapshotName) {
-  const targetCard = document.querySelector(`[data-snapshot="${targetSnapshotName}"]`);
-  if (targetCard) {
-    const editButton = targetCard.querySelector('[data-action="edit"]');
-    if (editButton) {
-      editButton.click();
-      // Scroll to the snapshot card
-      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-}
-
 // Initialize from URL parameters or localStorage
 const params = new URLSearchParams(window.location.search);
 const snapshotParam = params.get('snapshot');
 const orgParam = params.get('org');
 const siteParam = params.get('site');
-const sitePath = params.get('sitePath') || localStorage.getItem('snapshot-admin-site-path');
 
-// Check if we have a snapshot URL parameter FIRST
+// Check if we have a snapshot URL parameter and send to snapshot-details.html
 if (snapshotParam) {
-  const parsed = parseSnapshotUrl(snapshotParam);
-  if (parsed) {
-    const { org, site, snapshotName } = parsed;
-
-    // Set the org and site inputs (extracted from snapshot URL)
-    orgInput.value = org;
-    siteInput.value = site;
-    currentOrg = org;
-    currentSite = site;
-
-    // Enable the site field since we have both org and site values
-    siteInput.disabled = false;
-
-    // Ensure setOrgSite is called before loadSnapshots
-    setOrgSite(currentOrg, currentSite);
-
-    // Load snapshots and auto-expand the target snapshot
-    await loadSnapshots();
-    await autoExpandSnapshot(snapshotName);
-
-    // Update localStorage and URL
-    const autoSitePath = `${org}/${site}`;
-    localStorage.setItem('snapshot-admin-site-path', autoSitePath);
-    const url = new URL(window.location);
-    url.searchParams.set('org', org);
-    url.searchParams.set('site', site);
-    // eslint-disable-next-line no-restricted-globals
-    window.history.replaceState({}, '', url);
-  } else {
-    // Invalid snapshot URL format
-    await showModal('Error', 'Invalid snapshot URL format. Please check the URL and try again.');
-  }
+  window.location.href = `snapshot-details.html?snapshot=${snapshotParam}`;
 } else if (orgParam && siteParam) {
   // Use org and site parameters
   orgInput.value = orgParam;
@@ -710,27 +378,8 @@ if (snapshotParam) {
   currentSite = siteParam;
   // Enable the site field since we have both org and site values
   siteInput.disabled = false;
-  // Ensure setOrgSite is called before loadSnapshots
   setOrgSite(currentOrg, currentSite);
   await loadSnapshots();
-} else if (sitePath) {
-  // Fallback to sitePath parameter or localStorage
-  try {
-    const { org, site } = parseSitePath(sitePath);
-    orgInput.value = org;
-    siteInput.value = site;
-    currentOrg = org;
-    currentSite = site;
-    // Enable the site field since we have both org and site values
-    siteInput.disabled = false;
-    // Ensure setOrgSite is called before loadSnapshots
-    setOrgSite(currentOrg, currentSite);
-    await loadSnapshots();
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`Invalid site path: ${error.message}`);
-    await showModal('Error', `Invalid site path: ${error.message}`);
-  }
 } else {
   // No snapshot parameter, initialize config fields normally
   try {

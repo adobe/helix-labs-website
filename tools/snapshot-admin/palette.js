@@ -114,7 +114,7 @@ async function updateSnapshotUI() {
     ? `https://${CUSTOM_REVIEW_HOST}${PATHNAME}`
     : `https://${currentSnapshot}--main--${REPO}--${OWNER}.aem.reviews${PATHNAME}`;
 
-  ADMIN_LINK.href = `/tools/snapshot-admin/index.html?snapshot=https://main--${REPO}--${OWNER}.aem.page/.snapshots/${currentSnapshot}/.manifest.json`;
+  ADMIN_LINK.href = `/tools/snapshot-admin/snapshot-details.html?snapshot=https://main--${REPO}--${OWNER}.aem.page/.snapshots/${currentSnapshot}/.manifest.json`;
 
   // Show/hide appropriate sections
   if (state === 'page') {

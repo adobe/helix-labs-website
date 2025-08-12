@@ -922,3 +922,65 @@
     font-size: 16px; /* Prevent zoom on iOS */
   }
 }
+
+/* Snapshot Details Page Specific Styles */
+.snapshot-info {
+  margin-bottom: var(--spacing-400);
+  padding: var(--spacing-300);
+  background-color: var(--gray-50);
+  border-radius: var(--rounding-m);
+  border: var(--border-s) solid var(--gray-200);
+}
+
+.snapshot-status-badge {
+  padding: var(--spacing-100) var(--spacing-200);
+  border-radius: var(--rounding-s);
+  font-size: var(--body-size-s);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  min-width: 80px;
+}
+
+.snapshot-status-badge.locked {
+  background-color: var(--red-100);
+  color: var(--red-700);
+  border: var(--border-s) solid var(--red-200);
+}
+
+.snapshot-status-badge.unlocked {
+  background-color: var(--green-100);
+  color: var(--green-700);
+  border: var(--border-s) solid var(--green-200);
+}
+
+.danger-actions {
+  margin-top: var(--spacing-500);
+  padding: var(--spacing-300);
+  background-color: var(--red-50);
+  border: var(--border-s) solid var(--red-200);
+  border-radius: var(--rounding-m);
+}
+
+.danger-actions h4 {
+  color: var(--red-700);
+  margin-bottom: var(--spacing-200);
+}
+
+.button.danger {
+  background-color: var(--red-600);
+  color: white;
+  border-color: var(--red-600);
+}
+
+.button.danger:hover {
+  background-color: var(--red-700);
+  border-color: var(--red-700);
+}
+
+/* Make edit button look like a button but behave like a link */
+.edit-snapshot {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
