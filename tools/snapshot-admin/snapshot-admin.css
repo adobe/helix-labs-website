@@ -282,7 +282,7 @@
   border-width: 3px;
 }
 
-.review-actions button:hover, .snapshot-actions button:hover {
+#snapshot-details .review-actions button:hover, #snapshot-details .snapshot-actions button:hover {
   background-color: var(--button-color-hover);
   border-color: var(--button-color-hover);
 }
