@@ -1,3 +1,4 @@
+/* eslint-disable no-alert */
 import { initConfigField } from '../../utils/config/config.js';
 
 const adminForm = document.getElementById('admin-form');
