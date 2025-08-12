@@ -322,7 +322,7 @@ async function handleReviewAction(snapshotName, action) {
       // Update manifest with locked state
       const updatedManifest = {
         ...currentManifest,
-        locked: isLocked ? new Date().toISOString() : null,
+        locked: isLocked,
       };
 
       const result = await saveManifest(snapshotName, updatedManifest);
