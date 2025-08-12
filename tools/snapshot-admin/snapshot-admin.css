@@ -281,7 +281,7 @@
   background: white;
   border-color: var(--button-color);
   color: var(--button-color);
-  border-width: 3px;
+  border-width: 2px;
 }
 
 #snapshot-details .review-actions button:hover, #snapshot-details .snapshot-actions button:hover {
@@ -941,7 +941,7 @@
   color: var(--red-900);
   background-color: white;
   border-color: var(--red-900);
-  border-width: 3px;
+  border-width: 2px;
 }
 
 .button.danger:hover {
