@@ -272,10 +272,12 @@
   --button-color-hover: var(--green-800);
 }
 
-#snapshot-details .review-actions button, #snapshot-details .snapshot-actions button {
+.review-actions button, .snapshot-actions button {
   --button-color: var(--blue-900);
-  --button-color-hover: var(--blue-800);  
+  --button-color-hover: var(--blue-800);
+}
 
+#snapshot-details .review-actions button, #snapshot-details .snapshot-actions button {
   background: white;
   border-color: var(--button-color);
   color: var(--button-color);
@@ -285,18 +287,19 @@
 #snapshot-details .review-actions button:hover, #snapshot-details .snapshot-actions button:hover {
   background-color: var(--button-color-hover);
   border-color: var(--button-color-hover);
+  color: white;
 }
 
 
 /* Disabled lock/unlock button styles */
-.snapshot-actions button:disabled, .review-actions button:disabled {
+#snapshot-details .snapshot-actions button:disabled, #snapshot-details .review-actions button:disabled {
   background-color: var(--gray-100);
   border-color: var(--gray-200);
   color: var(--gray-400);
   cursor: not-allowed;
 }
 
-.snapshot-actions button:disabled:hover, .review-actions button:disabled:hover {
+#snapshot-details .snapshot-actions button:disabled:hover, #snapshot-details .review-actions button:disabled:hover {
   background-color: var(--gray-100);
   border-color: var(--gray-200);
   color: var(--gray-400);
