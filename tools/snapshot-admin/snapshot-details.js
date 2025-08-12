@@ -180,7 +180,7 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
           </div>
           <div class="snapshot-actions">
             <button type="submit" class="button" data-action="save" data-snapshot="${name}">Save</button>
-            <button type="button" class="button outline" data-action="lock" data-snapshot="${name}" ${isLocked ? 'disabled' : ''}>Lock</button>
+            <button type="button" class="button" data-action="lock" data-snapshot="${name}" ${isLocked ? 'disabled' : ''}>Lock</button>
             <button type="button" class="button" data-action="unlock" data-snapshot="${name}" ${!isLocked ? 'disabled' : ''}>Unlock</button>
           </div>
           <div class="review-actions">
