@@ -272,7 +272,7 @@
   --button-color-hover: var(--green-800);
 }
 
-.review-actions button, .snapshot-actions button {
+#snapshot-details .review-actions button, #snapshot-details .snapshot-actions button {
   --button-color: var(--blue-900);
   --button-color-hover: var(--blue-800);  
 
@@ -971,7 +971,7 @@
   padding-top: var(--spacing-300);
 }
 
-.review-actions button {
+#snapshot-details .review-actions button {
   margin-right: var(--spacing-200);
 }
 
