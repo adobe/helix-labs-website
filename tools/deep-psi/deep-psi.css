@@ -31,6 +31,10 @@
   .deep-psi form#psi-form > .psi-form-section {
     grid-template-columns: 1fr 1fr;
   }
+
+  .deep-psi form#psi-form > .psi-form-section .form-field {
+    margin-top: 0;
+  }
 }
 
 .deep-psi form#psi-form > .psi-button-group {
