@@ -122,7 +122,7 @@ function createSnapshotCard(snapshot) {
         <h3>${name}</h3>
         <div class="snapshot-actions">
           <a href="snapshot-details.html?snapshot=https://main--${currentSite}--${currentOrg}.aem.page/.snapshots/${name}/.manifest.json" class="button small edit-snapshot">Edit</a>
-          <button class="button small outline delete-snapshot" data-action="delete" data-snapshot="${name}">Delete</button>
+          <button class="button small danger delete-snapshot" data-action="delete" data-snapshot="${name}">Delete</button>
         </div>
       </div>
       <div class="snapshot-details" id="details-${name}" style="display: none;">
