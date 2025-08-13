@@ -252,75 +252,54 @@
 
 /* Review button styling */
 .review-actions button[data-action="approve-review"] {
-  background-color: var(--green-600);
-  border-color: var(--green-600);
-  color: white;
-}
-
-.review-actions button[data-action="approve-review"]:hover {
-  background-color: var(--green-700);
-  border-color: var(--green-700);
+  --button-color: var(--green-900);
+  --button-color-hover: var(--green-800);
 }
 
 .review-actions button[data-action="reject-review"] {
-  background-color: var(--red-600);
-  border-color: var(--red-600);
-  color: white;
-}
-
-.review-actions button[data-action="reject-review"]:hover {
-  background-color: var(--red-700);
-  border-color: var(--red-700);
+  --button-color: var(--red-900);
+  --button-color-hover: var(--red-800);
 }
 
 /* Lock/Unlock button styling */
 .snapshot-actions button[data-action="lock"] {
-  background-color: var(--red-600);
-  border-color: var(--red-600);
-  color: white;
-}
-
-.snapshot-actions button[data-action="lock"]:hover {
-  background-color: var(--red-700);
-  border-color: var(--red-700);
+  --button-color: var(--red-900);
+  --button-color-hover: var(--red-800);
 }
 
 .snapshot-actions button[data-action="unlock"] {
-  background-color: var(--green-600);
-  border-color: var(--green-600);
+  --button-color: var(--green-900);
+  --button-color-hover: var(--green-800);
+}
+
+.review-actions button, .snapshot-actions button {
+  --button-color: var(--blue-900);
+  --button-color-hover: var(--blue-800);
+}
+
+#snapshot-details .review-actions button, #snapshot-details .snapshot-actions button {
+  background: white;
+  border-color: var(--button-color);
+  color: var(--button-color);
+  border-width: 2px;
+}
+
+#snapshot-details .review-actions button:hover, #snapshot-details .snapshot-actions button:hover {
+  background-color: var(--button-color-hover);
+  border-color: var(--button-color-hover);
   color: white;
 }
 
-.snapshot-actions button[data-action="unlock"]:hover {
-  background-color: var(--green-700);
-  border-color: var(--green-700);
-}
 
 /* Disabled lock/unlock button styles */
-.snapshot-actions button[data-action="lock"]:disabled,
-.snapshot-actions button[data-action="unlock"]:disabled {
+#snapshot-details .snapshot-actions button:disabled, #snapshot-details .review-actions button:disabled {
   background-color: var(--gray-100);
   border-color: var(--gray-200);
   color: var(--gray-400);
   cursor: not-allowed;
 }
 
-.snapshot-actions button[data-action="lock"]:disabled:hover,
-.snapshot-actions button[data-action="unlock"]:disabled:hover {
-  background-color: var(--gray-100);
-  border-color: var(--gray-200);
-  color: var(--gray-400);
-}
-
-/* Disabled request review button styles */
-.review-actions button[data-action="request-review"]:disabled {
-  background-color: var(--gray-100);
-  border-color: var(--gray-200);
-  color: var(--gray-400);
-  cursor: not-allowed;
-}
-
-.review-actions button[data-action="request-review"]:disabled:hover {
+#snapshot-details .snapshot-actions button:disabled:hover, #snapshot-details .review-actions button:disabled:hover {
   background-color: var(--gray-100);
   border-color: var(--gray-200);
   color: var(--gray-400);
@@ -921,4 +900,84 @@
   .snapshot-edit-form textarea {
     font-size: 16px; /* Prevent zoom on iOS */
   }
+}
+
+/* Snapshot Details Page Specific Styles */
+.snapshot-info {
+  margin-bottom: var(--spacing-400);
+  padding: var(--spacing-300);
+  background-color: var(--gray-50);
+  border-radius: var(--rounding-m);
+  border: var(--border-s) solid var(--gray-200);
+}
+
+.snapshot-status-badge {
+  padding: var(--spacing-100) var(--spacing-200);
+  border-radius: var(--rounding-s);
+  font-size: var(--body-size-s);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  min-width: 80px;
+}
+
+.snapshot-status-badge.locked {
+  background-color: var(--red-100);
+  color: var(--red-700);
+  border: var(--border-s) solid var(--red-200);
+}
+
+.snapshot-status-badge.unlocked {
+  background-color: var(--green-100);
+  color: var(--green-900);
+  border: var(--border-s) solid var(--green-200);
+}
+
+.danger-actions h4 {
+  color: var(--red-900);
+  margin-bottom: var(--spacing-200);
+}
+
+.button.danger {
+  color: var(--red-900);
+  background-color: white;
+  border-color: var(--red-900);
+  border-width: 2px;
+}
+
+.button.danger:hover {
+  background-color: var(--red-800);
+  border-color: var(--red-800);
+  color: white;
+}
+
+/* Make edit button look like a button but behave like a link */
+.edit-snapshot {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+#snapshot-details .snapshot-card {
+  border: none;
+  padding: 0;
+  box-shadow: none;
+
+}
+
+#snapshot-details .danger-actions {
+  border: none;
+  margin-top: var(--spacing-500);
+  border-top: 1px solid var(--red-600);
+  padding: 0;
+  padding-top: var(--spacing-300);
+}
+
+#snapshot-details .review-actions button {
+  margin-right: var(--spacing-200);
+}
+
+#console tr:last-of-type td {
+  border-bottom: none;
 }
