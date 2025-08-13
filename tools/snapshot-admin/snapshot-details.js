@@ -186,8 +186,8 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
           <div class="review-actions">
             <h4>Review Actions</h4>
             <button type="button" class="button" data-action="request-review" data-snapshot="${name}" title="Locks the snapshot for review" ${isLocked ? 'disabled' : ''}>Request Review</button>
-            <button type="button" class="button" data-action="approve-review" data-snapshot="${name}" title="Bulk publishes the snapshot">Approve Review</button>
-            <button type="button" class="button" data-action="reject-review" data-snapshot="${name}" title="Unlocks the snapshot from review mode">Reject Review</button>
+            <button type="button" class="button" data-action="approve-review" data-snapshot="${name}" title="Bulk publishes the snapshot" ${!isLocked ? 'disabled' : ''}>Approve Review</button>
+            <button type="button" class="button" data-action="reject-review" data-snapshot="${name}" title="Unlocks the snapshot from review mode" ${!isLocked ? 'disabled' : ''}>Reject Review</button>
             <a class="button" href="https://${name}--main--${currentSite}--${currentOrg}.aem.reviews/" target="_blank">Open Review</a>
           </div>
           <div class="danger-actions">
