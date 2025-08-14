@@ -62,11 +62,8 @@ async function loadPrism() {
  */
 function validateJSON(code) {
   try {
-    const isYamlEndpoint = adminURL && adminURL.value && adminURL.value.endsWith('.yaml');
-    if (!isYamlEndpoint) {
-      // eslint-disable-next-line no-unused-vars
-      const json = JSON.parse(code);
-    }
+    // eslint-disable-next-line no-unused-vars
+    const json = JSON.parse(code);
     previewWrapper.removeAttribute('data-line');
     previewWrapper.removeAttribute('data-error');
     document.getElementById('save').disabled = false;
