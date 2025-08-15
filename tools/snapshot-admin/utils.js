@@ -167,3 +167,18 @@ export async function updatePaths(name, currPaths, editedHrefs) {
   const toFormat = paths.map((path) => ({ path }));
   return formatResources(name, toFormat);
 }
+
+/**
+ * Add event listeners to password fields for show/hide functionality
+ */
+export function addPasswordFieldListeners() {
+  const passwordFields = document.querySelectorAll('.password-field');
+  passwordFields.forEach((field) => {
+    field.addEventListener('focus', () => {
+      field.type = 'text';
+    });
+    field.addEventListener('blur', () => {
+      field.type = 'password';
+    });
+  });
+}

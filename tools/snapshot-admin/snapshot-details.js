@@ -5,6 +5,7 @@ import {
   deleteSnapshot,
   reviewSnapshot,
   updatePaths,
+  addPasswordFieldListeners,
 } from './utils.js';
 
 // DOM Elements
@@ -172,7 +173,7 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
           </div>
           <div class="form-field">
             <label for="password-${name}">Password (for reviews)</label>
-            <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password" value="${manifest.metadata?.reviewPassword || ''}">
+            <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password" value="${manifest.metadata?.reviewPassword || ''}" class="password-field">
           </div>
           <div class="form-field">
             <label for="urls-${name}">URLs (one per line)</label>
@@ -222,6 +223,9 @@ async function loadSnapshotDetails() {
       },
       currentManifest,
     );
+
+    // Add password field event listeners after rendering
+    addPasswordFieldListeners();
 
     snapshotDetailsContainer.setAttribute('aria-hidden', 'false');
 
