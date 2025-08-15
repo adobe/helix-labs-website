@@ -228,6 +228,7 @@ function updateConfigFields() {
 async function init() {
   adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
   await initConfigField();
+  updateAdminUrl();
   site.addEventListener('input', updateAdminUrl, { once: true });
   site.addEventListener('change', updateAdminUrl);
   org.addEventListener('change', updateAdminUrl);
@@ -330,4 +331,9 @@ async function init() {
   });
 }
 
-init();
+const isReady = init();
+
+// eslint-disable-next-line import/prefer-default-export
+export async function ready() {
+  return isReady;
+}
