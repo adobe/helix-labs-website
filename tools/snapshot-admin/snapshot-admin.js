@@ -125,39 +125,6 @@ function createSnapshotCard(snapshot) {
           <button class="button small danger delete-snapshot" data-action="delete" data-snapshot="${name}">Delete</button>
         </div>
       </div>
-      <div class="snapshot-details" id="details-${name}" style="display: none;">
-        <form class="snapshot-edit-form" id="form-${name}">
-          <div class="form-field">
-            <label for="title-${name}">Title</label>
-            <input type="text" id="title-${name}" name="title" placeholder="Snapshot title" autocomplete="on">
-          </div>
-          <div class="form-field">
-            <label for="description-${name}">Description</label>
-            <textarea id="description-${name}" name="description" placeholder="Snapshot description" autocomplete="on"></textarea>
-          </div>
-          <div class="form-field">
-            <label for="password-${name}">Password (for reviews)</label>
-            <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password">
-          </div>
-          <div class="form-field">
-            <label for="urls-${name}">URLs (one per line)</label>
-            <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on"></textarea>
-          </div>
-          <div class="snapshot-actions">
-            <button type="submit" class="button" data-action="save" data-snapshot="${name}">Save</button>
-            <button type="button" class="button outline" data-action="cancel" data-snapshot="${name}">Cancel</button>
-            <button type="button" class="button" data-action="lock" data-snapshot="${name}">Lock</button>
-            <button type="button" class="button" data-action="unlock" data-snapshot="${name}">Unlock</button>
-          </div>
-          <div class="review-actions">
-            <h4>Review Actions</h4>
-            <button type="button" class="button" data-action="request-review" data-snapshot="${name}" title="Locks the snapshot for review">Request Review</button>
-            <button type="button" class="button" data-action="approve-review" data-snapshot="${name}" title="Bulk publishes the snapshot">Approve Review</button>
-            <button type="button" class="button" data-action="reject-review" data-snapshot="${name}" title="Unlocks the snapshot from review mode">Reject Review</button>
-            <a class="button" href="https://${name}--main--${currentSite}--${currentOrg}.aem.reviews/" target="_blank">Open Review</a>
-          </div>
-        </form>
-      </div>
     </div>
   `;
 }
