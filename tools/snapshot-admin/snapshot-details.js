@@ -152,6 +152,13 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
   const lockStatus = isLocked ? 'Locked' : 'Unlocked';
   const lockDate = manifest.locked ? new Date(manifest.locked).toLocaleString() : '';
 
+  // Convert UTC date to local datetime-local format
+  const formatLocalDate = (utcDate) => {
+    if (!utcDate) return '';
+    const d = new Date(utcDate);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
   return `
     <div class="snapshot-card" data-snapshot="${name}">
       <div class="snapshot-header">
@@ -174,6 +181,10 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
           <div class="form-field">
             <label for="password-${name}">Password (for reviews)</label>
             <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password" value="${manifest.metadata?.reviewPassword || ''}" class="password-field">
+          </div>
+          <div class="form-field">
+            <label for="scheduler-${name}">Schedule Publish (Local Time)</label>
+            <input type="datetime-local" id="scheduler-${name}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
           </div>
           <div class="form-field">
             <label for="urls-${name}">URLs (one per line)</label>
@@ -244,6 +255,7 @@ async function saveSnapshot(snapshotName) {
     const titleInput = document.getElementById(`title-${snapshotName}`);
     const descInput = document.getElementById(`description-${snapshotName}`);
     const passwordInput = document.getElementById(`password-${snapshotName}`);
+    const schedulerInput = document.getElementById(`scheduler-${snapshotName}`);
     const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
     const updatedPaths = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
 
@@ -252,6 +264,9 @@ async function saveSnapshot(snapshotName) {
       description: descInput.value,
       metadata: {
         reviewPassword: passwordInput.value,
+        ...(schedulerInput.value && {
+          scheduledPublish: new Date(schedulerInput.value).toISOString(),
+        }),
       },
     };
 
