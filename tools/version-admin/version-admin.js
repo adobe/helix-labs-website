@@ -228,18 +228,6 @@ function showEditNameForm(li, version) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!await ensureLogin(org.value, site.value)) {
-      // not logged in yet, listen for profile-update event
-      window.addEventListener('profile-update', ({ detail: loginInfo }) => {
-        // check if user is logged in now
-        if (loginInfo.includes(org.value)) {
-          // logged in, restart action (e.g. resubmit form)
-          e.target.querySelector('button[type="submit"]').click();
-        }
-      }, { once: true });
-      // abort action
-      return;
-    }
     const newName = input.value.trim();
     if (newName) {
       saveButton.disabled = true;
@@ -414,6 +402,19 @@ typeSelect.addEventListener('change', updateFieldVisibility);
 
 adminForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+
+  if (!await ensureLogin(org.value, site.value)) {
+    // not logged in yet, listen for profile-update event
+    window.addEventListener('profile-update', ({ detail: loginInfo }) => {
+      // check if user is logged in now
+      if (loginInfo.includes(org.value)) {
+        // logged in, restart action (e.g. resubmit form)
+        e.target.querySelector('button[type="submit"]').click();
+      }
+    }, { once: true });
+    // abort action
+    return;
+  }
 
   if (!validateForm()) {
     // eslint-disable-next-line no-alert
