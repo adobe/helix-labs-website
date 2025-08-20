@@ -33,10 +33,15 @@
             <label for="type">Type</label>
             <select name="type" id="type" required>
               <option value="">Select type...</option>
+              <option value="site">Site</option>
               <option value="org">Organization</option>
               <option value="profile">Profile</option>
-              <option value="site">Site</option>
             </select>
+          </div>
+          <div class="form-field site-field" style="display: none;">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" autocomplete="off" />
+            <datalist id="site-list"></datalist>
           </div>
           <div class="form-field org-field">
             <label for="org">Organization</label>
@@ -47,11 +52,6 @@
             <label for="profile">Profile</label>
             <input name="profile" id="profile" list="profile-list" autocomplete="off" />
             <datalist id="profile-list"></datalist>
-          </div>
-          <div class="form-field site-field" style="display: none;">
-            <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" autocomplete="off" />
-            <datalist id="site-list"></datalist>
           </div>
         </section>
         <p class="button-wrapper">
