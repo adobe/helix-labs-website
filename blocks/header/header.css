@@ -221,6 +221,10 @@ header .nav-tools {
   grid-area: tools;
   align-self: flex-start;
   line-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-m);
 }
 
 header .nav-tools p {
