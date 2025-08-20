@@ -263,8 +263,14 @@ async function init() {
       const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('/');
       if (pathParts[1] === 'config') {
-        const org = pathParts[2];
-        const site = pathParts[4] ? pathParts[4] : null;
+        let org = pathParts[2];
+        if (org.endsWith('.json')) {
+          org = org.slice(0, -5);
+        }
+        let site = pathParts[4] ? pathParts[4] : null;
+        if (site && site.endsWith('.json')) {
+          site = site.slice(0, -5);
+        }
         return { org, site };
       }
       const org = pathParts[2];
