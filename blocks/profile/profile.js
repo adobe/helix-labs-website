@@ -376,7 +376,7 @@ async function showModal(block, focusedOrg) {
   let dialog = block.querySelector('dialog');
   if (!dialog) {
     dialog = document.createElement('dialog');
-    dialog.classList.add('modal');
+    dialog.classList.add('profile-modal');
     dialog.id = 'profile-modal';
     dialog.closedBy = 'any';
     block.append(dialog);
