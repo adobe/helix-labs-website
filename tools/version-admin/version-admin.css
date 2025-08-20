@@ -120,10 +120,10 @@
   font-size: 0.9em;
 }
 
-.version-current {
+#versions li.version-current {
   background-color: var(--green-100);
   border-left: 4px solid var(--green-500);
-  padding-left: var(--spacing-s);
+  padding: var(--spacing-s);
 }
 
 .version-data {
@@ -138,9 +138,7 @@
 
 .version-data pre {
   margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: var(--mono-font-family);
+  font-family: var(--code-font-family);
   font-size: 0.9em;
   line-height: 1.4;
 }
@@ -160,4 +158,14 @@
 .edit-name-form .button {
   padding: 0.25em 0.5em;
   font-size: 0.9em;
+}
+
+.diff-added {
+  background-color: var(--green-200);
+  color: var(--green-900);
+}
+
+.diff-removed {
+  background-color: var(--red-200);
+  color: var(--red-900);
 }
