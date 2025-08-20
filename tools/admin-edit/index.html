@@ -28,18 +28,6 @@
     <!-- ADMIN FORM -->
     <div>
       <form id="admin-form">
-        <section class="form-field config-field">
-          <div class="form-field org-field">
-            <label for="org">Organization</label>
-            <input name="org" id="org" list="org-list" autocomplete="off" required />
-            <datalist id="org-list"></datalist>
-          </div>
-          <div class="form-field site-field">
-            <label for="site">Site</label>
-            <input name="site" id="site" list="site-list" autocomplete="off" disabled />
-            <datalist id="site-list"></datalist>
-          </div>
-        </section>
         <div class="form-field url-field">
           <label for="admin-url">Admin URL</label>
           <input name="admin-url" id="admin-url" type="url" required />
@@ -80,7 +68,7 @@
             </ul>
           </div>
           <p class="button-wrapper">
-            <button type="submit" id="save" class="button">Save</button>
+            <button type="submit" id="save" disabled class="button">Save</button>
           </p>
         </div>
       </form>
