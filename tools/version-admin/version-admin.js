@@ -1,3 +1,6 @@
+import { ensureLogin } from '../../blocks/profile/profile.js';
+import { diffJson } from '../pdp-scanner/diff.js';
+
 const adminForm = document.getElementById('admin-form');
 const typeSelect = document.getElementById('type');
 const org = document.getElementById('org');
@@ -164,7 +167,25 @@ async function showVersionDetails(li, version) {
     detailsContainer.style.display = 'block';
 
     const versionData = await fetchVersionData(version.version);
-    if (versionData && versionData.data) {
+    const previousVersionData = await fetchVersionData(`${+version.version - 1}`);
+    if (previousVersionData && previousVersionData.data) {
+      const diff = diffJson(previousVersionData.data, versionData.data);
+      const diffHtml = diff.map((part) => {
+        if (part.added) {
+          return `<span class="diff-added">${part.value}</span>`;
+        }
+        if (part.removed) {
+          return `<span class="diff-removed">${part.value}</span>`;
+        }
+        return part.value;
+      }).join('');
+      detailsContainer.innerHTML = `
+        <h4>Version ${version.version} Data</h4>
+        <div class="version-data">
+          <pre>${diffHtml}</pre>
+        </div>
+      `;
+    } else if (versionData && versionData.data) {
       detailsContainer.innerHTML = `
         <h4>Version ${version.version} Data</h4>
         <div class="version-data">
@@ -207,6 +228,18 @@ function showEditNameForm(li, version) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!await ensureLogin(org.value, site.value)) {
+      // not logged in yet, listen for profile-update event
+      window.addEventListener('profile-update', ({ detail: loginInfo }) => {
+        // check if user is logged in now
+        if (loginInfo.includes(org.value)) {
+          // logged in, restart action (e.g. resubmit form)
+          e.target.querySelector('button[type="submit"]').click();
+        }
+      }, { once: true });
+      // abort action
+      return;
+    }
     const newName = input.value.trim();
     if (newName) {
       saveButton.disabled = true;
