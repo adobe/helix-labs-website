@@ -273,9 +273,6 @@ async function init() {
     };
 
     const { org, site } = extractOrgAndSite(adminURL.value);
-    console.log('org', org);
-    console.log('site', site);
-
     if (!await ensureLogin(org, site)) {
       // not logged in yet, listen for profile-update event
       window.addEventListener('profile-update', ({ detail: loginInfo }) => {
