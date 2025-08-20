@@ -30,6 +30,7 @@
   color: var(--gray-800);
 }
 
+
 .profile .profile-modal {
   box-sizing: border-box;
   position: relative;
@@ -41,6 +42,7 @@
   border: none;
   border-radius: 1rem;
   box-shadow: var(--shadow-default);
+  overscroll-behavior: initial;
 }
 
 .profile .profile-modal .cross {
@@ -76,6 +78,13 @@
 
 .profile .profile-modal #profile-close::before {
   color: var(--gray-600);
+}
+
+/* override default modal styles */
+.profile .profile-modal > div {
+  padding: 0;
+  max-height: unset;
+  overflow-y: unset;
 }
 
 .profile .profile-modal h2 {
@@ -205,3 +214,4 @@
   border-top: 2px solid;
   border-right: 2px solid;
 }
+
