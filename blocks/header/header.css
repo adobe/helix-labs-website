@@ -67,14 +67,16 @@ header .experimental-ribbon {
       'title sections tools' auto / auto 1fr auto;
     height: 0;
   }
+}
 
+@media (width >= 1200px) {
   header .experimental-ribbon {
+    position: fixed;
     top: 30px;
-    right: -105px;
-    left: unset;
+    left: -105px;
     width: 300px;
     border-radius: 0;
-    transform: rotate(45deg);
+    transform: rotate(-45deg);
   }
 }
 
@@ -221,14 +223,10 @@ header .nav-tools {
   grid-area: tools;
   align-self: flex-start;
   line-height: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--spacing-m);
 }
 
 header .nav-tools p {
-  margin: 0;
+  display: none;
 }
 
 header .nav-tools a.button {
@@ -251,6 +249,15 @@ header .nav-tools a.button:hover {
 @media (width >= 900px) {
   header .nav-tools {
     align-self: center;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-m);
+   }
+
+  header .nav-tools p {
+    display: block;
+    margin: 0;
   }
 
   header .nav-tools p.button-wrapper {
