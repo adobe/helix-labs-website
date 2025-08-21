@@ -409,7 +409,7 @@ export default async function decorate(block) {
   const avatar = document.createElement('button');
   avatar.innerHTML = `
     <span class="icon" title="Manage projects and sign in">
-      <img src="/icons/profile.svg" alt="User">
+      <img src="/blocks/profile/profile.svg" alt="User">
     </span>
   `;
   avatar.id = 'profile';
