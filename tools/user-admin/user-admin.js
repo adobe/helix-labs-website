@@ -268,7 +268,7 @@ adminForm.addEventListener('submit', async (e) => {
     // not logged in yet, listen for profile-update event
     window.addEventListener('profile-update', ({ detail: loginInfo }) => {
       // check if user is logged in now
-      if (loginInfo.includes(org)) {
+      if (loginInfo.includes(org.value)) {
         // logged in, restart action (e.g. resubmit form)
         e.target.querySelector('button[type="submit"]').click();
       }
