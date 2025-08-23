@@ -225,6 +225,12 @@ function updateButtons(dialog, orgs, focusedOrg) {
         });
         const org = form.querySelector('#profile-add-org').value;
         const site = form.querySelector('#profile-add-site').value;
+
+        if (!org || !site) {
+          alert('Please provide an org and site.');
+          return;
+        }
+
         if (await addSite(org, site)) {
           setTimeout(async () => {
             resetForm();
@@ -455,9 +461,12 @@ export async function ensureLogin(org, site) {
     }
     const siteItem = orgItem?.querySelector(`li[data-name="${site}"]`);
     if (orgItem && siteItem) {
-      // select site and place focus on login button
+      // org and site already exist: select site and place focus on login button
       siteItem.querySelector('input[type="radio"]').checked = true;
       orgItem.querySelector('.button.login').focus();
+    } else if (orgItem && !site) {
+      // org exists but no site specified: select first site in org and prompt user to log in
+      orgItem.querySelector('li > input[type="radio"]').checked = true;
     } else {
       // open and prefill add project form
       const addButton = block.querySelector('#profile-add-project');
