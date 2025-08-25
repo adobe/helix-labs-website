@@ -22,6 +22,11 @@ function confirmInstallSidekick(resp) {
   }
 }
 
+function isOpsMode(target) {
+  return window.localStorage.getItem('aem-ops-mode') === 'true'
+    || !!target?.classList.contains('ops');
+}
+
 async function waitForSiteAdded(org, site) {
   for (let i = 0; i < 5; i += 1) {
     const sites = await messageSidekick({ action: 'getSites' });
@@ -37,7 +42,7 @@ async function waitForSiteAdded(org, site) {
   return false;
 }
 
-async function addSite(org, site) {
+async function addSite(org, site, opsMode = false) {
   if (!org || !site) {
     return false;
   }
@@ -55,6 +60,8 @@ async function addSite(org, site) {
   await messageSidekick({
     action: 'addSite',
     config: { org, site },
+    idp: opsMode ? 'microsoft' : undefined,
+    tenant: opsMode ? 'common' : undefined,
   }, null, 10000);
 
   if (await waitForSiteAdded(org, site)) {
@@ -122,7 +129,7 @@ function createLoginButton(org, loginInfo, closeModal) {
     loginButton.disabled = true;
 
     // check and remove ops mode
-    const opsMode = target.classList.contains('ops');
+    const opsMode = isOpsMode(target);
     document.querySelectorAll('#profile-modal button').forEach((button) => button.classList.remove('ops'));
 
     const selectedSite = target.closest('li').querySelector(`input[name="profile-${org}-site"]:checked`)?.value;
@@ -225,13 +232,14 @@ function updateButtons(dialog, orgs, focusedOrg) {
         });
         const org = form.querySelector('#profile-add-org').value;
         const site = form.querySelector('#profile-add-site').value;
+        const opsMode = isOpsMode(target);
 
         if (!org || !site) {
           alert('Please provide an org and site.');
           return;
         }
 
-        if (await addSite(org, site)) {
+        if (await addSite(org, site, opsMode)) {
           setTimeout(async () => {
             resetForm();
             // eslint-disable-next-line no-use-before-define
