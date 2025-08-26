@@ -43,11 +43,12 @@
               <p>Query is executed against the undecorated page HTML</p>
             </div>
           </div>
-          
+
           <div class="form-field select-field">
             <label for="queryType">Query Type</label>
             <select name="queryType" id="queryType">
               <option value="selector" selected>CSS Selector</option>
+              <option value="media">Media</option>
               <option value="Text">Text Content</option>
             </select>
           </div>
@@ -61,7 +62,7 @@
               <p>Path to sitemap or query index to find pages</p>
             </div>
           </div>
-          
+
           <div class="form-field text-field">
             <label for="path">Path Filter</label>
             <input name="path" id="path" data-default-value="/" placeholder="/" />
