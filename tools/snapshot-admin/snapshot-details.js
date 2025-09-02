@@ -147,11 +147,23 @@ function parseSnapshotUrl(snapshotUrl) {
 /**
  * Create snapshot details HTML
  */
-function createSnapshotDetailsHTML(snapshot, manifest) {
+async function createSnapshotDetailsHTML(snapshot, manifest) {
+  const getCustomReviewHost = async () => {
+    try {
+      const resp = await fetch(`https://admin.hlx.page/sidekick/${currentOrg}/${currentSite}/main/config.json`);
+      const json = await resp.json();
+      return json.reviewHost;
+    } catch (error) {
+      return null;
+    }
+  };
+
   const { name } = snapshot;
   const isLocked = !!manifest.locked;
   const lockStatus = isLocked ? 'Locked' : 'Unlocked';
   const lockDate = manifest.locked ? new Date(manifest.locked).toLocaleString() : '';
+  const customReviewHost = await getCustomReviewHost();
+  const reviewHost = customReviewHost || `${name}--main--${currentSite}--${currentOrg}.aem.reviews`;
 
   // Convert UTC date to local datetime-local format
   const formatLocalDate = (utcDate) => {
@@ -201,7 +213,7 @@ function createSnapshotDetailsHTML(snapshot, manifest) {
             <button type="button" class="button" data-action="request-review" data-snapshot="${name}" title="Locks the snapshot for review" ${isLocked ? 'disabled' : ''}>Request Review</button>
             <button type="button" class="button" data-action="approve-review" data-snapshot="${name}" title="Bulk publishes the snapshot" ${!isLocked ? 'disabled' : ''}>Approve Review</button>
             <button type="button" class="button" data-action="reject-review" data-snapshot="${name}" title="Unlocks the snapshot from review mode" ${!isLocked ? 'disabled' : ''}>Reject Review</button>
-            <a class="button" href="https://${name}--main--${currentSite}--${currentOrg}.aem.reviews/" target="_blank">Open Review</a>
+            <a class="button" href="https://${reviewHost}/" target="_blank">Open Review</a>
           </div>
           <div class="danger-actions">
             <h4>Danger Zone</h4>
@@ -229,7 +241,7 @@ async function loadSnapshotDetails() {
     currentManifest = result.manifest;
 
     // Display the snapshot details
-    snapshotDetails.innerHTML = createSnapshotDetailsHTML(
+    snapshotDetails.innerHTML = await createSnapshotDetailsHTML(
       {
         name: currentSnapshot,
       },
