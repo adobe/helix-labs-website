@@ -176,10 +176,22 @@ async function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         break;
       }
 
+      case 'features': {
+        const prodElem = prodDoc.querySelector(item.QuerySelector);
+        result.prod.features = prodElem ? prodElem.textContent.trim().replace(/\s+/g, ' ').replace(/ :/g, ':') : undefined;
+        const fragmentUrl = `${result.new.url.replace('/products/', '/products/fragments/')}.plain.html`;
+        const fragmentResponse = await corsFetch(fragmentUrl);
+        const fragmentHtml = await fragmentResponse.text();
+        console.log(fragmentHtml);
+        const fragmentDoc = new DOMParser().parseFromString(fragmentHtml, 'text/html');
+        result.new.features = `${fragmentDoc.body?.textContent.trim().replace(/\s+/g, ' ')}`;
+        break;
+      }
+
       case 'custom block': {
         const prodElem = prodDoc.querySelector(item.QuerySelector);
         result.prod['custom block'] = prodElem ? 'Yes' : 'No';
-        const fragmentUrl = result.new.url.replace('/products/', '/products/fragments/');
+        const fragmentUrl = `${result.new.url.replace('/products/', '/products/fragments/')}.plain.html`;
         const fragmentResponse = await corsFetch(fragmentUrl);
         await fragmentResponse.text();
         result.new['custom block'] = fragmentResponse.status === 200 ? 'Yes' : 'No';
