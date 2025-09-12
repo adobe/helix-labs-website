@@ -1,3 +1,4 @@
+/* Mobile-first base styles */
 .config-editor [aria-hidden='true'] {
   display: none;
 }
@@ -13,8 +14,9 @@
 
 .config-editor-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-s);
   margin-bottom: var(--spacing-m);
 }
 
@@ -37,14 +39,14 @@
 
 .config-table th {
   background: var(--gray-100);
-  padding: var(--spacing-s) var(--spacing-m);
+  padding: var(--spacing-xs) var(--spacing-s);
   text-align: left;
   font-weight: 600;
   border-bottom: var(--border-s) solid var(--gray-300);
 }
 
 .config-table td {
-  padding: var(--spacing-s) var(--spacing-m);
+  padding: var(--spacing-xs) var(--spacing-s);
   border-bottom: var(--border-s) solid var(--gray-200);
   vertical-align: top;
 }
@@ -60,11 +62,11 @@
 .config-key-cell {
   font-family: var(--font-mono);
   font-weight: 500;
-  min-width: 150px;
+  min-width: 100px;
 }
 
 .config-value-cell {
-  min-width: 200px;
+  min-width: 120px;
 }
 
 .config-value-input {
@@ -100,10 +102,8 @@
 }
 
 .config-actions-cell {
-  width: 120px;
+  width: 140px;
 }
-
-
 
 .property-type {
   font-size: var(--body-size-xs);
@@ -134,7 +134,6 @@
   border: var(--border-s) solid var(--gray-200);
 }
 
-
 .console {
   margin-top: var(--spacing-l);
   padding-top: var(--spacing-l);
@@ -159,6 +158,7 @@
   border-bottom: var(--border-s) solid var(--gray-300);
 }
 
+/* stylelint-disable-next-line no-descending-specificity */
 .log-table td {
   padding: var(--spacing-xs) var(--spacing-s);
   border-bottom: var(--border-s) solid var(--gray-200);
@@ -185,25 +185,96 @@
   color: var(--yellow-700);
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
+/* Tablet and up (600px+) */
+@media (width >= 600px) {
   .config-editor-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-s);
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
-  
-  
+
   .config-table th,
   .config-table td {
-    padding: var(--spacing-xs);
+    padding: var(--spacing-s) var(--spacing-m);
   }
-  
+
   .config-key-cell {
-    min-width: 100px;
-  }
-  
-  .config-value-cell {
     min-width: 150px;
+  }
+
+  .config-value-cell {
+    min-width: 160px;
+  }
+}
+
+/* Desktop and up (900px+) */
+@media (width >= 900px) {
+  .config-editor #config-selection-form {
+    gap: var(--spacing-m);
+  }
+
+  .config-table-container {
+    margin-bottom: var(--spacing-l);
+  }
+
+  .config-editor-header {
+    margin-bottom: var(--spacing-l);
+  }
+
+  .config-actions-cell {
+    display: flex;
+    gap: var(--spacing-xs);
+    width: 240px;
+  }
+
+  .config-actions-cell .button {
+    flex: 1;
+    min-width: auto;
+  }
+
+  .console {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-xl);
+  }
+}
+
+/* Large desktop and up (1200px+) */
+@media (width >= 1200px) {
+  .config-table-container {
+    border-radius: var(--border-radius-l);
+  }
+
+  .config-table th {
+    padding: var(--spacing-m) var(--spacing-l);
+  }
+
+  .config-table td {
+    padding: var(--spacing-m) var(--spacing-l);
+  }
+
+  .config-key-cell {
+    min-width: 200px;
+  }
+
+  .config-value-cell {
+    min-width: 220px;
+  }
+
+  .config-value-input,
+  .config-value-textarea {
+    font-size: var(--body-size-m);
+  }
+
+  .config-value-display {
+    font-size: var(--body-size-m);
+  }
+
+  .log-table {
+    font-size: var(--body-size-m);
+  }
+
+  .log-table th,
+  .log-table td {
+    padding: var(--spacing-s) var(--spacing-m);
   }
 }
