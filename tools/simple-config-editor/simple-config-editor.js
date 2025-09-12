@@ -12,6 +12,53 @@ const logTbody = document.getElementById('log-tbody');
 // Utility functions
 
 /**
+ * Escapes HTML to prevent XSS attacks
+ * @param {string} text - Text to escape
+ * @returns {string} - Escaped HTML
+ */
+function escapeHtml(text) {
+  if (typeof text !== 'string') {
+    return String(text);
+  }
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Sanitizes user input by removing potentially dangerous characters
+ * @param {string} input - Input to sanitize
+ * @returns {string} - Sanitized input
+ */
+function sanitizeInput(input) {
+  if (typeof input !== 'string') {
+    return String(input);
+  }
+  // Remove script tags and event handlers
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/vbscript:/gi, '')
+    .replace(/data:/gi, '')
+    .trim();
+}
+
+/**
+ * Validates property key format to prevent injection
+ * @param {string} key - Property key to validate
+ * @returns {boolean} - Whether key is valid
+ */
+function isValidPropertyKey(key) {
+  if (typeof key !== 'string' || key.length === 0) {
+    return false;
+  }
+  // Only allow alphanumeric characters, dots, underscores, and hyphens
+  const validKeyPattern = /^[a-zA-Z0-9._-]+$/;
+  return validKeyPattern.test(key);
+}
+
+/**
  * Logs a message to the console table
  * @param {string} status - Status type (success, error, info, warning)
  * @param {string} action - Action performed
@@ -21,11 +68,16 @@ function logMessage(status, action, message) {
   const row = document.createElement('tr');
   const time = new Date().toLocaleTimeString();
 
+  // Escape all user input to prevent XSS
+  const escapedStatus = escapeHtml(status);
+  const escapedAction = escapeHtml(action);
+  const escapedMessage = escapeHtml(message);
+
   row.innerHTML = `
-    <td>${time}</td>
-    <td class="log-status ${status}">${status.toUpperCase()}</td>
-    <td>${action}</td>
-    <td>${message}</td>
+    <td>${escapeHtml(time)}</td>
+    <td class="log-status ${escapedStatus}">${escapedStatus.toUpperCase()}</td>
+    <td>${escapedAction}</td>
+    <td>${escapedMessage}</td>
   `;
 
   logTbody.prepend(row);
@@ -185,7 +237,7 @@ function createValueInput(value) {
  * @returns {*} - The parsed value
  */
 function parseValueFromInput(input, originalType) {
-  const value = input.value.trim();
+  const value = sanitizeInput(input.value.trim());
 
   if (originalType === 'array') {
     if (value === '') return [];
@@ -228,16 +280,22 @@ function createConfigRow(key, value, path = '') {
   const valueType = getValueType(value);
   const fullPath = path ? `${path}.${key}` : key;
 
+  // Escape all user input to prevent XSS
+  const escapedKey = escapeHtml(key);
+  const escapedPath = escapeHtml(path);
+  const escapedFullPath = escapeHtml(fullPath);
+  const escapedValue = escapeHtml(formatValueForDisplay(value));
+
   row.innerHTML = `
     <td class="config-key-cell">
-      ${fullPath}
+      ${escapedFullPath}
     </td>
     <td class="config-value-cell">
-      <div class="config-value-display ${valueType}">${formatValueForDisplay(value)}</div>
+      <div class="config-value-display ${escapeHtml(valueType)}">${escapedValue}</div>
     </td>
     <td class="config-actions-cell">
-      <button class="button outline edit-property" data-key="${key}" data-path="${path}">Edit</button>
-      <button class="button outline remove-property" data-key="${key}" data-path="${path}">Remove</button>
+      <button class="button outline edit-property" data-key="${escapedKey}" data-path="${escapedPath}">Edit</button>
+      <button class="button outline remove-property" data-key="${escapedKey}" data-path="${escapedPath}">Remove</button>
     </td>
   `;
 
@@ -289,7 +347,7 @@ function populateConfigTable() {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td colspan="3" style="text-align: center; padding: var(--spacing-l); color: var(--gray-500);">
-        No configuration properties found
+        ${escapeHtml('No configuration properties found')}
       </td>
     `;
     configTbody.appendChild(row);
@@ -480,16 +538,25 @@ function addProperty() {
   const key = prompt(`Enter property key (must start with: ${allowedPrefixes.join(', ')}):`);
   if (!key) return;
 
+  // Sanitize the input
+  const sanitizedKey = sanitizeInput(key);
+
+  // Validate the key format
+  if (!isValidPropertyKey(sanitizedKey)) {
+    logMessage('error', 'ADD', 'Property key contains invalid characters. Only alphanumeric characters, dots, underscores, and hyphens are allowed.');
+    return;
+  }
+
   // Check if the key starts with an allowed prefix
-  const hasAllowedPrefix = allowedPrefixes.some((prefix) => key.startsWith(prefix));
+  const hasAllowedPrefix = allowedPrefixes.some((prefix) => sanitizedKey.startsWith(prefix));
   if (!hasAllowedPrefix) {
     logMessage('error', 'ADD', `Property key must start with one of: ${allowedPrefixes.join(', ')}`);
     return;
   }
 
   // Handle nested object creation if key contains dots
-  if (key.includes('.')) {
-    const keyParts = key.split('.');
+  if (sanitizedKey.includes('.')) {
+    const keyParts = sanitizedKey.split('.');
     const finalKey = keyParts.pop();
     const path = keyParts.join('.');
 
@@ -507,20 +574,20 @@ function addProperty() {
       editProperty(finalKey, path);
     }, 100);
 
-    logMessage('info', 'ADD', `Added nested property to table: ${key}`);
+    logMessage('info', 'ADD', `Added nested property to table: ${sanitizedKey}`);
   } else {
     // Add the property to local config with empty value
-    currentConfig[key] = '';
+    currentConfig[sanitizedKey] = '';
 
     // Refresh the table to show the new property
     populateConfigTable();
 
     // Immediately enter edit mode for the new property
     setTimeout(() => {
-      editProperty(key, '');
+      editProperty(sanitizedKey, '');
     }, 100);
 
-    logMessage('info', 'ADD', `Added property to table: ${key}`);
+    logMessage('info', 'ADD', `Added property to table: ${sanitizedKey}`);
   }
 }
 
