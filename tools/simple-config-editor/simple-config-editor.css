@@ -1,0 +1,209 @@
+.config-editor [aria-hidden='true'] {
+  display: none;
+}
+
+.config-editor #config-selection-form {
+  display: grid;
+  gap: var(--spacing-s);
+}
+
+.config-editor #config-selection-form .button-wrapper {
+  align-self: center;
+}
+
+.config-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-m);
+}
+
+.config-editor-header h2 {
+  margin: 0;
+}
+
+.config-table-container {
+  overflow-x: auto;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--border-radius-m);
+  margin-bottom: var(--spacing-m);
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.config-table th {
+  background: var(--gray-100);
+  padding: var(--spacing-s) var(--spacing-m);
+  text-align: left;
+  font-weight: 600;
+  border-bottom: var(--border-s) solid var(--gray-300);
+}
+
+.config-table td {
+  padding: var(--spacing-s) var(--spacing-m);
+  border-bottom: var(--border-s) solid var(--gray-200);
+  vertical-align: top;
+}
+
+.config-table tr:last-child td {
+  border-bottom: none;
+}
+
+.config-table tr:hover {
+  background: var(--gray-50);
+}
+
+.config-key-cell {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  min-width: 150px;
+}
+
+.config-value-cell {
+  min-width: 200px;
+}
+
+.config-value-input {
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-s);
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--border-radius-s);
+  font-family: var(--font-mono);
+  font-size: var(--body-size-s);
+}
+
+.config-value-input:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 2px var(--blue-100);
+}
+
+.config-value-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: var(--spacing-xs) var(--spacing-s);
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--border-radius-s);
+  font-family: var(--font-mono);
+  font-size: var(--body-size-s);
+  resize: vertical;
+}
+
+.config-value-textarea:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 2px var(--blue-100);
+}
+
+.config-actions-cell {
+  width: 120px;
+}
+
+
+
+.property-type {
+  font-size: var(--body-size-xs);
+  color: var(--blue-600);
+  font-weight: 500;
+  margin-left: var(--spacing-xs);
+}
+
+.property-type::before {
+  content: '(';
+}
+
+.property-type::after {
+  content: ')';
+}
+
+.config-value-display {
+  font-family: var(--font-mono);
+  font-size: var(--body-size-s);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.config-value-display.object {
+  background: var(--gray-50);
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius-s);
+  border: var(--border-s) solid var(--gray-200);
+}
+
+
+.console {
+  margin-top: var(--spacing-l);
+  padding-top: var(--spacing-l);
+  border-top: var(--border-m) solid var(--gray-300);
+}
+
+.console h3 {
+  margin-bottom: var(--spacing-m);
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--body-size-s);
+}
+
+.log-table th {
+  background: var(--gray-100);
+  padding: var(--spacing-xs) var(--spacing-s);
+  text-align: left;
+  font-weight: 600;
+  border-bottom: var(--border-s) solid var(--gray-300);
+}
+
+.log-table td {
+  padding: var(--spacing-xs) var(--spacing-s);
+  border-bottom: var(--border-s) solid var(--gray-200);
+  font-family: var(--font-mono);
+}
+
+.log-table tr:last-child td {
+  border-bottom: none;
+}
+
+.log-status.success {
+  color: var(--green-700);
+}
+
+.log-status.error {
+  color: var(--red-700);
+}
+
+.log-status.info {
+  color: var(--blue-700);
+}
+
+.log-status.warning {
+  color: var(--yellow-700);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .config-editor-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-s);
+  }
+  
+  
+  .config-table th,
+  .config-table td {
+    padding: var(--spacing-xs);
+  }
+  
+  .config-key-cell {
+    min-width: 100px;
+  }
+  
+  .config-value-cell {
+    min-width: 150px;
+  }
+}
