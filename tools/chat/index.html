@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';" move-to-http-header="true">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Bot</title>
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="/tools/chat/chat.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/chat/chat.css" />
+</head>
+
+<body class="chat-bot">
+  <header></header>
+  <main>
+    <div>
+      <h1>Chat Bot</h1>
+      <p>
+        Interact with the AI assistant to get help with your questions.
+      </p>
+    </div>
+
+    <div class="chat-container">
+
+    </div>
+    <div class="chat-form-container">
+      <form id="chat-form">
+        <div class="input-group">
+          <textarea id="message-input" placeholder="Type your message..." required></textarea>
+          <button type="submit" id="send-button" class="button">Send</button>
+        </div>
+      </form>
+    </div>
+
+
+  </main>
+  <footer></footer>
+</body>
+
+</html>
