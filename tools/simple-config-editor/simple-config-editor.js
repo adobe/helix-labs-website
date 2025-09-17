@@ -209,10 +209,18 @@ function createValueInput(value) {
   const valueType = getValueType(value);
 
   if (valueType === 'array') {
+    const arrayValue = Array.isArray(value) ? value.join(', ') : '';
+    if (arrayValue.length > 50) {
+      const textarea = document.createElement('textarea');
+      textarea.className = 'config-value-textarea';
+      textarea.value = arrayValue;
+      textarea.placeholder = 'Enter comma-separated values...';
+      return textarea;
+    }
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'config-value-input';
-    input.value = Array.isArray(value) ? value.join(', ') : '';
+    input.value = arrayValue;
     input.placeholder = 'Enter comma-separated values...';
     return input;
   }
@@ -223,10 +231,17 @@ function createValueInput(value) {
     textarea.placeholder = 'Enter JSON...';
     return textarea;
   }
+  const stringValue = value === null ? '' : String(value);
+  if (stringValue.length > 50) {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'config-value-textarea';
+    textarea.value = stringValue;
+    return textarea;
+  }
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'config-value-input';
-  input.value = value === null ? '' : String(value);
+  input.value = stringValue;
   return input;
 }
 
