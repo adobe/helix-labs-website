@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';" move-to-http-header="true">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Index Admin | AEM Tools</title>
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/utils/config/config.css" />
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="/tools/index-admin/index-admin.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/index-admin/index-admin.css" />
+</head>
+
+<body class="index-admin">
+  <header></header>
+  <main>
+    <div>
+      <h1>Index Admin</h1>
+      <p>
+        Manage the indexes for your site. See <a href="https://www.aem.live/developer/indexing" target="_blank">Indexing
+          Documentation</a> for more information.
+      </p>
+    </div>
+
+    <div>
+      <form id="admin-form">
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" autocomplete="off" required />
+            <datalist id="org-list"></datalist>
+          </div>
+          <div class="form-field site-field">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" autocomplete="off" disabled />
+            <datalist id="site-list"></datalist>
+          </div>
+        </section>
+        <p class="button-wrapper">
+          <button type="submit" id="fetch" class="button">Fetch</button>
+        </p>
+      </form>
+    </div>
+
+    <div>
+      <h2>Indices</h2>
+      <p class="button-wrapper">
+        <button type="button" id="add-index" class="button outline" disabled>Add Index</button>
+      </p>
+      <ul id="indexes-list">
+    </div>
+    </div>
+
+    <div>
+      <div class="table" aria-hidden="true">
+        <table id="console">
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+
+</html>

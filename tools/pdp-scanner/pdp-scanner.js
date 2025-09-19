@@ -182,6 +182,7 @@ async function extractData(prodDoc, newDoc, JSONLDData, config, result) {
         const fragmentUrl = `${result.new.url.replace('/products/', '/products/fragments/')}.plain.html`;
         const fragmentResponse = await corsFetch(fragmentUrl);
         const fragmentHtml = await fragmentResponse.text();
+        // eslint-disable-next-line no-console
         console.log(fragmentHtml);
         const fragmentDoc = new DOMParser().parseFromString(fragmentHtml, 'text/html');
         result.new.features = `${fragmentDoc.body?.textContent.trim().replace(/\s+/g, ' ')}`;

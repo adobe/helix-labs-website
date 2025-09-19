@@ -173,8 +173,8 @@ function calculatePerformanceScore(metrics) {
         score = Math.max(0, 100 - poorPenalty); // Floor at 0
       }
 
-      // eslint-disable-next-line no-console
       const logMessage = `${metric}: value=${value}, score=${score}, weight=${weights[metric]}`;
+      // eslint-disable-next-line no-console
       console.log(logMessage);
 
       // Add to weighted total
