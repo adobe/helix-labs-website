@@ -1,5 +1,6 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
 import { toClassName } from '../../scripts/aem.js';
+import { ensureLogin } from '../../blocks/profile/profile.js';
 
 const adminForm = document.getElementById('admin-form');
 const site = document.getElementById('site');
@@ -270,6 +271,8 @@ async function init() {
 
       populateIndexes(loadedIndices.indices);
       addIndexButton.disabled = false;
+    } else if (resp.status === 401) {
+      ensureLogin(org.value, site.value);
     }
   });
 }
