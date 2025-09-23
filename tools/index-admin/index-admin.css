@@ -1,22 +1,22 @@
 .index-admin  {
   .status-light {
     white-space: nowrap;
-  }
 
-  .status-light::before {
-    color: var(--red-900);
-  }
+    &::before {
+      color: var(--red-900);
+    }
 
-  .status-light.http1::before {
-    color: var(--blue-900);
-  }
+    &.http1::before {
+      color: var(--blue-900);
+    }
 
-  .status-light.http2::before {
-    color: var(--green-900);
-  }
+    &.http2::before {
+      color: var(--green-900);
+    }
 
-  .status-light.http3::before {
-    color: var(--yellow-900);
+    &.http3::before {
+      color: var(--yellow-900);
+    }
   }
 
   #indexes-list {
