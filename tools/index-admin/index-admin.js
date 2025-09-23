@@ -205,8 +205,8 @@ function populateIndexes(indexes) {
     const indexItem = indexesList.lastElementChild;
     indexItem.querySelector('.index-name').textContent = name;
     indexItem.querySelector('.index-attribute-value-target').textContent = indexDef.target;
-    indexItem.querySelector('.index-attribute-value-include').textContent = indexDef?.include?.join('<br>') || 'n/a';
-    indexItem.querySelector('.index-attribute-value-exclude').textContent = indexDef?.exclude?.join('<br>') || 'n/a';
+    indexItem.querySelector('.index-attribute-value-include').innerHTML = indexDef?.include?.join('<br>') || 'n/a';
+    indexItem.querySelector('.index-attribute-value-exclude').innerHTML = indexDef?.exclude?.join('<br>') || 'n/a';
 
     indexItem.querySelector('button').addEventListener('click', (e) => {
       e.preventDefault();
