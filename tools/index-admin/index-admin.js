@@ -8,6 +8,7 @@ const logTable = document.getElementById('console');
 const addIndexButton = document.getElementById('add-index');
 
 let loadedIndices;
+let YAML;
 
 function logResponse(cols) {
   const hidden = logTable.closest('[aria-hidden]');
@@ -36,179 +37,145 @@ function logResponse(cols) {
 }
 
 function displayIndexDetails(indexName, indexDef, newIndex = false) {
-  const indexDetails = document.createElement('dialog');
-  indexDetails.classList.add('index-details');
-  indexDetails.innerHTML = `
-  <div class="index-details-content">
-    <div class="index-details-header">
-      <h3>${newIndex ? 'Add Index' : 'Edit Index'}</h3>
-    </div>
-    <div class="index-details-body">
-      <form>
-        <div class="form-field">
-          <label for="name">Name</label>
-          <input type="text" id="name" name="name" value="${indexName}" required ${!newIndex ? 'readonly' : ''} />
-        </div>
-        <div class="form-field">
-          <label for="target">Target</label>
-          <input type="text" id="target" name="target" value="${indexDef.target}" required />
-        </div>
-        <div class="form-field">
-          <label for="include">Include</label>
-          <textarea id="include" name="include" required>${indexDef?.include?.join('\n') || ''}</textarea>
-        </div>
-        <div class="form-field">
-          <label for="exclude">Exclude</label>
-          <textarea id="exclude" name="exclude" required>${indexDef?.exclude?.join('\n') || ''}</textarea>
-        </div>
-        <div class="index-properties">
-          <div class="properties-header-section">
-            <h4>Properties</h4>
-            <button type="button" class="button outline add-property-btn">Add Property</button>
-          </div>
-          <div class="properties-container">
-            <div class="properties-header">
-              <div class="header-cell">Name</div>
-              <div class="header-cell">Select</div>
-              <div class="header-cell">Select First</div>
-              <div class="header-cell">Value</div>
-              <div class="header-cell"></div>
-            </div>
-          </div>
-        </div>
-        <div class="button-area">
-          <p class="button-wrapper">
-            <button type="submit" id="save" class="button">Save</button>
-          </p>
-          <p class="button-wrapper">
-            <button type="button" id="cancel" class="button outline">Cancel</button>
-          </p>
-        </div>
-      </form>
-    </div>
-  </div>
-  `;
+  document.body.append(document.querySelector('#index-details-dialog-template').content.cloneNode(true));
+  const indexDetails = document.querySelector('dialog.index-details');
+
+  indexDetails.querySelector('#index-name').value = indexName;
+  if (!newIndex) {
+    indexDetails.querySelector('#index-name').readOnly = true;
+  }
+  indexDetails.querySelector('#index-target').value = indexDef.target;
+  indexDetails.querySelector('#index-include').value = indexDef?.include?.join('\n') || '';
+  indexDetails.querySelector('#index-exclude').value = indexDef?.exclude?.join('\n') || '';
 
   const propertiesContainer = indexDetails.querySelector('.properties-container');
   Object.entries(indexDef.properties).forEach(([propName, propInfo]) => {
-    const property = document.createElement('div');
-    property.classList.add('index-property');
-    const propId = toClassName(propName);
+    propertiesContainer.append(document.querySelector('#index-property-row-template').content.cloneNode(true));
+    const property = propertiesContainer.lastElementChild;
 
-    const propNameField = document.createElement('div');
-    propNameField.classList.add('form-field');
-    propNameField.innerHTML = `
-    <label for="${propId}-name">Property Name</label>
-    <input type="text" id="${propId}-name" name="${propId}-name"/>
-    `;
-    propNameField.querySelector('input').value = propName;
-    property.append(propNameField);
+    const idSuffix = toClassName(propName);
+    property.dataset.idSuffix = idSuffix;
+    const nameField = property.querySelector('#index-property-name');
+    const selectField = property.querySelector('#index-property-select');
+    const selectFirstField = property.querySelector('#index-property-select-first');
+    const valueField = property.querySelector('#index-property-value');
 
-    const propSelectField = document.createElement('div');
-    propSelectField.classList.add('form-field');
-    propSelectField.innerHTML = `
-    <label for="${propId}-select">Property Type</label>
-    <input type="text" id="${propId}-select" name="${propId}-select"/>
-    `;
-    propSelectField.querySelector('input').value = propInfo.select || '';
-    property.append(propSelectField);
+    nameField.id = `index-property-name-${idSuffix}`;
+    selectField.id = `index-property-select-${idSuffix}`;
+    selectFirstField.id = `index-property-select-first-${idSuffix}`;
+    valueField.id = `index-property-value-${idSuffix}`;
 
-    const propSelectFirstField = document.createElement('div');
-    propSelectFirstField.classList.add('form-field');
-    propSelectFirstField.innerHTML = `
-    <label for="${propId}-select">Property Select</label>
-    <input type="text" id="${propId}-select-first" name="${propId}-select-first"/>
-    `;
-    propSelectFirstField.querySelector('input').value = propInfo.selectFirst || '';
-    property.append(propSelectFirstField);
+    nameField.value = propName;
+    selectField.value = propInfo.select || '';
+    selectFirstField.value = propInfo.selectFirst || '';
+    valueField.value = propInfo.value;
 
-    const propValueField = document.createElement('div');
-    propValueField.classList.add('form-field');
-    propValueField.innerHTML = `
-    <label for="${propId}-value">Property Value</label>
-    <input type="text" id="${propId}-value" name="${propId}-value"/>
-    `;
-    propValueField.querySelector('input').value = propInfo.value;
-    property.append(propValueField);
+    const nameFieldLabel = property.querySelector('label[for="index-property-name"]');
+    const selectFieldLabel = property.querySelector('label[for="index-property-select"]');
+    const selectFirstFieldLabel = property.querySelector('label[for="index-property-select-first"]');
+    const valueFieldLabel = property.querySelector('label[for="index-property-value"]');
 
-    const removeButtonField = document.createElement('div');
-    removeButtonField.classList.add('form-field', 'remove-field');
-    removeButtonField.innerHTML = `
-    <button type="button" class="remove-property-btn" title="Remove Property">×</button>
-    `;
-    property.append(removeButtonField);
+    nameFieldLabel.htmlFor = `index-property-name-${idSuffix}`;
+    selectFieldLabel.htmlFor = `index-property-select-${idSuffix}`;
+    selectFirstFieldLabel.htmlFor = `index-property-select-first-${idSuffix}`;
+    valueFieldLabel.htmlFor = `index-property-value-${idSuffix}`;
 
-    propertiesContainer.append(property);
+    property.querySelector('.remove-property-btn').addEventListener('click', () => {
+      property.remove();
+    });
   });
 
-  document.body.append(indexDetails);
   indexDetails.showModal();
 
   // Add event listeners for add/remove property buttons
   const addPropertyBtn = indexDetails.querySelector('.add-property-btn');
   addPropertyBtn.addEventListener('click', () => {
-    const newProperty = document.createElement('div');
-    newProperty.classList.add('index-property');
-    const propId = `new-property-${Date.now()}`;
+    propertiesContainer.append(document.querySelector('#index-property-row-template').content.cloneNode(true));
+    const property = propertiesContainer.lastElementChild;
+    const idSuffix = Math.random().toString(36).substring(2, 12);
+    property.dataset.idSuffix = idSuffix;
 
-    newProperty.innerHTML = `
-      <div class="form-field">
-        <label for="${propId}-name">Property Name</label>
-        <input type="text" id="${propId}-name" name="${propId}-name" value=""/>
-      </div>
-      <div class="form-field">
-        <label for="${propId}-select">Property Type</label>
-        <select id="${propId}-select" name="${propId}-select">
-          <option value="select">Select</option>
-          <option value="selectFirst">Select First</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label for="${propId}-select">Property Select</label>
-        <input type="text" id="${propId}-select" name="${propId}-select" value=""/>
-      </div>
-      <div class="form-field">
-        <label for="${propId}-value">Property Value</label>
-        <input type="text" id="${propId}-value" name="${propId}-value" value=""/>
-      </div>
-      <div class="form-field remove-field">
-        <button type="button" class="remove-property-btn" title="Remove Property">×</button>
-      </div>
-    `;
+    const nameField = property.querySelector('#index-property-name');
+    const selectField = property.querySelector('#index-property-select');
+    const selectFirstField = property.querySelector('#index-property-select-first');
+    const valueField = property.querySelector('#index-property-value');
 
-    // Add remove event listener to the new button
-    newProperty.querySelector('.remove-property-btn').addEventListener('click', () => {
-      newProperty.remove();
-    });
+    nameField.id = `index-property-name-${idSuffix}`;
+    selectField.id = `index-property-select-${idSuffix}`;
+    selectFirstField.id = `index-property-select-first-${idSuffix}`;
+    valueField.id = `index-property-value-${idSuffix}`;
 
-    propertiesContainer.append(newProperty);
-  });
+    const nameFieldLabel = property.querySelector('label[for="index-property-name"]');
+    const selectFieldLabel = property.querySelector('label[for="index-property-select"]');
+    const selectFirstFieldLabel = property.querySelector('label[for="index-property-select-first"]');
+    const valueFieldLabel = property.querySelector('label[for="index-property-value"]');
 
-  // Add event listeners to existing remove buttons
-  indexDetails.querySelectorAll('.remove-property-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.target.closest('.index-property').remove();
+    nameFieldLabel.htmlFor = `index-property-name-${idSuffix}`;
+    selectFieldLabel.htmlFor = `index-property-select-${idSuffix}`;
+    selectFirstFieldLabel.htmlFor = `index-property-select-first-${idSuffix}`;
+    valueFieldLabel.htmlFor = `index-property-value-${idSuffix}`;
+
+    property.querySelector('.remove-property-btn').addEventListener('click', () => {
+      property.remove();
     });
   });
 
-  const save = indexDetails.querySelector('#save');
-  const cancel = indexDetails.querySelector('#cancel');
-  save.addEventListener('click', (e) => {
+  const cancel = indexDetails.querySelector('#cancel-index');
+  indexDetails.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     // validate properties
+    const properties = {};
+    indexDetails.querySelectorAll('.index-property').forEach((property) => {
+      const { idSuffix } = property.dataset;
+      const name = property.querySelector(`#index-property-name-${idSuffix}`).value.trim();
+      const select = property.querySelector(`#index-property-select-${idSuffix}`).value.trim();
+      const selectFirst = property.querySelector(`#index-property-select-first-${idSuffix}`).value.trim();
+      const value = property.querySelector(`#index-property-value-${idSuffix}`).value.trim();
 
-    loadedIndices.indices[indexDetails.querySelector('#name').value.trim()] = {
-      target: indexDetails.querySelector('#target').value.trim(),
-      include: indexDetails.querySelector('#include').value.split('\n').map((line) => line.trim()),
-      exclude: indexDetails.querySelector('#exclude').value.split('\n').map((line) => line.trim()),
+      properties[name] = { value };
+      if (select) {
+        properties[name].select = select;
+      }
+      if (selectFirst) {
+        properties[name].selectFirst = selectFirst;
+      }
+    });
+
+    loadedIndices.indices[indexDetails.querySelector('#index-name').value.trim()] = {
+      target: indexDetails.querySelector('#index-target').value.trim(),
+      include: indexDetails.querySelector('#index-include').value.split('\n').map((line) => line.trim()),
+      properties,
     };
 
-    // todo call api to save
+    if (indexDetails.querySelector('#index-exclude').value) {
+      loadedIndices.indices[indexDetails.querySelector('#index-name').value.trim()].exclude = indexDetails.querySelector('#index-exclude').value.split('\n').map((line) => line.trim());
+    }
 
-    indexDetails.close();
-    indexDetails.remove();
+    const yamlText = YAML.stringify(loadedIndices);
+    const resp = await fetch(`https://admin.hlx.page/config/${org.value}/sites/${site.value}/content/query.yaml`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'text/yaml',
+      },
+      body: yamlText,
+    });
+
+    logResponse([resp.status, 'POST', `https://admin.hlx.page/config/${org.value}/sites/${site.value}/content/query.yaml`, resp.headers.get('x-error') || '']);
+
+    if (resp.ok) {
+      indexDetails.close();
+      indexDetails.remove();
+
+      const indexesList = document.getElementById('indexes-list');
+      indexesList.innerHTML = '';
+      adminForm.dispatchEvent(new Event('submit'));
+    } else {
+      // eslint-disable-next-line no-alert
+      alert('Failed to save index, check console for details');
+    }
   });
+
   cancel.addEventListener('click', (e) => {
     e.preventDefault();
     indexDetails.close();
@@ -233,24 +200,18 @@ function populateIndexes(indexes) {
   indexesList.innerHTML = '';
 
   Object.entries(indexes).forEach(([name, indexDef]) => {
-    const indexItem = document.createElement('li');
-    indexItem.classList.add('index-card');
+    indexesList.append(document.querySelector('#index-card-template').content.cloneNode(true));
 
-    indexItem.innerHTML = `
-    <p class="index-name">${name}</p>
-    <div class="index-attributes">
-      <div class="index-attribute"><span class="index-attribute-name">Target:</span> <div class="index-attribute-value">${indexDef.target}</div></div>
-      <div class="index-attribute"><span class="index-attribute-name">Include:</span> <div class="index-attribute-value">${indexDef?.include?.join('<br>') || 'n/a'}</div></div>
-      <div class="index-attribute"><span class="index-attribute-name">Exclude:</span> <div class="index-attribute-value">${indexDef?.exclude?.join('<br>') || 'n/a'}</div></div>
-    </div>
-     <button class="button outline">Edit</button>`;
+    const indexItem = indexesList.lastElementChild;
+    indexItem.querySelector('.index-name').textContent = name;
+    indexItem.querySelector('.index-attribute-value-target').textContent = indexDef.target;
+    indexItem.querySelector('.index-attribute-value-include').textContent = indexDef?.include?.join('<br>') || 'n/a';
+    indexItem.querySelector('.index-attribute-value-exclude').textContent = indexDef?.exclude?.join('<br>') || 'n/a';
 
     indexItem.querySelector('button').addEventListener('click', (e) => {
       e.preventDefault();
       displayIndexDetails(name, indexDef);
     });
-
-    indexesList.append(indexItem);
   });
 }
 
@@ -267,10 +228,22 @@ async function init() {
         '**/*.json',
       ],
       properties: {
-        title: {},
-        date: {},
-        description: {},
-        image: {},
+        title: {
+          selectFirst: 'meta[property="og:title"]',
+          value: 'attribute(el, "content")',
+        },
+        date: {
+          selectFirst: 'meta[name="publication-date"]',
+          value: 'attribute(el, "content")',
+        },
+        description: {
+          selectFirst: 'meta[property="og:description"]',
+          value: 'attribute(el, "content")',
+        },
+        image: {
+          selectFirst: 'meta[property="og:image"]',
+          value: 'attribute(el, "content")',
+        },
       },
     }, true);
   });
@@ -290,7 +263,7 @@ async function init() {
     if (resp.ok) {
       updateConfig();
       // eslint-disable-next-line import/no-unresolved
-      const YAML = await import('https://unpkg.com/yaml@2.8.1/browser/index.js');
+      YAML = YAML || await import('https://unpkg.com/yaml@2.8.1/browser/index.js');
 
       const yamlText = await resp.text();
       loadedIndices = YAML.parse(yamlText);
