@@ -52,7 +52,7 @@
         <button type="button" id="add-index" class="button outline" disabled>Add Index</button>
       </p>
       <ul id="indexes-list">
-    </div>
+      </ul>
     </div>
 
     <div>
@@ -64,6 +64,98 @@
     </div>
   </main>
   <footer></footer>
+  <template id="index-card-template">
+    <li class="index-card">
+      <p class="index-name"></p>
+      <div class="index-attributes">
+        <div class="index-attribute"><span class="index-attribute-name">Target:</span>
+          <div class="index-attribute-value index-attribute-value-target"></div>
+        </div>
+        <div class="index-attribute"><span class="index-attribute-name">Include:</span>
+          <div class="index-attribute-value index-attribute-value-include"></div>
+        </div>
+        <div class="index-attribute"><span class="index-attribute-name">Exclude:</span>
+          <div class="index-attribute-value index-attribute-value-exclude"></div>
+        </div>
+      </div>
+      <button type="button" class="button outline edit-index-btn">Edit</button>
+    </li>
+  </template>
+  <template id="index-details-dialog-template">
+    <dialog class="index-details">
+      <div class="index-details-content">
+        <div class="index-details-header">
+          <h3>Edit Index</h3>
+        </div>
+        <div class="index-details-body">
+          <form>
+            <div class="form-field">
+              <label for="index-name">Name</label>
+              <input type="text" id="index-name" name="index-name" required />
+            </div>
+            <div class="form-field">
+              <label for="index-target">Target</label>
+              <input type="text" id="index-target" name="index-target" required />
+            </div>
+            <div class="form-field">
+              <label for="index-include">Include</label>
+              <textarea id="index-include" name="index-include" required></textarea>
+            </div>
+            <div class="form-field">
+              <label for="index-exclude">Exclude</label>
+              <textarea id="index-exclude" name="index-exclude"></textarea>
+            </div>
+            <div class="index-properties">
+              <div class="properties-header-section">
+                <h4>Properties</h4>
+                <button type="button" class="button outline add-property-btn">Add Property</button>
+              </div>
+              <div class="properties-container">
+                <div class="properties-header">
+                  <div class="header-cell">Name</div>
+                  <div class="header-cell">Select</div>
+                  <div class="header-cell">Select First</div>
+                  <div class="header-cell">Value</div>
+                  <div class="header-cell"></div>
+                </div>
+              </div>
+            </div>
+            <div class="button-area">
+              <p class="button-wrapper">
+                <button type="submit" id="save-index" class="button">Save</button>
+              </p>
+              <p class="button-wrapper">
+                <button type="button" id="cancel-index" class="button outline">Cancel</button>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </dialog>
+  </template>
+  <template id="index-property-row-template">
+    <div class="index-property">
+      <div class="form-field">
+        <label for="index-property-name">Property Name</label>
+        <input type="text" id="index-property-name" name="index-property-name" required />
+      </div>
+      <div class="form-field">
+        <label for="index-property-select">Property Select</label>
+        <input type="text" id="index-property-select" name="index-property-select" />
+      </div>
+      <div class="form-field">
+        <label for="index-property-select-first">Property Select First</label>
+        <input type="text" id="index-property-select-first" name="index-property-select-first" />
+      </div>
+      <div class="form-field">
+        <label for="index-property-value">Property Value</label>
+        <input type="text" id="index-property-value" name="index-property-value" required />
+      </div>
+      <div class="form-field remove-field">
+        <button type="button" class="remove-property-btn" title="Remove Property"></button>
+      </div>
+    </div>
+  </template>
 </body>
 
 </html>
