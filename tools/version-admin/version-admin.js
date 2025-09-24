@@ -271,8 +271,9 @@ function createVersionItem(version) {
   }
 
   const versionMeta = document.createElement('div');
+  const by = version.user ? `by ${version.user}` : '';
   versionMeta.classList.add('version-meta');
-  versionMeta.textContent = `Version ${version.version} • Created: ${formatDate(version.created)}`;
+  versionMeta.textContent = `Version ${version.version} • Created: ${formatDate(version.created)} ${by}`;
 
   versionInfo.append(versionName, versionMeta);
   li.append(versionInfo);
