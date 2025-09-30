@@ -180,7 +180,7 @@ export default async function decorate(block) {
   block.replaceChildren(navWrapper);
 
   // add experimental ribbon
-  if (['labs.aem.live', '--helix-labs-website--adobe.aem.page', '--helix-labs-website--adobe.aem.live', 'localhost'].includes(window.location.hostname)) {
+  if (['labs.aem.live', '--helix-labs-website--adobe.aem.page', '--helix-labs-website--adobe.aem.live', 'localhost'].some((h) => window.location.hostname.includes(h))) {
     const ribbon = document.createElement('div');
     ribbon.className = 'experimental-ribbon';
     ribbon.textContent = 'Experimental';
