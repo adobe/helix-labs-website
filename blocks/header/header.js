@@ -179,5 +179,12 @@ export default async function decorate(block) {
   navWrapper.append(nav);
   block.replaceChildren(navWrapper);
 
+  // add experimental ribbon
+  if (['labs.aem.live', '--helix-labs-website--adobe.aem.page', '--helix-labs-website--adobe.aem.live', 'localhost'].includes(window.location.hostname)) {
+    const ribbon = document.createElement('div');
+    ribbon.className = 'experimental-ribbon';
+    ribbon.textContent = 'Experimental';
+    block.prepend(ribbon);
+  }
   swapIcons(block);
 }
