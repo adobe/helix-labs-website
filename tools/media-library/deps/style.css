@@ -1,4 +1,5 @@
 /* Media Library Web Component - External Styles */
+
 /* 
  * This file contains additional styles that can be used to customize
  * the media library component appearance.
@@ -21,7 +22,7 @@ media-library {
   
   /* Neutral colors */
   --background: #f8fafc;
-  --surface: #ffffff;
+  --surface: #fff;
   --border: #e2e8f0;
   --text-primary: #1e293b;
   --text-secondary: #64748b;
@@ -37,12 +38,12 @@ media-library {
   --border-radius: 8px;
   --border-radius-sm: 4px;
   --border-radius-lg: 12px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  --shadow-lg: 0 4px 6px rgb(0 0 0 / 10%);
+  --shadow-xl: 0 10px 15px rgb(0 0 0 / 10%);
   
   /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -67,14 +68,14 @@ media-library[data-theme="helix"] {
   --primary-color: #667eea;
   --secondary-color: #764ba2;
   --background: #f8fafc;
-  --surface: #ffffff;
+  --surface: #fff;
   --border: #e2e8f0;
   --text-primary: #1e293b;
   --text-secondary: #64748b;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   media-library {
     --border-radius: 4px;
     --spacing-md: 12px;
@@ -82,7 +83,7 @@ media-library[data-theme="helix"] {
   }
 }
 
-@media (max-width: 480px) {
+@media (width <= 480px) {
   media-library {
     --border-radius: 2px;
     --spacing-sm: 6px;
@@ -96,21 +97,18 @@ media-library[data-theme="helix"] {
     --primary-color: #7c3aed;
     --primary-hover: #8b5cf6;
     --primary-active: #6d28d9;
-    
     --secondary-color: #a855f7;
     --secondary-hover: #c084fc;
     --secondary-active: #9333ea;
-    
     --background: #0f172a;
     --surface: #1e293b;
     --border: #334155;
     --text-primary: #f1f5f9;
     --text-secondary: #cbd5e1;
     --text-muted: #64748b;
-    
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.3);
-    --shadow-xl: 0 10px 15px rgba(0, 0, 0, 0.3);
+    --shadow: 0 1px 3px rgb(0 0 0 / 30%);
+    --shadow-lg: 0 4px 6px rgb(0 0 0 / 30%);
+    --shadow-xl: 0 10px 15px rgb(0 0 0 / 30%);
   }
 }
 
@@ -139,13 +137,14 @@ media-library[data-theme="helix"] {
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   media-library {
-    --border: #000000;
-    --text-primary: #000000;
-    --text-secondary: #000000;
+    --border: #000;
+    --text-primary: #000;
+    --text-secondary: #000;
   }
 }
 
 /* ===== CUSTOM COMPONENT OVERRIDES ===== */
+
 /* Example: Customize the top bar */
 media-library .top-bar {
   background: var(--surface);
