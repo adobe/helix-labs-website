@@ -1,0 +1,113 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "all": "Todos"
+  },
+  "COMMON": {
+    "FILTER": "Filtrar"
+  },
+  "mediaLibrary": {
+    "title": "Biblioteca de Medios",
+    "searchPlaceholder": "Buscar medios, doc:ruta, folder:ruta, o / para archivos raíz...",
+    "noResults": "No se encontraron medios",
+    "loadingMedia": "Cargando medios...",
+    "scanProgress": "Escaneando {{current}} de {{total}} páginas...",
+    "scanStarting": "Iniciando escaneo...",
+    "scanComplete": "¡Escaneo completo! Se encontraron {{count}} archivos de medios.",
+    "scanning": "Escaneando...",
+    "scanButton": "Escanear Medios",
+    "manualSitemap": "URL de Sitemap Manual",
+    "sitemapPlaceholder": "Ingrese la URL del sitemap manualmente",
+    "analysisEnabled": "Análisis ON",
+    "analysisDisabled": "Análisis OFF",
+    "analysisTooltip": "Alternar análisis de imagen (orientación, categorización, datos EXIF) - ON por defecto para mejor categorización"
+  },
+  "filters": {
+    "all": "Todos los Medios",
+    "images": "Imágenes",
+    "videos": "Videos",
+    "documents": "Documentos",
+    "links": "Enlaces",
+    "icons": "SVGs",
+    "missingAlt": "Falta Texto Alt",
+    "decorative": "Decorativo",
+    "filled": "Con Texto Alt",
+    "unused": "No Utilizado",
+    "landscape": "Horizontal",
+    "portrait": "Vertical",
+    "square": "Cuadrado",
+    "lcpCandidate": "Candidatos LCP",
+    "aboveFold": "Arriba del Pliegue",
+    "belowFold": "Debajo del Pliegue",
+    "needsOptimization": "Necesita Optimización",
+    "fullyOptimized": "Totalmente Optimizado",
+    "noSrcset": "Sin Srcset",
+    "hasSrcset": "Con Srcset",
+    "legacyFormat": "Formato Legacy",
+    "modernFormat": "Formato Moderno",
+    "noLazyLoading": "Sin Carga Perezosa",
+    "lazyLoading": "Carga Perezosa",
+    "socialImage": "Imágenes Sociales",
+    "ogImage": "Imágenes OG",
+    "performanceIssue": "Problemas de Rendimiento",
+    "screenshots": "Capturas de Pantalla",
+    "logos": "Logotipos",
+    "people-photos": "Fotos de Personas",
+    "products": "Productos",
+    "404-media": "Medios 404"
+  },
+  "views": {
+    "grid": "Vista de Cuadrícula",
+    "list": "Vista de Lista"
+  },
+  "categories": {
+    "title": "Categorías",
+    "hero-banner": "Hero/Banner",
+    "team-member": "Equipo/Personas", 
+    "testimonials": "Testimonios",
+    "navigation-ui": "Navegación/UI",
+    "article-content": "Artículo/Contenido",
+    "product-service": "Producto/Servicio",
+    "decorative-background": "Decorativo/Fondo",
+    "social-sharing": "Social/Compartir",
+    "document-pdf": "Documento/PDF",
+    "logo-brand": "Logo/Marca",
+    "screenshot-demo": "Captura/Demo"
+  },
+  "media": {
+    "altText": "Texto Alt",
+    "fileName": "Nombre del Archivo",
+    "fileSize": "Tamaño del Archivo",
+    "lastModified": "Última Modificación",
+    "usedIn": "Usado en {{count}} documentos",
+    "notUsed": "No usado",
+    "copyUrl": "Copiar URL",
+    "copyImage": "Copiar Imagen",
+    "download": "Descargar",
+    "editAltText": "Editar Texto Alt"
+  },
+  "units": {
+    "bytes": "bytes",
+    "KB": "KB",
+    "MB": "MB",
+    "GB": "GB"
+  },
+  "errors": {
+    "loadFailed": "Error al cargar datos de medios",
+    "scanFailed": "Error al escanear medios",
+    "saveFailed": "Error al guardar cambios",
+    "networkError": "Error de red",
+    "invalidSource": "URL de origen inválida",
+    "parseError": "Error al analizar datos"
+  }
+}

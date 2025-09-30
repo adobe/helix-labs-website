@@ -1,0 +1,113 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "clear": "Löschen",
+    "all": "Alle"
+  },
+  "COMMON": {
+    "FILTER": "Filtern"
+  },
+  "mediaLibrary": {
+    "title": "Medienbibliothek",
+    "searchPlaceholder": "Medien suchen, doc:pfad, folder:pfad, oder / für Root-Dateien...",
+    "noResults": "Keine Medien gefunden",
+    "loadingMedia": "Medien werden geladen...",
+    "scanProgress": "Scanne {{current}} von {{total}} Seiten...",
+    "scanStarting": "Scan wird gestartet...",
+    "scanComplete": "Scan abgeschlossen! {{count}} Mediendateien gefunden.",
+    "scanning": "Scannen...",
+    "scanButton": "Medien Scannen",
+    "manualSitemap": "Manuelle Sitemap-URL",
+    "sitemapPlaceholder": "Sitemap-URL manuell eingeben",
+    "analysisEnabled": "Analyse AN",
+    "analysisDisabled": "Analyse AUS",
+    "analysisTooltip": "Bildanalyse umschalten (Orientierung, Kategorisierung, EXIF-Daten) - Standardmäßig AN für bessere Kategorisierung"
+  },
+  "filters": {
+    "all": "Alle Medien",
+    "images": "Bilder",
+    "videos": "Videos",
+    "documents": "Dokumente",
+    "links": "Links",
+    "icons": "SVGs",
+    "missingAlt": "Fehlender Alt-Text",
+    "decorative": "Dekorativ",
+    "filled": "Mit Alt-Text",
+    "unused": "Ungenutzt",
+    "landscape": "Querformat",
+    "portrait": "Hochformat",
+    "square": "Quadratisch",
+    "lcpCandidate": "LCP-Kandidaten",
+    "aboveFold": "Oberhalb der Falz",
+    "belowFold": "Unterhalb der Falz",
+    "needsOptimization": "Optimierung erforderlich",
+    "fullyOptimized": "Vollständig optimiert",
+    "noSrcset": "Kein Srcset",
+    "hasSrcset": "Mit Srcset",
+    "legacyFormat": "Legacy-Format",
+    "modernFormat": "Modernes Format",
+    "noLazyLoading": "Kein Lazy Loading",
+    "lazyLoading": "Lazy Loading",
+    "socialImage": "Social Images",
+    "ogImage": "OG Images",
+    "performanceIssue": "Leistungsprobleme",
+    "screenshots": "Screenshots",
+    "logos": "Logos",
+    "people-photos": "Personenfotos",
+    "products": "Produkte",
+    "404-media": "404-Medien"
+  },
+  "views": {
+    "grid": "Rasteransicht",
+    "list": "Listenansicht"
+  },
+  "categories": {
+    "title": "Kategorien",
+    "hero-banner": "Hero/Banner",
+    "team-member": "Team/Personen", 
+    "testimonials": "Testimonials",
+    "navigation-ui": "Navigation/UI",
+    "article-content": "Artikel/Inhalt",
+    "product-service": "Produkt/Service",
+    "decorative-background": "Dekorativ/Hintergrund",
+    "social-sharing": "Social/Teilen",
+    "document-pdf": "Dokument/PDF",
+    "logo-brand": "Logo/Marke",
+    "screenshot-demo": "Screenshot/Demo"
+  },
+  "media": {
+    "altText": "Alt-Text",
+    "fileName": "Dateiname",
+    "fileSize": "Dateigröße",
+    "lastModified": "Zuletzt geändert",
+    "usedIn": "Verwendet in {{count}} Dokumenten",
+    "notUsed": "Nicht verwendet",
+    "copyUrl": "URL kopieren",
+    "copyImage": "Bild kopieren",
+    "download": "Herunterladen",
+    "editAltText": "Alt-Text bearbeiten"
+  },
+  "units": {
+    "bytes": "Bytes",
+    "KB": "KB",
+    "MB": "MB",
+    "GB": "GB"
+  },
+  "errors": {
+    "loadFailed": "Fehler beim Laden der Mediendaten",
+    "scanFailed": "Fehler beim Scannen der Medien",
+    "saveFailed": "Fehler beim Speichern der Änderungen",
+    "networkError": "Netzwerkfehler aufgetreten",
+    "invalidSource": "Ungültige Quell-URL",
+    "parseError": "Fehler beim Analysieren der Daten"
+  }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';"
+    move-to-http-header="true"
+  >
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Library - AEM Tools</title>
+  <meta name="description" content="Scan and manage media files across your AEM site">
+  
+  <!-- Conditional loading based on environment -->
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css" />
+  
+  <!-- Media library web component (IIFE version with bundled Lit) -->
+  <script nonce="aem" src="deps/media-library-full.iife.js"></script>
+  <link rel="stylesheet" href="deps/style.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="media-library appear">
+  <!-- Helix Labs Website Mode -->
+  <div class="helix-mode">
+    <header></header>
+    <main>
+      <!-- TITLE -->
+      <div>
+        <h1>Media Library</h1>
+      </div>
+      
+      <!-- CONFIGURATION FORM -->
+      <div>
+        <form id="media-config-form">
+          <section class="form-field config-field">
+            <div class="form-field org-field">
+              <label for="org">Organization</label>
+              <input name="org" id="org" type="text" placeholder="e.g., adobe" required />
+              <datalist id="org-list"></datalist>
+            </div>
+            <div class="form-field site-field">
+              <label for="site">Site</label>
+              <input name="site" id="site" type="text" placeholder="e.g., helix-labs-website" required />
+              <datalist id="site-list"></datalist>
+            </div>
+            <div class="form-field mode-field">
+              <label for="mode">Mode</label>
+              <select name="mode" id="mode">
+                <option value="sitemap" selected>Sitemap</option>
+                <option value="queryindex">Query Index</option>
+                <option value="custom">Sitemap URL</option>
+              </select>
+            </div>
+            
+            <div class="form-field sitemap-field" id="sitemap-field" style="display: none;">
+              <label for="sitemap-url">Sitemap URL</label>
+              <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://main--site--org.aem.live/sitemap.xml" style="width: 100%; max-width: 800px; min-width: 500px;" />
+            </div>
+            
+            <div class="form-field storage-field">
+              <label for="storage-option">Storage</label>
+              <select name="storage-option" id="storage-option">
+                <option value="none" selected>None</option>
+                <option value="indexeddb">Local IndexDB</option>
+              </select>
+            </div>
+          </section>
+          
+          <p class="button-wrapper">
+            <button type="submit" id="load-media" class="button outline" style="display: none;">Load</button>
+            <button type="button" id="clear-data" class="button" style="background-color: #dc2626; color: white; display: none;">Clear</button>
+            <button type="button" id="start-new-scan" class="button">Scan</button>
+          </p>
+        </form>
+      </div>
+      
+      <!-- MEDIA LIBRARY COMPONENT -->
+      <div class="media-library-container">
+        <media-library 
+          id="media-library"
+          locale="en"
+          storage="indexeddb"
+          site-key=""
+          cors-proxy="https://little-forest-58aa.david8603.workers.dev/">
+        </media-library>
+      </div>
+    </main>
+    <footer></footer>
+  </div>
+  
+    
+  <script nonce="aem" type="module">
+    import { initialize } from './scripts.js';
+    
+    // Initialize the Media Library with AEM functionality
+    await initialize();
+  </script>
+</body>
+</html>
