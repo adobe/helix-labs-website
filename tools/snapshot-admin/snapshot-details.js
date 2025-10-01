@@ -7,6 +7,7 @@ import {
   updatePaths,
   addPasswordFieldListeners,
 } from './utils.js';
+import { updateScheduledPublish } from './snapshot-utils.js';
 
 // DOM Elements
 const snapshotDetailsContainer = document.getElementById('snapshot-details-container');
@@ -258,6 +259,23 @@ async function saveSnapshot(snapshotName) {
     const schedulerInput = document.getElementById(`scheduler-${snapshotName}`);
     const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
     const updatedPaths = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
+
+    // Update scheduled publish date
+    if (schedulerInput.value) {
+      const scheduledPublish = new Date(schedulerInput.value).toISOString();
+      const scheduleResult = await updateScheduledPublish(
+        currentOrg,
+        currentSite,
+        snapshotName,
+        scheduledPublish,
+      );
+      if (!scheduleResult.ok) {
+        logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, scheduleResult.text() || '']);
+        await showModal('Error', `Error updating scheduled publish: ${scheduleResult.text() || 'Unknown error'}`);
+        return;
+      }
+      logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, 'Scheduled publish updated successfully']);
+    }
 
     const newManifest = {
       title: titleInput.value,

@@ -52,3 +52,21 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
   });
   return resp;
 }
+
+export async function updateScheduledPublish(org, site, snapshotId, scheduledPublish) {
+  const adminURL = 'http://localhost:8787/schedule';
+  const body = {
+    org,
+    site,
+    snapshotId,
+    scheduledPublish,
+  };
+  const resp = await fetch(`${adminURL}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return resp;
+}
