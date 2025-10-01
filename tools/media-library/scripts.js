@@ -4,6 +4,98 @@
 import { ensureLogin } from '../../blocks/profile/profile.js';
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
 
+const CONFIG = {
+  CORS_PROXY_URL: 'https://little-forest-58aa.david8603.workers.dev/',
+  QUERY_LIMIT: 512,
+  DEFAULT_STORAGE: 'indexeddb',
+  DEFAULT_MODE: 'sitemap',
+  AEM_BASE_URL: 'https://main--{site}--{org}.aem.live',
+  MEDIA_LIBRARY_READY_EVENT: 'media-library-ready',
+  STORAGE_TYPES: {
+    INDEXED_DB: 'indexeddb',
+    NONE: 'none',
+  },
+  MODES: {
+    SITEMAP: 'sitemap',
+    QUERY_INDEX: 'queryindex',
+    CUSTOM: 'custom',
+  },
+};
+
+const SELECTORS = {
+  MEDIA_LIBRARY: '#media-library',
+  ORG_INPUT: '#org',
+  SITE_INPUT: '#site',
+  MODE_INPUT: '#mode',
+  SITEMAP_INPUT: '#sitemap-url',
+  STORAGE_OPTION: '#storage-option',
+  START_SCAN_BUTTON: '#start-new-scan',
+  LOAD_BUTTON: '#load-media',
+  CLEAR_BUTTON: '#clear-data',
+  SITEMAP_FIELD: '#sitemap-field',
+  MEDIA_CONFIG_FORM: '#media-config-form',
+};
+
+const domCache = {
+  mediaLibrary: null,
+  orgInput: null,
+  siteInput: null,
+  modeInput: null,
+  sitemapInput: null,
+  storageOption: null,
+  startScanButton: null,
+  loadButton: null,
+  clearButton: null,
+  sitemapField: null,
+  form: null,
+
+  init() {
+    this.mediaLibrary = document.querySelector(SELECTORS.MEDIA_LIBRARY);
+    this.orgInput = document.querySelector(SELECTORS.ORG_INPUT);
+    this.siteInput = document.querySelector(SELECTORS.SITE_INPUT);
+    this.modeInput = document.querySelector(SELECTORS.MODE_INPUT);
+    this.sitemapInput = document.querySelector(SELECTORS.SITEMAP_INPUT);
+    this.storageOption = document.querySelector(SELECTORS.STORAGE_OPTION);
+    this.startScanButton = document.querySelector(SELECTORS.START_SCAN_BUTTON);
+    this.loadButton = document.querySelector(SELECTORS.LOAD_BUTTON);
+    this.clearButton = document.querySelector(SELECTORS.CLEAR_BUTTON);
+    this.sitemapField = document.querySelector(SELECTORS.SITEMAP_FIELD);
+    this.form = document.querySelector(SELECTORS.MEDIA_CONFIG_FORM);
+  },
+};
+
+function getFormData() {
+  return {
+    org: domCache.orgInput?.value?.trim() || '',
+    site: domCache.siteInput?.value?.trim() || '',
+    mode: domCache.modeInput?.value || CONFIG.DEFAULT_MODE,
+    customUrl: domCache.sitemapInput?.value?.trim() || '',
+  };
+}
+
+function validateRequiredFields(data) {
+  if (!data.org || !data.site) {
+    throw new Error('Please fill in Organization and Site fields');
+  }
+
+  if (data.mode === CONFIG.MODES.CUSTOM && !data.customUrl) {
+    throw new Error('Please enter a custom sitemap URL');
+  }
+}
+
+function createSiteKey(org, site, mode) {
+  return `${org}/${site}/${mode}`;
+}
+
+function getStorageType() {
+  return domCache.storageOption?.value || CONFIG.DEFAULT_STORAGE;
+}
+
+function handleError(error) {
+  const message = error.message || 'Unknown error occurred';
+  alert(`Error: ${message}`);
+}
+
 function setupStorageManager(mediaLibrary, siteKey) {
   if (mediaLibrary.storageManager) {
     mediaLibrary.storageManager.siteKey = siteKey;
@@ -11,17 +103,29 @@ function setupStorageManager(mediaLibrary, siteKey) {
   }
 }
 
-function setButtonVisibility(loadButton, clearButton, show) {
+function updateButtonsVisibility(show) {
   const display = show ? 'inline-block' : 'none';
-  loadButton.style.display = display;
-  clearButton.style.display = display;
+  domCache.loadButton.style.display = display;
+  domCache.clearButton.style.display = display;
 }
 
-async function initializeMediaLibraryWithRetry(mediaLibrary, storageType) {
+function setMediaLibraryAttributes(mediaLibrary, siteKey, storageType) {
+  mediaLibrary.siteKey = siteKey;
+  mediaLibrary.setAttribute('site-key', siteKey);
+  mediaLibrary.setAttribute('data-site-key', siteKey);
+
+  if (mediaLibrary.storage !== storageType) {
+    mediaLibrary.storage = storageType;
+    mediaLibrary.setAttribute('storage', storageType);
+  }
+}
+
+async function initializeMediaLibrary(mediaLibrary, storageType) {
   try {
     await mediaLibrary.initialize();
 
-    if (mediaLibrary.storageManager && mediaLibrary.storageManager.type === 'none') {
+    if (mediaLibrary.storageManager
+        && mediaLibrary.storageManager.type === CONFIG.STORAGE_TYPES.NONE) {
       if (mediaLibrary.storageManager.clearAllSites) {
         await mediaLibrary.storageManager.clearAllSites();
       }
@@ -29,53 +133,56 @@ async function initializeMediaLibraryWithRetry(mediaLibrary, storageType) {
       await mediaLibrary.initialize();
     }
   } catch (error) {
-    console.error('Failed to initialize media library:', error);
-    alert(`Failed to initialize media library: ${error.message}`);
+    handleError(error);
     throw error;
   }
 }
 
 async function updateButtonVisibility() {
-  const storageOption = document.getElementById('storage-option');
-  const loadButton = document.getElementById('load-media');
-  const clearButton = document.getElementById('clear-data');
-
-  if (storageOption.value !== 'indexeddb') {
-    setButtonVisibility(loadButton, clearButton, false);
+  if (domCache.storageOption.value !== CONFIG.STORAGE_TYPES.INDEXED_DB) {
+    updateButtonsVisibility(false);
     return;
   }
 
   try {
-    const tempMediaLibrary = document.getElementById('media-library');
-
-    if (!tempMediaLibrary?.storageManager) {
-      setButtonVisibility(loadButton, clearButton, false);
+    if (!domCache.mediaLibrary?.storageManager) {
+      updateButtonsVisibility(false);
       return;
     }
 
-    const org = document.getElementById('org').value;
-    const site = document.getElementById('site').value;
-    const mode = document.getElementById('mode').value;
-
-    if (!org || !site || !mode) {
-      setButtonVisibility(loadButton, clearButton, false);
+    const formData = getFormData();
+    if (!formData.org || !formData.site || !formData.mode) {
+      updateButtonsVisibility(false);
       return;
     }
 
-    const siteKey = `${org}/${site}/${mode}`;
-    setupStorageManager(tempMediaLibrary, siteKey);
+    const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
+    setupStorageManager(domCache.mediaLibrary, siteKey);
 
-    const existingData = await tempMediaLibrary.storageManager.load();
-    const hasData = existingData && existingData.length > 0;
+    const normalizedSiteKey = domCache.mediaLibrary.storageManager.normalizeSiteKey(siteKey);
+    const dbName = `media_${normalizedSiteKey}`;
 
-    setButtonVisibility(loadButton, clearButton, hasData);
+    try {
+      const databases = await indexedDB.databases();
+      const dbExists = databases.some((db) => db.name === dbName);
+
+      if (dbExists) {
+        const existingData = await domCache.mediaLibrary.storageManager.load();
+        const hasData = existingData && existingData.length > 0;
+        updateButtonsVisibility(hasData);
+      } else {
+        updateButtonsVisibility(false);
+      }
+    } catch (error) {
+      updateButtonsVisibility(false);
+    }
   } catch (error) {
-    setButtonVisibility(loadButton, clearButton, false);
+    updateButtonsVisibility(false);
   }
 }
 
 async function fetchSitemap(sitemapURL) {
-  const fetchUrl = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(sitemapURL)}`;
+  const fetchUrl = `${CONFIG.CORS_PROXY_URL}?url=${encodeURIComponent(sitemapURL)}`;
 
   const res = await fetch(fetchUrl);
   if (!res.ok) {
@@ -84,7 +191,6 @@ async function fetchSitemap(sitemapURL) {
   }
 
   const xml = await res.text();
-
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, 'application/xml');
 
@@ -111,7 +217,7 @@ async function fetchSitemap(sitemapURL) {
 }
 
 async function fetchQueryIndex(indexUrl) {
-  const limit = 512;
+  const limit = CONFIG.QUERY_LIMIT;
   let offset = 0;
   let more = true;
   const urls = [];
@@ -119,7 +225,7 @@ async function fetchQueryIndex(indexUrl) {
   do {
     let res;
     try {
-      res = await fetch(`https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(indexUrl)}?offset=${offset}&limit=${limit}`);
+      res = await fetch(`${CONFIG.CORS_PROXY_URL}?url=${encodeURIComponent(indexUrl)}?offset=${offset}&limit=${limit}`);
     } catch (err) {
       throw new Error('Failed on initial fetch of index.', err);
     }
@@ -140,12 +246,27 @@ async function fetchQueryIndex(indexUrl) {
   return urls;
 }
 
-export async function initializeMediaLibrary() {
+async function waitForMediaLibraryReady(mediaLibrary) {
+  return new Promise((resolve) => {
+    if (mediaLibrary.ready) {
+      resolve();
+      return;
+    }
+
+    const handleReady = () => {
+      mediaLibrary.removeEventListener(CONFIG.MEDIA_LIBRARY_READY_EVENT, handleReady);
+      resolve();
+    };
+
+    mediaLibrary.addEventListener(CONFIG.MEDIA_LIBRARY_READY_EVENT, handleReady);
+  });
+}
+
+export async function setupMediaLibrary() {
   await customElements.whenDefined('media-library');
 
-  const mediaLibrary = document.getElementById('media-library');
-  if (mediaLibrary) {
-    mediaLibrary.corsProxy = 'https://little-forest-58aa.david8603.workers.dev/';
+  if (domCache.mediaLibrary) {
+    domCache.mediaLibrary.corsProxy = CONFIG.CORS_PROXY_URL;
   }
 }
 
@@ -153,11 +274,11 @@ async function discoverAEMContent(org, site, mode, customUrl = null) {
   try {
     let sitemapUrl;
 
-    if (mode === 'custom' && customUrl) {
+    if (mode === CONFIG.MODES.CUSTOM && customUrl) {
       sitemapUrl = customUrl;
     } else {
-      const baseUrl = `https://main--${site}--${org}.aem.live`;
-      if (mode === 'queryindex') {
+      const baseUrl = CONFIG.AEM_BASE_URL.replace('{site}', site).replace('{org}', org);
+      if (mode === CONFIG.MODES.QUERY_INDEX) {
         sitemapUrl = `${baseUrl}/query-index.json`;
       } else {
         sitemapUrl = `${baseUrl}/sitemap.xml`;
@@ -181,244 +302,237 @@ async function discoverAEMContent(org, site, mode, customUrl = null) {
   }
 }
 
-export async function startScan() {
-  const mediaLibrary = document.getElementById('media-library');
-  const orgInput = document.getElementById('org');
-  const siteInput = document.getElementById('site');
-  const modeInput = document.getElementById('mode');
-  const sitemapInput = document.getElementById('sitemap-url');
+async function validateAndPrepareScan() {
+  const formData = getFormData();
+  validateRequiredFields(formData);
 
-  try {
-    const org = orgInput.value.trim();
-    const site = siteInput.value.trim();
-    const mode = modeInput.value || 'sitemap';
-    const customUrl = sitemapInput.value.trim();
+  if (!await ensureLogin(formData.org, formData.site)) {
+    window.addEventListener('profile-update', ({ detail: loginInfo }) => {
+      if (loginInfo.includes(formData.org)) {
+        domCache.startScanButton.click();
+      }
+    }, { once: true });
+    return null;
+  }
 
-    if (!org || !site) {
-      alert('Please fill in Organization and Site fields');
-      return;
-    }
+  return formData;
+}
 
-    if (mode === 'custom' && !customUrl) {
-      alert('Please enter a custom sitemap URL');
-      return;
-    }
+async function configureMediaLibrary(formData) {
+  const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
+  const storageType = getStorageType();
 
-    if (!await ensureLogin(org, site)) {
-      window.addEventListener('profile-update', ({ detail: loginInfo }) => {
-        if (loginInfo.includes(org)) {
-          document.getElementById('start-new-scan').click();
-        }
-      }, { once: true });
-      return;
-    }
+  domCache.mediaLibrary.mode = formData.mode;
+  setMediaLibraryAttributes(domCache.mediaLibrary, siteKey, storageType);
 
-    const siteKey = `${org}/${site}/${mode}`;
-    mediaLibrary.mode = mode;
+  setupStorageManager(domCache.mediaLibrary, siteKey);
+  await waitForMediaLibraryReady(domCache.mediaLibrary);
+  await initializeMediaLibrary(domCache.mediaLibrary, storageType);
 
-    const storageOptionForScan = document.getElementById('storage-option');
-    const storageType = storageOptionForScan ? storageOptionForScan.value : 'indexeddb';
+  return { siteKey, storageType };
+}
 
-    mediaLibrary.siteKey = siteKey;
-    mediaLibrary.setAttribute('site-key', siteKey);
+async function performScan(formData) {
+  const pageList = await discoverAEMContent(
+    formData.org,
+    formData.site,
+    formData.mode,
+    formData.customUrl,
+  );
 
-    mediaLibrary.setAttribute('data-site-key', siteKey);
+  if (!pageList || pageList.length === 0) {
+    throw new Error('No pages found to scan');
+  }
 
-    if (mediaLibrary.storage !== storageType) {
-      mediaLibrary.storage = storageType;
-      mediaLibrary.setAttribute('storage', storageType);
-    }
+  const shouldSaveMedia = domCache.storageOption?.value
+    !== CONFIG.STORAGE_TYPES.NONE;
+  const mediaData = await domCache.mediaLibrary.loadFromPageList(
+    pageList,
+    null,
+    createSiteKey(formData.org, formData.site, formData.mode),
+    shouldSaveMedia,
+    null,
+    pageList,
+    [],
+  );
 
-    setupStorageManager(mediaLibrary, siteKey);
+  return { mediaData, shouldSaveMedia };
+}
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 100);
-    });
-
+async function saveResults(mediaData, shouldSaveMedia, siteKey) {
+  if (shouldSaveMedia && mediaData.length > 0) {
     try {
-      await initializeMediaLibraryWithRetry(mediaLibrary, storageType);
+      if (domCache.mediaLibrary.storageManager) {
+        await domCache.mediaLibrary.storageManager.save(mediaData);
+      } else {
+        throw new Error('Storage manager not available. Data will not be saved.');
+      }
     } catch (error) {
-      return;
+      handleError(error);
     }
+  }
 
-    setupStorageManager(mediaLibrary, siteKey);
+  localStorage.setItem('media-library-site-path', siteKey);
+  updateConfig();
+  await updateButtonVisibility();
+}
 
-    if (mediaLibrary.storageManager) {
-      try {
-        await mediaLibrary.initialize();
-      } catch (error) {
-        // Continue with existing storage manager
-      }
-    }
+export async function startScan() {
+  try {
+    const formData = await validateAndPrepareScan();
+    if (!formData) return;
 
-    const pageList = await discoverAEMContent(org, site, mode, customUrl);
-
-    if (!pageList || pageList.length === 0) {
-      alert('No pages found to scan');
-      return;
-    }
-
-    const storageOptionElement = document.getElementById('storage-option');
-    const shouldSaveMedia = storageOptionElement ? storageOptionElement.value !== 'none' : true;
-    const mediaData = await mediaLibrary.loadFromPageList(
-      pageList,
-      null,
-      `${org}/${site}/${mode}`,
-      shouldSaveMedia,
-      null,
-      pageList,
-      [],
-    );
-
-    if (shouldSaveMedia && mediaData.length > 0) {
-      try {
-        if (mediaLibrary.storageManager) {
-          await mediaLibrary.storageManager.save(mediaData);
-        } else {
-          alert('Storage manager not available. Data will not be saved.');
-        }
-      } catch (error) {
-        console.error('Error saving to storage:', error);
-        alert(`Failed to save data to storage: ${error.message}`);
-      }
-    }
-
-    const sitePath = `${org}/${site}/${mode}`;
-    localStorage.setItem('media-library-site-path', sitePath);
-
-    updateConfig();
-
-    await updateButtonVisibility();
+    const { siteKey } = await configureMediaLibrary(formData);
+    const { mediaData, shouldSaveMedia } = await performScan(formData);
+    await saveResults(mediaData, shouldSaveMedia, siteKey);
   } catch (error) {
-    console.error('Media library scan error:', error);
-    alert(`Scan failed: ${error.message || 'Unknown error. Please try again.'}`);
+    handleError(error);
   }
 }
 
 export async function loadPreviousScan() {
-  const mediaLibrary = document.getElementById('media-library');
-  const orgInput = document.getElementById('org');
-  const siteInput = document.getElementById('site');
-  const modeInput = document.getElementById('mode');
-
   try {
-    const org = orgInput.value.trim();
-    const site = siteInput.value.trim();
-    const mode = modeInput.value || 'sitemap';
-
-    if (!org || !site) {
-      alert('Please enter organization and site');
-      return;
+    const formData = getFormData();
+    if (!formData.org || !formData.site) {
+      throw new Error('Please enter organization and site');
     }
 
-    const siteKey = `${org}/${site}/${mode}`;
-    mediaLibrary.mode = mode;
+    const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
+    const storageType = getStorageType();
 
-    const storageOptionForLoad = document.getElementById('storage-option');
-    const storageType = storageOptionForLoad ? storageOptionForLoad.value : 'indexeddb';
-    mediaLibrary.storage = storageType;
-    mediaLibrary.siteKey = siteKey;
-    mediaLibrary.setAttribute('site-key', siteKey);
+    domCache.mediaLibrary.mode = formData.mode;
+    setMediaLibraryAttributes(domCache.mediaLibrary, siteKey, storageType);
 
     try {
-      await mediaLibrary.initialize();
+      await domCache.mediaLibrary.initialize();
     } catch (error) {
-      console.error('Failed to initialize media library for loading:', error);
-      alert(`Failed to initialize media library: ${error.message}`);
+      handleError(error);
       return;
     }
 
-    setupStorageManager(mediaLibrary, siteKey);
+    setupStorageManager(domCache.mediaLibrary, siteKey);
 
-    if (!mediaLibrary.storageManager) {
-      console.error('Storage manager not available for loading');
-      alert('Storage manager not available. Cannot load previous scan data.');
-      return;
+    if (!domCache.mediaLibrary.storageManager) {
+      throw new Error('Storage manager not available. Cannot load previous scan data.');
     }
 
     try {
-      const existingData = await mediaLibrary.storageManager.load();
+      const existingData = await domCache.mediaLibrary.storageManager.load();
       if (existingData && existingData.length > 0) {
-        await mediaLibrary.loadMediaData(existingData, siteKey, false, null);
+        await domCache.mediaLibrary.loadMediaData(existingData, siteKey, false, null);
       } else {
-        alert('No previous scan data found');
+        handleError(new Error('No previous scan data found'));
       }
     } catch (error) {
-      console.error('Error loading data from storage:', error);
-      alert(`Failed to load previous scan data: ${error.message}`);
+      handleError(error);
     }
   } catch (error) {
-    console.error('Error loading previous scan:', error);
-    alert(`Error loading previous scan: ${error.message}`);
+    handleError(error);
   }
 }
 
 async function clearIndexedDBData() {
-  const mediaLibrary = document.getElementById('media-library');
-  if (mediaLibrary && mediaLibrary.storageManager) {
-    try {
-      await mediaLibrary.storageManager.clearAllSites();
+  const formData = getFormData();
+  if (!formData) {
+    alert('Please fill in organization, site, and mode before clearing data.');
+    return;
+  }
 
-      await updateButtonVisibility();
+  const currentSiteKey = createSiteKey(formData.org, formData.site, formData.mode);
 
-      alert('Previous scan data has been cleared.');
-    } catch (error) {
-      console.error('Error clearing IndexedDB data:', error);
-      alert('Error clearing data. Please try again.');
+  if (!domCache.mediaLibrary) {
+    return;
+  }
+
+  if (!domCache.mediaLibrary.storageManager) {
+    return;
+  }
+
+  setupStorageManager(domCache.mediaLibrary, currentSiteKey);
+
+  try {
+    await domCache.mediaLibrary.clearData();
+
+    if (domCache.mediaLibrary.storageManager.type === CONFIG.STORAGE_TYPES.INDEXED_DB) {
+      await domCache.mediaLibrary.storageManager.deleteSite(currentSiteKey);
+    }
+
+    await updateButtonVisibility();
+    alert(`Previous scan data has been cleared successfully for ${formData.org}/${formData.site} (${formData.mode}).`);
+  } catch (error) {
+    const isBlockedError = error.message.includes('Database deletion blocked')
+      || error.message.includes('blocked')
+      || error.name === 'TransactionInactiveError';
+
+    if (isBlockedError) {
+      console.error('Database deletion blocked:', error);
+      alert('Unable to clear data right now. Please wait 10-15 seconds and try again, or refresh the page.');
+    } else {
+      handleError(error);
     }
   }
 }
 
-export async function initializeEventListeners() {
-  const startScanButton = document.getElementById('start-new-scan');
-  const loadPreviousButton = document.getElementById('load-media');
-  const clearDataButton = document.getElementById('clear-data');
-  const storageOption = document.getElementById('storage-option');
-  const form = document.getElementById('media-config-form');
-  const orgInput = document.getElementById('org');
-  const siteInput = document.getElementById('site');
-  const modeInput = document.getElementById('mode');
-  const sitemapInput = document.getElementById('sitemap-url');
-  const sitemapField = document.getElementById('sitemap-field');
+function handleModeChange(modeInput) {
+  if (modeInput.value === CONFIG.MODES.CUSTOM) {
+    domCache.sitemapField.style.display = 'block';
+    domCache.sitemapInput.required = true;
+  } else {
+    domCache.sitemapField.style.display = 'none';
+    domCache.sitemapInput.required = false;
+    domCache.sitemapInput.value = '';
+  }
+  updateButtonVisibility();
+}
 
-  startScanButton.addEventListener('click', startScan);
-  loadPreviousButton.addEventListener('click', loadPreviousScan);
-  clearDataButton.addEventListener('click', clearIndexedDBData);
+function setupEventDelegation() {
+  document.addEventListener('click', (event) => {
+    const { target } = event;
 
-  storageOption.addEventListener('change', updateButtonVisibility);
-
-  orgInput.addEventListener('input', updateButtonVisibility);
-  siteInput.addEventListener('input', updateButtonVisibility);
-  sitemapInput.addEventListener('input', updateButtonVisibility);
-
-  modeInput.addEventListener('change', () => {
-    if (modeInput.value === 'custom') {
-      sitemapField.style.display = 'block';
-      sitemapInput.required = true;
-    } else {
-      sitemapField.style.display = 'none';
-      sitemapInput.required = false;
-      sitemapInput.value = '';
+    if (target.matches(SELECTORS.START_SCAN_BUTTON)) {
+      startScan();
+    } else if (target.matches(SELECTORS.LOAD_BUTTON)) {
+      loadPreviousScan();
+    } else if (target.matches(SELECTORS.CLEAR_BUTTON)) {
+      clearIndexedDBData();
     }
-    updateButtonVisibility();
   });
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    updateConfig();
+  document.addEventListener('change', (event) => {
+    const { target } = event;
+
+    if (target.matches(SELECTORS.STORAGE_OPTION)
+        || target.matches(SELECTORS.ORG_INPUT)
+        || target.matches(SELECTORS.SITE_INPUT)
+        || target.matches(SELECTORS.SITEMAP_INPUT)) {
+      updateButtonVisibility();
+    } else if (target.matches(SELECTORS.MODE_INPUT)) {
+      handleModeChange(target);
+    }
   });
+
+  document.addEventListener('submit', (event) => {
+    if (event.target.matches(SELECTORS.MEDIA_CONFIG_FORM)) {
+      event.preventDefault();
+      updateConfig();
+    }
+  });
+}
+
+export async function initializeEventListeners() {
+  setupEventDelegation();
 
   const params = new URLSearchParams(window.location.search);
   const modeParam = params.get('mode');
   const sitemapParam = params.get('sitemap-url');
 
-  if (modeParam && modeInput) {
-    modeInput.value = modeParam;
-    modeInput.dispatchEvent(new Event('change'));
+  if (modeParam && domCache.modeInput) {
+    domCache.modeInput.value = modeParam;
+    domCache.modeInput.dispatchEvent(new Event('change'));
   }
 
-  if (sitemapParam && sitemapInput) {
-    sitemapInput.value = sitemapParam;
+  if (sitemapParam && domCache.sitemapInput) {
+    domCache.sitemapInput.value = sitemapParam;
   }
 
   await updateButtonVisibility();
@@ -426,16 +540,12 @@ export async function initializeEventListeners() {
 
 export async function initialize() {
   try {
-    await initializeMediaLibrary();
-
+    domCache.init();
+    await setupMediaLibrary();
     await initConfigField();
-
     await initializeEventListeners();
-
-    setTimeout(async () => {
-      await updateButtonVisibility();
-    }, 1000);
+    await updateButtonVisibility();
   } catch (error) {
-    alert('Error initializing media library. Please refresh the page.');
+    handleError(error);
   }
 }

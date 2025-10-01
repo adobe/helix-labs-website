@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="/styles/styles.css" />
   
   <!-- Media library web component (IIFE version with bundled Lit) -->
-  <script nonce="aem" src="deps/media-library-full.iife.js"></script>
+  <script nonce="aem" src="deps/media-library.iife.js"></script>
   <link rel="stylesheet" href="deps/style.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -46,7 +46,7 @@
               <datalist id="site-list"></datalist>
             </div>
             <div class="form-field mode-field">
-              <label for="mode">Mode</label>
+              <label for="mode">Source</label>
               <select name="mode" id="mode">
                 <option value="sitemap" selected>Sitemap</option>
                 <option value="queryindex">Query Index</option>
@@ -56,7 +56,7 @@
             
             <div class="form-field sitemap-field" id="sitemap-field" style="display: none;">
               <label for="sitemap-url">Sitemap URL</label>
-              <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://main--site--org.aem.live/sitemap.xml" style="width: 100%; max-width: 800px; min-width: 500px;" />
+              <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://main--site--org.aem.live/sitemap.xml" style="width: 100%; max-width: 400px; min-width: 300px;" />
             </div>
             
             <div class="form-field storage-field">

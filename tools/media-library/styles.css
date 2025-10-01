@@ -26,14 +26,40 @@ body.media-library #media-config-form {
   align-items: end;
   gap: 0.75rem;
   flex-wrap: wrap;
+  max-width: 100%;
+  overflow: visible;
 }
-
 
 body.media-library #media-config-form .config-field {
   display: flex;
   gap: 0.75rem;
   flex: 1;
   min-width: 280px;
+  max-width: 100%;
+}
+
+/* Ensure dropdowns show full text */
+body.media-library #media-config-form select {
+  min-width: 120px;
+  max-width: 200px;
+}
+
+/* Sitemap URL field specific styling */
+body.media-library #sitemap-field {
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+body.media-library #sitemap-field input {
+  width: 100% !important;
+  max-width: 400px !important;
+  min-width: 300px !important;
+}
+
+/* Remove the "/" separator between org and site fields */
+body.media-library .form-field.config-field .site-field::before {
+  content: none !important;
 }
 
 body.media-library #media-config-form .button-wrapper {
