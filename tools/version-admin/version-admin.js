@@ -13,6 +13,7 @@ const versions = document.getElementById('versions');
 const versionsTitle = document.getElementById('versions-title');
 const currentVersionInfo = document.getElementById('current-version-info');
 const currentVersionNumber = document.getElementById('current-version-number');
+const fetchButton = document.getElementById('fetch');
 
 const currentConfig = { type: '', versions: [], currentVersion: null };
 
@@ -423,6 +424,8 @@ adminForm.addEventListener('submit', async (e) => {
     return;
   }
 
+  fetchButton.disabled = true;
+
   currentConfig.type = typeSelect.value;
   versions.innerHTML = '';
   currentVersionInfo.style.display = 'none';
@@ -475,6 +478,7 @@ adminForm.addEventListener('submit', async (e) => {
       versions.append(li);
     }
   }
+  fetchButton.disabled = false;
 });
 
 // Initialize from URL parameters
