@@ -53,38 +53,7 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
   return resp;
 }
 
-/**
- * Gets the authentication token from browser cookie or sidekick
- * @returns {Promise<string|null>} The authentication token or null if not found
- */
-async function getAuthToken() {
-  // First try cookies
-  const cookies = document.cookie.split(';');
-  if (cookies.length > 0 && cookies[0] !== '') {
-    const authCookie = cookies.find((cookie) => {
-      const [name] = cookie.trim().split('=');
-      return name === 'auth_token';
-    });
-    if (authCookie) {
-      return authCookie.trim().split('=')[1];
-    }
-  }
-  return null;
-}
-
 export async function updateScheduledPublish(org, site, snapshotId, scheduledPublish) {
-  const statusURL = `https://admin.hlx.page/status/${org}/${site}/main/.snapshots/${snapshotId}`;
-  const statusResp = await fetch(statusURL);
-  if (!statusResp.ok) {
-    return;
-  }
-  const responseHeaders = statusResp.headers;
-  console.log('responseHeaders', responseHeaders);
-  const responseCookies = responseHeaders.get('set-cookie');
-  console.log('responseCookies', responseCookies);
-  // const authToken = responseCookies.split(';')[0].split('=')[1];
-  // console.log('authToken', authToken);
-  // return authToken;
   const adminURL = 'https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/schedule';
   const body = {
     org,
@@ -98,11 +67,6 @@ export async function updateScheduledPublish(org, site, snapshotId, scheduledPub
   };
 
   // Get authentication token from cookies
-  const authToken = await getAuthToken();
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
-  }
-
   const resp = await fetch(`${adminURL}`, {
     method: 'POST',
     headers,
