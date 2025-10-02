@@ -73,6 +73,18 @@ async function getAuthToken() {
 }
 
 export async function updateScheduledPublish(org, site, snapshotId, scheduledPublish) {
+  const statusURL = `https://admin.hlx.page/status/${org}/${site}/main/.snapshots/${snapshotId}`;
+  const statusResp = await fetch(statusURL);
+  if (!statusResp.ok) {
+    return;
+  }
+  const responseHeaders = statusResp.headers;
+  console.log('responseHeaders', responseHeaders);
+  const responseCookies = responseHeaders.get('set-cookie');
+  console.log('responseCookies', responseCookies);
+  // const authToken = responseCookies.split(';')[0].split('=')[1];
+  // console.log('authToken', authToken);
+  // return authToken;
   const adminURL = 'https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/schedule';
   const body = {
     org,
