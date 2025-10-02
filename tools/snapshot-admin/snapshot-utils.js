@@ -53,19 +53,47 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
   return resp;
 }
 
+/**
+ * Gets the authentication token from browser cookie or sidekick
+ * @returns {Promise<string|null>} The authentication token or null if not found
+ */
+async function getAuthToken() {
+  // First try cookies
+  const cookies = document.cookie.split(';');
+  if (cookies.length > 0 && cookies[0] !== '') {
+    const authCookie = cookies.find((cookie) => {
+      const [name] = cookie.trim().split('=');
+      return name === 'auth_token';
+    });
+    if (authCookie) {
+      return authCookie.trim().split('=')[1];
+    }
+  }
+  return null;
+}
+
 export async function updateScheduledPublish(org, site, snapshotId, scheduledPublish) {
-  const adminURL = 'http://localhost:8787/schedule';
+  const adminURL = 'https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/schedule';
   const body = {
     org,
     site,
     snapshotId,
     scheduledPublish,
   };
+
+  const headers = {
+    'content-type': 'application/json',
+  };
+
+  // Get authentication token from cookies
+  const authToken = await getAuthToken();
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
   const resp = await fetch(`${adminURL}`, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
   return resp;
