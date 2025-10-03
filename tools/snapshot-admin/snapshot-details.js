@@ -204,7 +204,7 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
             <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on">${manifest.resources ? manifest.resources.map((resource) => `https://main--${currentSite}--${currentOrg}.aem.page${resource.path}`).join('\n') : ''}</textarea>
           </div>
           <div class="snapshot-actions">
-            <button type="submit" class="button" data-action="save" data-snapshot="${name}">Save</button>
+            <button type="button" class="button" data-action="save" data-snapshot="${name}">Save</button>
             <button type="button" class="button" data-action="lock" data-snapshot="${name}" ${isLocked ? 'disabled' : ''}>Lock</button>
             <button type="button" class="button" data-action="unlock" data-snapshot="${name}" ${!isLocked ? 'disabled' : ''}>Unlock</button>
           </div>
@@ -311,10 +311,9 @@ async function saveSnapshot(snapshotName) {
         currentSite,
         snapshotName,
       );
-      console.log(scheduleResult);
       if (scheduleResult.status !== 200) {
-        logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, scheduleResult.statusText || '']);
-        await showModal('Error', `Error updating scheduled publish: ${scheduleResult.text() || 'Unknown error'}`);
+        logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, scheduleResult.text || '']);
+        await showModal('Error', `Error updating scheduled publish: ${scheduleResult.text || 'Unknown error'}`);
         return;
       }
       logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, 'Scheduled publish updated successfully']);
@@ -424,18 +423,6 @@ async function handleReviewAction(snapshotName, action) {
 }
 
 // Event Listeners
-
-/**
- * Handle form submission for snapshot edit form
- */
-snapshotDetails.addEventListener('submit', async (e) => {
-  if (e.target.classList.contains('snapshot-edit-form')) {
-    e.preventDefault();
-    const snapshotName = e.target.dataset.snapshot || currentSnapshot;
-    await saveSnapshot(snapshotName);
-  }
-});
-
 /**
  * Handle clicks on snapshot actions using event delegation
  */

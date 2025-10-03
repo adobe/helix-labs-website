@@ -65,11 +65,11 @@ export async function updateScheduledPublish(org, site, snapshotId) {
     'content-type': 'application/json',
   };
 
-  // Get authentication token from cookies
   const resp = await fetch(`${adminURL}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   });
-  return resp;
+  const result = await resp.text();
+  return { status: resp.status, text: result };
 }
