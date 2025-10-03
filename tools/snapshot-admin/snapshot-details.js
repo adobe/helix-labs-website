@@ -283,6 +283,13 @@ async function saveSnapshot(snapshotName) {
       },
     };
 
+    // Check if scheduled Publish date is at least 5 minutes from now before continuing
+    if (schedulerInput.value
+        && new Date(schedulerInput.value) < new Date(Date.now() + 5 * 60 * 1000)) {
+      await showModal('Error', 'Scheduled publish date must be at least 5 minutes from now');
+      return;
+    }
+
     // Save the manifest first
     const saveResult = await saveManifest(snapshotName, newManifest);
 
