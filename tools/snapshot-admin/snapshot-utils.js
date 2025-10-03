@@ -53,13 +53,12 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
   return resp;
 }
 
-export async function updateScheduledPublish(org, site, snapshotId, scheduledPublish) {
+export async function updateScheduledPublish(org, site, snapshotId) {
   const adminURL = 'https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/schedule';
   const body = {
     org,
     site,
     snapshotId,
-    scheduledPublish,
   };
 
   const headers = {
