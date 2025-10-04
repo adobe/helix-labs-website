@@ -54,7 +54,7 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
 }
 
 export async function updateScheduledPublish(org, site, snapshotId) {
-  const adminURL = 'https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/schedule';
+  const adminURL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev/schedule';
   const body = {
     org,
     site,
@@ -76,7 +76,7 @@ export async function updateScheduledPublish(org, site, snapshotId) {
 
 export async function isRegisteredForSnapshotScheduler(org, site) {
   try {
-    const adminURL = `https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/register/${org}/${site}`;
+    const adminURL = `https://helix-snapshot-scheduler-prod.adobeaem.workers.dev/register/${org}/${site}`;
     const resp = await fetch(adminURL);
     return resp.status === 200;
   } catch (error) {
