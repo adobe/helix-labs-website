@@ -7,7 +7,7 @@ import {
   updatePaths,
   addPasswordFieldListeners,
 } from './utils.js';
-import { updateScheduledPublish } from './snapshot-utils.js';
+import { updateScheduledPublish, isRegisteredForSnapshotScheduler } from './snapshot-utils.js';
 
 // DOM Elements
 const snapshotDetailsContainer = document.getElementById('snapshot-details-container');
@@ -165,12 +165,22 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
   const customReviewHost = await getCustomReviewHost();
   const reviewHost = customReviewHost || `${name}--main--${currentSite}--${currentOrg}.aem.reviews`;
 
+  // Check if org/site is registered for snapshot scheduler
+  const canSchedulePublish = await isRegisteredForSnapshotScheduler(currentOrg, currentSite);
+
   // Convert UTC date to local datetime-local format
   const formatLocalDate = (utcDate) => {
     if (!utcDate) return '';
     const d = new Date(utcDate);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
+
+  // Conditionally include scheduler field based on registration status
+  const schedulerField = canSchedulePublish ? `
+          <div class="form-field">
+            <label for="scheduler-${name}">Schedule Publish (Local Time)</label>
+            <input type="datetime-local" id="scheduler-${name}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
+          </div>` : '';
 
   return `
     <div class="snapshot-card" data-snapshot="${name}">
@@ -195,10 +205,7 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
             <label for="password-${name}">Password (for reviews)</label>
             <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password" value="${manifest.metadata?.reviewPassword || ''}" class="password-field">
           </div>
-          <div class="form-field">
-            <label for="scheduler-${name}">Schedule Publish (Local Time)</label>
-            <input type="datetime-local" id="scheduler-${name}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
-          </div>
+          ${schedulerField}
           <div class="form-field">
             <label for="urls-${name}">URLs (one per line)</label>
             <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on">${manifest.resources ? manifest.resources.map((resource) => `https://main--${currentSite}--${currentOrg}.aem.page${resource.path}`).join('\n') : ''}</textarea>
@@ -277,14 +284,14 @@ async function saveSnapshot(snapshotName) {
       description: descInput.value,
       metadata: {
         reviewPassword: passwordInput.value,
-        ...(schedulerInput.value && {
+        ...(schedulerInput && schedulerInput.value && {
           scheduledPublish: new Date(schedulerInput.value).toISOString(),
         }),
       },
     };
 
     // Check if scheduled Publish date is at least 5 minutes from now before continuing
-    if (schedulerInput.value
+    if (schedulerInput && schedulerInput.value
         && new Date(schedulerInput.value) < new Date(Date.now() + 5 * 60 * 1000)) {
       await showModal('Error', 'Scheduled publish date must be at least 5 minutes from now');
       return;
@@ -312,7 +319,7 @@ async function saveSnapshot(snapshotName) {
     logResponse([200, 'POST', `snapshot/${currentSnapshot}`, 'Paths updated successfully']);
 
     // Update scheduled publish date
-    if (schedulerInput.value) {
+    if (schedulerInput && schedulerInput.value) {
       const scheduleResult = await updateScheduledPublish(
         currentOrg,
         currentSite,

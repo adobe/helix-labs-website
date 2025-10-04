@@ -73,3 +73,14 @@ export async function updateScheduledPublish(org, site, snapshotId) {
   const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
 }
+
+export async function isRegisteredForSnapshotScheduler(org, site) {
+  try {
+    const adminURL = `https://helix-snapshot-scheduler-ci.adobeaem.workers.dev/register/${org}/${site}`;
+    const resp = await fetch(adminURL);
+    return resp.status === 200;
+  } catch (error) {
+    console.error('Error checking if registered for snapshot scheduler', error);
+    return false;
+  }
+}
