@@ -70,6 +70,6 @@ export async function updateScheduledPublish(org, site, snapshotId) {
     headers,
     body: JSON.stringify(body),
   });
-  const result = await resp.text();
+  const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
 }
