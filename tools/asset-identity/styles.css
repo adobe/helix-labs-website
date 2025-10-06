@@ -1,0 +1,188 @@
+/* form */
+.asset-identity {
+  --color-checkerboard-bg-fill: #fefefe;
+  --color-checkerboard-bg-border: rgb(214 213 213 / 40%);
+  --checkerboard-background: linear-gradient( var(--color-checkerboard-bg-border) 1px, transparent 1px ), linear-gradient( 90deg, var(--color-checkerboard-bg-border) 1px, transparent 1px ), linear-gradient( 45deg, var(--color-checkerboard-bg-fill) 50%, var(--color-checkerboard-bg-fill) 51% );
+  --checkerboard-background-size: clamp(15px, 3vw, 25px) clamp(15px, 3vw, 25px);
+}
+
+.asset-identity.block {
+  text-align: left;
+}
+
+.asset-identity form {
+  position: relative;
+}
+
+.asset-identity form input[name='upload'] {
+  display: block;
+  cursor: pointer;
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.asset-identity form input[name='upload']:disabled,
+.asset-identity form label[for='upload'][aria-hidden="true"] {
+  display: none;
+  visibility: hidden;
+}
+
+.asset-identity form label {
+  transition: color .3s;
+}
+
+.asset-identity form .viewbox[data-mode='dark'] label {
+  color: white;
+}
+
+.asset-identity form label p {
+  color: inherit;
+  text-align: center;
+}
+
+.asset-identity form label span + p {
+  margin-top: .5em;
+}
+
+.asset-identity .form .form-number-wrapper,
+.asset-identity .form label[for="width"], .asset-identity .form input#width,
+.asset-identity .form label[for="height"], .asset-identity .form input#height {
+  visibility: hidden;
+  display: none;
+}
+
+/* viewbox */
+.asset-identity .viewbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* width: 100%; */
+  height: 100vw;
+  outline: 2px solid transparent;
+  border: 1px solid var(--color-checkerboard-bg-border);
+  padding: 1rem;
+  background-image: var(--checkerboard-background);
+  background-size: var(--checkerboard-background-size);
+  background-position: center;
+}
+
+.asset-identity .viewbox,
+.asset-identity .viewbox [data-mode='light'] {
+  --color-checkerboard-bg-fill: #fefefe;
+  --color-checkerboard-bg-border: rgb(214 213 213 / 40%);
+  --checkerboard-background: linear-gradient(
+      var(--color-checkerboard-bg-border) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      var(--color-checkerboard-bg-border) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      45deg,
+      var(--color-checkerboard-bg-fill) 50%,
+      var(--color-checkerboard-bg-fill) 51%
+    );
+}
+
+.asset-identity .viewbox[data-mode='dark'] {
+  --color-checkerboard-bg-border: rgb(41 42 42 / 40%);
+  --color-checkerboard-bg-fill: #010101;
+}
+
+.asset-identity .viewbox[data-status='upload'] {
+  transition: background-color .3s, outline .3s;
+}
+
+.asset-identity .viewbox[data-status='upload'].hover,
+.asset-identity .viewbox[data-status='upload']:hover {
+  --color-checkerboard-bg-fill: var(--gray-100);
+
+  outline: 2px solid var(--link-hover-color);
+}
+
+.asset-identity .viewbox[data-status='upload'][data-mode='dark'].hover,
+.asset-identity .viewbox[data-status='upload'][data-mode='dark']:hover {
+  --color-checkerboard-bg-fill: #070707;
+}
+
+.asset-identity .viewbox svg {
+  width: 100%;
+  height: auto;
+  max-height: calc(100vw - 3rem);
+}
+
+@media (width >= 900px) {
+  .asset-identity .viewbox {
+    height: 860px;
+  }
+
+  .asset-identity .viewbox svg {
+    max-height: calc(860px - 3rem);
+  }
+}
+
+/* icons/glyphs */
+.asset-identity .glyph,
+.asset-identity .glyph::before,
+.asset-identity .glyph::after {
+  box-sizing: border-box;
+  display: block;
+  position: relative;
+  color: var(--color-text);
+}
+
+.asset-identity .glyph::before,
+.asset-identity .glyph::after {
+  content: '';
+  position: absolute;
+}
+
+.asset-identity .glyph-upload {
+  width: 20px;
+  height: 10px;
+  margin: auto;
+  margin-top: 12px;
+  border: 2px solid;
+  border-top: 0;
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.asset-identity .glyph-upload::after {
+  left: 3px;
+  bottom: 7px;
+  width: 10px;
+  height: 10px;
+  border-left: 2px solid;
+  border-top: 2px solid;
+  transform: rotate(45deg);
+}
+
+.asset-identity .glyph-upload::before {
+  left: 7px;
+  bottom: 5px;
+  width: 2px;
+  height: 12px;
+  background: currentcolor;
+}
+
+/* preview */
+.asset-identity .viewbox .preview {
+  width: 100%;
+  height: 100%;
+  color: black;
+}
+
+.asset-identity .viewbox .preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.asset-identity .viewbox[data-mode='dark'] .preview {
+  color: white;
+}
