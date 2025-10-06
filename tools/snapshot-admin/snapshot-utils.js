@@ -52,3 +52,35 @@ export async function updateReviewStatus(owner, repo, snapshot, status) {
   });
   return resp;
 }
+
+export async function updateScheduledPublish(org, site, snapshotId) {
+  const adminURL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev/schedule';
+  const body = {
+    org,
+    site,
+    snapshotId,
+  };
+
+  const headers = {
+    'content-type': 'application/json',
+  };
+
+  const resp = await fetch(`${adminURL}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const result = resp.headers.get('X-Error');
+  return { status: resp.status, text: result };
+}
+
+export async function isRegisteredForSnapshotScheduler(org, site) {
+  try {
+    const adminURL = `https://helix-snapshot-scheduler-prod.adobeaem.workers.dev/register/${org}/${site}`;
+    const resp = await fetch(adminURL);
+    return resp.status === 200;
+  } catch (error) {
+    console.error('Error checking if registered for snapshot scheduler', error);
+    return false;
+  }
+}
