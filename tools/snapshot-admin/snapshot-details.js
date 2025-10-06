@@ -165,23 +165,6 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
   const customReviewHost = await getCustomReviewHost();
   const reviewHost = customReviewHost || `${name}--main--${currentSite}--${currentOrg}.aem.reviews`;
 
-  // Check if org/site is registered for snapshot scheduler
-  const canSchedulePublish = await isRegisteredForSnapshotScheduler(currentOrg, currentSite);
-
-  // Convert UTC date to local datetime-local format
-  const formatLocalDate = (utcDate) => {
-    if (!utcDate) return '';
-    const d = new Date(utcDate);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  };
-
-  // Conditionally include scheduler field based on registration status
-  const schedulerField = canSchedulePublish ? `
-          <div class="form-field">
-            <label for="scheduler-${name}">Schedule Publish (Local Time)</label>
-            <input type="datetime-local" id="scheduler-${name}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
-          </div>` : '';
-
   return `
     <div class="snapshot-card" data-snapshot="${name}">
       <div class="snapshot-header">
@@ -205,7 +188,6 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
             <label for="password-${name}">Password (for reviews)</label>
             <input type="password" id="password-${name}" name="password" placeholder="Review password" autocomplete="current-password" value="${manifest.metadata?.reviewPassword || ''}" class="password-field">
           </div>
-          ${schedulerField}
           <div class="form-field">
             <label for="urls-${name}">URLs (one per line)</label>
             <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on">${manifest.resources ? manifest.resources.map((resource) => `https://main--${currentSite}--${currentOrg}.aem.page${resource.path}`).join('\n') : ''}</textarea>
@@ -233,6 +215,47 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
 }
 
 /**
+ * Add scheduler field to the form if the org/site is registered for snapshot scheduler
+ * @param {string} snapshotName - Name of the snapshot
+ * @param {Object} manifest - The manifest object
+ */
+async function addSchedulerFieldIfRegistered(snapshotName, manifest) {
+  // Check if org/site is registered for snapshot scheduler
+  const canSchedulePublish = await isRegisteredForSnapshotScheduler(currentOrg, currentSite);
+
+  if (!canSchedulePublish) {
+    return;
+  }
+
+  // Convert UTC date to local datetime-local format
+  const formatLocalDate = (utcDate) => {
+    if (!utcDate) return '';
+    const d = new Date(utcDate);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Create scheduler field HTML
+  const schedulerFieldHTML = `
+    <div class="form-field">
+      <label for="scheduler-${snapshotName}">Schedule Publish (Local Time)</label>
+      <input type="datetime-local" id="scheduler-${snapshotName}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
+    </div>`;
+
+  // Find the password field and insert the scheduler field after it
+  const passwordField = document.getElementById(`password-${snapshotName}`)?.closest('.form-field');
+
+  if (passwordField) {
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = schedulerFieldHTML;
+    const schedulerField = tempDiv.firstElementChild;
+
+    // Insert after the password field
+    passwordField.insertAdjacentElement('afterend', schedulerField);
+  }
+}
+
+/**
  * Load snapshot details
  */
 async function loadSnapshotDetails() {
@@ -257,6 +280,9 @@ async function loadSnapshotDetails() {
 
     // Add password field event listeners after rendering
     addPasswordFieldListeners();
+
+    // Check and add scheduler field if registered
+    await addSchedulerFieldIfRegistered(currentSnapshot, currentManifest);
 
     snapshotDetailsContainer.setAttribute('aria-hidden', 'false');
 
