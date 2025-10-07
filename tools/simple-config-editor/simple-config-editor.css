@@ -24,6 +24,38 @@
   margin: 0;
 }
 
+.config-editor-actions {
+  display: flex;
+  gap: var(--spacing-s);
+  align-items: center;
+}
+
+.changed-value {
+  background-color: #e3f2fd !important; /* Light blue background for changed values */
+}
+
+.placeholder-text {
+  color: var(--gray-500);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.inherited-value {
+  background-color: var(--gray-50);
+  opacity: 0.8;
+}
+
+.inherited-value .button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sensitive-value {
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--gray-600);
+}
+
 .config-table-container {
   overflow-x: auto;
   border: var(--border-s) solid var(--gray-300);
@@ -127,6 +159,11 @@
   word-break: break-all;
 }
 
+.inherited-value .config-value-display {
+  color: var(--gray-600);
+  font-style: italic;
+}
+
 .config-value-display.object {
   background: var(--gray-50);
   padding: var(--spacing-xs);
@@ -191,6 +228,10 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .config-editor-actions {
+    flex-direction: row;
   }
 
   .config-table th,
