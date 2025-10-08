@@ -6,6 +6,7 @@ let originalConfig = {}; // Used to track original state for comparison
 let aggregateConfig = {}; // Used to show inherited values
 let configPath = '';
 const pendingChanges = new Map(); // Track all pending changes
+let showInherited = false; // Track whether inherited properties are visible
 
 // CDN provider field configurations
 const CDN_FIELDS = {
@@ -694,7 +695,10 @@ function populateConfigTable() {
     });
   }
 
-  combined.forEach(({
+  // Filter out inherited properties if showInherited is false
+  const filteredCombined = showInherited ? combined : combined.filter((item) => !item.isInherited);
+
+  filteredCombined.forEach(({
     key, value, path, isInherited,
   }) => {
     const row = createConfigRow(key, value, path, isInherited);
@@ -935,6 +939,12 @@ async function loadConfig() {
     pendingChanges.clear(); // Clear any pending changes when loading new config
 
     configEditor.removeAttribute('aria-hidden');
+
+    // Reset inherited visibility state when loading new config
+    showInherited = false;
+    const toggleButton = document.getElementById('toggle-inherited');
+    toggleButton.textContent = 'Show Inherited';
+
     populateConfigTable();
     updateSaveButton(); // Hide save button initially
 
@@ -1054,6 +1064,23 @@ async function saveAllChanges() {
 }
 
 /**
+ * Toggles the visibility of inherited properties
+ */
+function toggleInheritedProperties() {
+  showInherited = !showInherited;
+  const toggleButton = document.getElementById('toggle-inherited');
+
+  if (showInherited) {
+    toggleButton.textContent = 'Hide Inherited';
+  } else {
+    toggleButton.textContent = 'Show Inherited';
+  }
+
+  // Refresh the table to apply the new filtering
+  populateConfigTable();
+}
+
+/**
  * Initializes the config editor
  */
 function init() {
@@ -1082,6 +1109,9 @@ function init() {
 
   // Save all changes button
   document.getElementById('save-all-changes').addEventListener('click', saveAllChanges);
+
+  // Toggle inherited properties button
+  document.getElementById('toggle-inherited').addEventListener('click', toggleInheritedProperties);
 
   // Auto-load config if both org and site are set from URL params
   if (org.value && site.value) {

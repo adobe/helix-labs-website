@@ -30,6 +30,11 @@
   align-items: center;
 }
 
+#toggle-inherited {
+  font-size: var(--font-size-s);
+  padding: var(--spacing-xs) var(--spacing-s);
+}
+
 .changed-value {
   background-color: #e3f2fd !important; /* Light blue background for changed values */
 }
