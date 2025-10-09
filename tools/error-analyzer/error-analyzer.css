@@ -26,12 +26,17 @@
       align-items: center;
       gap: var(--spacing-s);
 
+
+      .favicon {
+        width: 24px;
+      }
+
       .domain-name {
         font-size: var(--heading-size-m);
         font-weight: var(--weight-bold);
       }
 
-      .domain-trigger {
+      .domain-trigger, .explorer-trigger {
         padding: var(--spacing-s);
         border-radius: 50%;
 

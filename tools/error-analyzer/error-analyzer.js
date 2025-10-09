@@ -29,11 +29,34 @@ function updateState() {
   window.history.replaceState({}, document.title, url.href);
 
   // update ui elements from the state object
-  document.querySelector('.domain-name').textContent = state.domain;
-  const favicon = document.querySelector('.favicon img');
-  favicon.src = `https://www.google.com/s2/favicons?domain=${state.domain}&sz=64`;
-  favicon.alt = `favicon for ${state.domain}`;
-  document.getElementById('date-range').value = state.dateRange;
+  if (state.domain) {
+    document.querySelector('.domain-name').textContent = state.domain;
+    const favicon = document.querySelector('.favicon img');
+    favicon.src = `https://www.google.com/s2/favicons?domain=${state.domain}&sz=64`;
+    favicon.alt = `favicon for ${state.domain}`;
+  }
+
+  const explorerTrigger = document.querySelector('.explorer-trigger');
+  if (state.domain && state.domainKey) {
+    const explorerUrl = new URL(explorerTrigger.href);
+    explorerUrl.search = '';
+    explorerUrl.searchParams.set('domain', state.domain);
+    explorerUrl.searchParams.set('domainkey', state.domainKey);
+    explorerUrl.searchParams.set('view', state.dateRange || 'month');
+    if (state.urlFilter) {
+      explorerUrl.searchParams.set('url', state.urlFilter);
+    }
+    explorerUrl.searchParams.set('checkpoint', 'error');
+    explorerTrigger.href = explorerUrl.href;
+    explorerTrigger.style.display = 'block';
+  } else {
+    explorerTrigger.style.display = 'none';
+  }
+
+  if (state.dateRange) {
+    document.getElementById('date-range').value = state.dateRange;
+  }
+
   const filterIndicator = document.querySelector('.filter-indicator');
   const filterLink = filterIndicator.querySelector('a');
   if (state.urlFilter) {
