@@ -7,6 +7,7 @@ import {
   updatePaths,
   addPasswordFieldListeners,
 } from './utils.js';
+import { updateScheduledPublish, isRegisteredForSnapshotScheduler } from './snapshot-utils.js';
 
 // DOM Elements
 const snapshotDetailsContainer = document.getElementById('snapshot-details-container');
@@ -192,7 +193,7 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
             <textarea id="urls-${name}" name="urls" rows="10" placeholder="Enter URLs, one per line" autocomplete="on">${manifest.resources ? manifest.resources.map((resource) => `https://main--${currentSite}--${currentOrg}.aem.page${resource.path}`).join('\n') : ''}</textarea>
           </div>
           <div class="snapshot-actions">
-            <button type="submit" class="button" data-action="save" data-snapshot="${name}">Save</button>
+            <button type="button" class="button" data-action="save" data-snapshot="${name}">Save</button>
             <button type="button" class="button" data-action="lock" data-snapshot="${name}" ${isLocked ? 'disabled' : ''}>Lock</button>
             <button type="button" class="button" data-action="unlock" data-snapshot="${name}" ${!isLocked ? 'disabled' : ''}>Unlock</button>
           </div>
@@ -211,6 +212,47 @@ async function createSnapshotDetailsHTML(snapshot, manifest) {
       </div>
     </div>
   `;
+}
+
+/**
+ * Add scheduler field to the form if the org/site is registered for snapshot scheduler
+ * @param {string} snapshotName - Name of the snapshot
+ * @param {Object} manifest - The manifest object
+ */
+async function addSchedulerFieldIfRegistered(snapshotName, manifest) {
+  // Check if org/site is registered for snapshot scheduler
+  const canSchedulePublish = await isRegisteredForSnapshotScheduler(currentOrg, currentSite);
+
+  if (!canSchedulePublish) {
+    return;
+  }
+
+  // Convert UTC date to local datetime-local format
+  const formatLocalDate = (utcDate) => {
+    if (!utcDate) return '';
+    const d = new Date(utcDate);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Create scheduler field HTML
+  const schedulerFieldHTML = `
+    <div class="form-field">
+      <label for="scheduler-${snapshotName}">Schedule Publish (Local Time)</label>
+      <input type="datetime-local" id="scheduler-${snapshotName}" name="scheduler" value="${formatLocalDate(manifest.metadata?.scheduledPublish)}">
+    </div>`;
+
+  // Find the password field and insert the scheduler field after it
+  const passwordField = document.getElementById(`password-${snapshotName}`)?.closest('.form-field');
+
+  if (passwordField) {
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = schedulerFieldHTML;
+    const schedulerField = tempDiv.firstElementChild;
+
+    // Insert after the password field
+    passwordField.insertAdjacentElement('afterend', schedulerField);
+  }
 }
 
 /**
@@ -239,6 +281,9 @@ async function loadSnapshotDetails() {
     // Add password field event listeners after rendering
     addPasswordFieldListeners();
 
+    // Check and add scheduler field if registered
+    await addSchedulerFieldIfRegistered(currentSnapshot, currentManifest);
+
     snapshotDetailsContainer.setAttribute('aria-hidden', 'false');
 
     logResponse([200, 'GET', `snapshot/${currentSnapshot}`, 'Details loaded']);
@@ -256,6 +301,7 @@ async function saveSnapshot(snapshotName) {
     const titleInput = document.getElementById(`title-${snapshotName}`);
     const descInput = document.getElementById(`description-${snapshotName}`);
     const passwordInput = document.getElementById(`password-${snapshotName}`);
+    const schedulerInput = document.getElementById(`scheduler-${snapshotName}`);
     const urlsTextarea = document.getElementById(`urls-${snapshotName}`);
     const updatedPaths = urlsTextarea.value.split('\n').map((url) => ({ path: url.trim() }));
 
@@ -264,8 +310,18 @@ async function saveSnapshot(snapshotName) {
       description: descInput.value,
       metadata: {
         reviewPassword: passwordInput.value,
+        ...(schedulerInput && schedulerInput.value && {
+          scheduledPublish: new Date(schedulerInput.value).toISOString(),
+        }),
       },
     };
+
+    // Check if scheduled Publish date is at least 5 minutes from now before continuing
+    if (schedulerInput && schedulerInput.value
+        && new Date(schedulerInput.value) < new Date(Date.now() + 5 * 60 * 1000)) {
+      await showModal('Error', 'Scheduled publish date must be at least 5 minutes from now');
+      return;
+    }
 
     // Save the manifest first
     const saveResult = await saveManifest(snapshotName, newManifest);
@@ -288,6 +344,20 @@ async function saveSnapshot(snapshotName) {
     }
     logResponse([200, 'POST', `snapshot/${currentSnapshot}`, 'Paths updated successfully']);
 
+    // Update scheduled publish date
+    if (schedulerInput && schedulerInput.value) {
+      const scheduleResult = await updateScheduledPublish(
+        currentOrg,
+        currentSite,
+        snapshotName,
+      );
+      if (scheduleResult.status !== 200) {
+        logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, scheduleResult.text || '']);
+        await showModal('Error', `Error updating scheduled publish: ${scheduleResult.text || 'Unknown error'}`);
+        return;
+      }
+      logResponse([scheduleResult.status, 'POST', `snapshot/${snapshotName}`, 'Scheduled publish updated successfully']);
+    }
     // Reload the snapshot details to reflect changes
     await loadSnapshotDetails();
     await showModal('Success', 'Snapshot saved successfully!');
@@ -393,18 +463,6 @@ async function handleReviewAction(snapshotName, action) {
 }
 
 // Event Listeners
-
-/**
- * Handle form submission for snapshot edit form
- */
-snapshotDetails.addEventListener('submit', async (e) => {
-  if (e.target.classList.contains('snapshot-edit-form')) {
-    e.preventDefault();
-    const snapshotName = e.target.dataset.snapshot || currentSnapshot;
-    await saveSnapshot(snapshotName);
-  }
-});
-
 /**
  * Handle clicks on snapshot actions using event delegation
  */

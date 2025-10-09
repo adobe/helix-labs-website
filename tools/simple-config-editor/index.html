@@ -62,7 +62,9 @@
     <div id="config-editor" aria-hidden="true">
       <div class="config-editor-header">
         <h2>Configuration Properties (cdn, access, metadata only)</h2>
-        <button id="add-property" class="button">Add Property</button>
+        <div class="config-editor-actions">
+          <button id="add-property" class="button">Add Property</button>
+        </div>
       </div>
       
       <div class="config-table-container">
@@ -79,7 +81,10 @@
           </tbody>
         </table>
       </div>
-
+      <div class="config-editor-actions">
+        <button id="save-all-changes" class="button primary" style="display: none;">Save All Changes</button>
+        <button id="toggle-inherited" class="button outline">Show Inherited</button>
+      </div>
     </div>
 
     <!-- CONSOLE -->
