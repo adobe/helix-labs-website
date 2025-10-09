@@ -1,0 +1,113 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "clear": "Effacer",
+    "all": "Tous"
+  },
+  "COMMON": {
+    "FILTER": "Filtrer"
+  },
+  "mediaLibrary": {
+    "title": "Bibliothèque de Médias",
+    "searchPlaceholder": "Rechercher des médias, doc:chemin, folder:chemin, ou / pour fichiers racine...",
+    "noResults": "Aucun média trouvé",
+    "loadingMedia": "Chargement des médias...",
+    "scanProgress": "Analyse de {{current}} sur {{total}} pages...",
+    "scanStarting": "Démarrage de l'analyse...",
+    "scanComplete": "Analyse terminée ! {{count}} fichiers multimédias trouvés.",
+    "scanning": "Analyse en cours...",
+    "scanButton": "Analyser les Médias",
+    "manualSitemap": "URL de Sitemap Manuelle",
+    "sitemapPlaceholder": "Saisir l'URL du sitemap manuellement",
+    "analysisEnabled": "Analyse ON",
+    "analysisDisabled": "Analyse OFF",
+    "analysisTooltip": "Basculer l'analyse d'image (orientation, catégorisation, données EXIF) - ON par défaut pour une meilleure catégorisation"
+  },
+  "filters": {
+    "all": "Tous les Médias",
+    "images": "Images",
+    "videos": "Vidéos",
+    "documents": "Documents",
+    "links": "Liens",
+    "icons": "SVGs",
+    "missingAlt": "Texte Alt Manquant",
+    "decorative": "Décoratif",
+    "filled": "Avec Texte Alt",
+    "unused": "Non Utilisé",
+    "landscape": "Paysage",
+    "portrait": "Portrait",
+    "square": "Carré",
+    "lcpCandidate": "Candidats LCP",
+    "aboveFold": "Au-dessus du Pli",
+    "belowFold": "En-dessous du Pli",
+    "needsOptimization": "Nécessite une Optimisation",
+    "fullyOptimized": "Entièrement Optimisé",
+    "noSrcset": "Pas de Srcset",
+    "hasSrcset": "Avec Srcset",
+    "legacyFormat": "Format Legacy",
+    "modernFormat": "Format Moderne",
+    "noLazyLoading": "Pas de Lazy Loading",
+    "lazyLoading": "Lazy Loading",
+    "socialImage": "Images Sociales",
+    "ogImage": "Images OG",
+    "performanceIssue": "Problèmes de Performance",
+    "screenshots": "Captures d'Écran",
+    "logos": "Logos",
+    "people-photos": "Photos de Personnes",
+    "products": "Produits",
+    "404-media": "Médias 404"
+  },
+  "views": {
+    "grid": "Vue Grille",
+    "list": "Vue Liste"
+  },
+  "categories": {
+    "title": "Catégories",
+    "hero-banner": "Hero/Bannière",
+    "team-member": "Équipe/Personnes", 
+    "testimonials": "Témoignages",
+    "navigation-ui": "Navigation/UI",
+    "article-content": "Article/Contenu",
+    "product-service": "Produit/Service",
+    "decorative-background": "Décoratif/Arrière-plan",
+    "social-sharing": "Social/Partage",
+    "document-pdf": "Document/PDF",
+    "logo-brand": "Logo/Marque",
+    "screenshot-demo": "Capture/Démo"
+  },
+  "media": {
+    "altText": "Texte Alt",
+    "fileName": "Nom du Fichier",
+    "fileSize": "Taille du Fichier",
+    "lastModified": "Dernière Modification",
+    "usedIn": "Utilisé dans {{count}} documents",
+    "notUsed": "Non utilisé",
+    "copyUrl": "Copier l'URL",
+    "copyImage": "Copier l'Image",
+    "download": "Télécharger",
+    "editAltText": "Modifier le Texte Alt"
+  },
+  "units": {
+    "bytes": "octets",
+    "KB": "Ko",
+    "MB": "Mo",
+    "GB": "Go"
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement des données multimédias",
+    "scanFailed": "Échec de l'analyse des médias",
+    "saveFailed": "Échec de l'enregistrement des modifications",
+    "networkError": "Erreur réseau survenue",
+    "invalidSource": "URL source invalide",
+    "parseError": "Échec de l'analyse des données"
+  }
+}
