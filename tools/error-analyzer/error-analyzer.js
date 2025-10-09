@@ -342,6 +342,12 @@ async function init() {
     }
   });
 
+  document.getElementById('date-range').addEventListener('change', () => {
+    state.dateRange = document.getElementById('date-range').value;
+    updateState();
+    refreshResults();
+  });
+
   const {
     domain, domainKey, dateRange, urlFilter,
   } = getStateFromURL();
@@ -353,16 +359,10 @@ async function init() {
   updateState();
 
   if (domain && domainKey) {
-    refreshResults();
+    setTimeout(refreshResults, 100);
   } else {
     modal.showModal();
   }
-
-  document.getElementById('date-range').addEventListener('change', () => {
-    state.dateRange = document.getElementById('date-range').value;
-    updateState();
-    refreshResults();
-  });
 }
 
 init();

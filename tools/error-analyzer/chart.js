@@ -1,13 +1,10 @@
-/* eslint-disable-next-line import/no-unresolved */
-import * as echarts from 'echarts';
-
 let chartInstance = null;
 
 /**
  * Initialize the chart instance
- * @returns {echarts.ECharts} The chart instance
+ * @returns The chart instance
  */
-export function initChart() {
+export async function initChart() {
   let chartDom = document.getElementById('error-chart');
   if (!chartDom) {
     const graphContainer = document.querySelector('.error-graph-container');
@@ -17,6 +14,8 @@ export function initChart() {
   }
 
   if (!chartInstance) {
+    /* eslint-disable-next-line import/no-unresolved */
+    const echarts = await import('echarts');
     chartInstance = echarts.init(chartDom);
 
     // Handle window resize for chart
@@ -35,8 +34,8 @@ export function initChart() {
  * @param {Array} filteredData - The filtered data with timeSlots
  * @param {string} dateRange - The date range ('week', 'month', or 'year')
  */
-export function updateChart(filteredData, dateRange) {
-  const chart = initChart();
+export async function updateChart(filteredData, dateRange) {
+  const chart = await initChart();
   if (!chart) return;
 
   // Aggregate error counts by time period from filtered data
