@@ -89,37 +89,29 @@ function formatUrls(urlsObject, activeFilter = null) {
     return '-';
   }
 
-  // If there's an active filter, prioritize showing that URL
-  let displayUrl;
-  let displayCount;
-  let remainingUrls;
-
+  // If there's an active filter, prioritize showing that URL first
+  let displayEntries;
   if (activeFilter && activeFilter in urlsObject) {
-    // Show the filtered URL first
-    displayUrl = activeFilter;
-    displayCount = urlsObject[activeFilter];
-    // All other URLs go in the tooltip
-    remainingUrls = urlEntries
-      .filter(([url]) => url !== activeFilter)
-      .map(([url, count]) => `${url} (${formatNumber(count)})`)
-      .join('\n');
+    // Put filtered URL first, then others
+    const filtered = [activeFilter, urlsObject[activeFilter]];
+    const others = urlEntries.filter(([url]) => url !== activeFilter);
+    displayEntries = [filtered, ...others];
   } else {
-    // Show the most common URL
-    const [topUrl, topCount] = urlEntries[0];
-    displayUrl = topUrl;
-    displayCount = topCount;
-    // Remaining URLs go in the tooltip
-    remainingUrls = urlEntries
-      .slice(1)
-      .map(([url, count]) => `${url} (${formatNumber(count)})`)
-      .join('\n');
+    displayEntries = urlEntries;
   }
 
-  let result = `<span class="url-filter-link" data-url="${displayUrl.replace(/"/g, '&quot;')}">${displayUrl}</span> (${formatNumber(displayCount)})`;
+  // Show up to 3 URLs
+  const urlsToShow = displayEntries.slice(0, 3);
+  const remainingCount = displayEntries.length - urlsToShow.length;
 
-  const remainingCount = urlEntries.length - 1;
+  let result = '<ul class="url-list">';
+  urlsToShow.forEach(([url, count]) => {
+    result += `<li><span class="url-filter-link" data-url="${url.replace(/"/g, '&quot;')}">${url}</span> <span class="url-count">(${formatNumber(count)})</span></li>`;
+  });
+  result += '</ul>';
+
   if (remainingCount > 0) {
-    result += `<br><small class="more-urls" data-urls="${remainingUrls.replace(/"/g, '&quot;')}">${remainingCount} more URL${remainingCount === 1 ? '' : 's'}</small>`;
+    result += `<small class="more-urls">${remainingCount} more URL${remainingCount === 1 ? '' : 's'}</small>`;
   }
 
   return result;
