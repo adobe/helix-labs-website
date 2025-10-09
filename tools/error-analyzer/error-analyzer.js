@@ -354,6 +354,8 @@ async function init() {
 
   if (domain && domainKey) {
     refreshResults();
+  } else {
+    modal.showModal();
   }
 
   document.getElementById('date-range').addEventListener('change', () => {
