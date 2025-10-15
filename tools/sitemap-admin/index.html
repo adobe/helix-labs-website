@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Security-Policy"
+    content="script-src 'nonce-aem' 'strict-dynamic'; base-uri 'self'; object-src 'none';" move-to-http-header="true">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sitemap Admin | AEM Tools</title>
+  <meta name="description" content="Manage the sitemaps for your site.">
+  <script nonce="aem" src="/scripts/aem.js" type="module"></script>
+  <script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/utils/config/config.css" />
+  <link rel="stylesheet" href="/styles/styles.css" />
+  <script nonce="aem" src="/tools/sitemap-admin/sitemap-admin.js" type="module"></script>
+  <link rel="stylesheet" href="/tools/sitemap-admin/sitemap-admin.css" />
+</head>
+
+<body class="sitemap-admin">
+  <header></header>
+  <main>
+    <div>
+      <h1>Sitemap Admin</h1>
+      <p>
+        Manage the sitemaps for your site. See <a href="https://www.aem.live/developer/sitemap" target="_blank">Sitemap
+          Documentation</a> for more information.
+      </p>
+    </div>
+
+    <div>
+      <form id="admin-form">
+        <section class="form-field config-field">
+          <div class="form-field org-field">
+            <label for="org">Organization</label>
+            <input name="org" id="org" list="org-list" autocomplete="off" required />
+            <datalist id="org-list"></datalist>
+          </div>
+          <div class="form-field site-field">
+            <label for="site">Site</label>
+            <input name="site" id="site" list="site-list" autocomplete="off" disabled />
+            <datalist id="site-list"></datalist>
+          </div>
+        </section>
+        <p class="button-wrapper">
+          <button type="submit" id="fetch" class="button">Fetch</button>
+        </p>
+      </form>
+    </div>
+
+    <div>
+      <h2>Sitemaps</h2>
+      <p class="button-wrapper">
+        <button type="button" id="add-sitemap" class="button outline" disabled>Add Sitemap</button>
+      </p>
+      <ul id="sitemaps-list">
+      </ul>
+    </div>
+
+    <div>
+      <div class="table" aria-hidden="true">
+        <table id="console">
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+  <template id="sitemap-card-template">
+    <li class="sitemap-card">
+      <p class="sitemap-name"></p>
+      <div class="sitemap-attributes">
+        <div class="sitemap-attribute"><span class="sitemap-attribute-name">Source:</span>
+          <div class="sitemap-attribute-value sitemap-attribute-value-source"></div>
+        </div>
+        <div class="sitemap-attribute"><span class="sitemap-attribute-name">Destination:</span>
+          <div class="sitemap-attribute-value sitemap-attribute-value-destination"></div>
+        </div>
+        <div class="sitemap-attribute"><span class="sitemap-attribute-name">Origin:</span>
+          <div class="sitemap-attribute-value sitemap-attribute-value-origin"></div>
+        </div>
+      </div>
+      <div class="sitemap-actions">
+        <button type="button" class="button outline edit-sitemap-btn">Edit</button>
+        <button type="button" class="button generate-sitemap-btn">Generate</button>
+        <button type="button" class="button danger remove-sitemap-btn">Remove</button>
+      </div>
+    </li>
+  </template>
+  <template id="sitemap-details-dialog-template">
+    <dialog class="sitemap-details">
+      <div class="sitemap-details-content">
+        <div class="sitemap-details-header">
+          <h3>Edit Sitemap</h3>
+        </div>
+        <div class="sitemap-details-body">
+          <form>
+            <div class="form-field">
+              <label for="sitemap-name">Name</label>
+              <input type="text" id="sitemap-name" name="sitemap-name" required />
+            </div>
+            <div class="form-field">
+              <label for="sitemap-source">Source</label>
+              <input type="text" id="sitemap-source" name="sitemap-source" required />
+            </div>
+            <div class="form-field">
+              <label for="sitemap-destination">Destination</label>
+              <input type="text" id="sitemap-destination" name="sitemap-destination" required />
+            </div>
+            <div class="form-field">
+              <label for="sitemap-origin">Origin</label>
+              <input type="text" id="sitemap-origin" name="sitemap-origin" placeholder="Optional" />
+            </div>
+            <div class="form-field">
+              <label for="sitemap-lastmod">Last Modified Format</label>
+              <input type="text" id="sitemap-lastmod" name="sitemap-lastmod" placeholder="e.g., YYYY-MM-DD" />
+            </div>
+            <div class="form-field">
+              <label for="sitemap-extension">Extension</label>
+              <input type="text" id="sitemap-extension" name="sitemap-extension" placeholder="e.g., .html" />
+            </div>
+            <div class="button-area">
+              <p class="button-wrapper">
+                <button type="submit" id="save-sitemap" class="button">Save</button>
+              </p>
+              <p class="button-wrapper">
+                <button type="button" id="cancel-sitemap" class="button outline">Cancel</button>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </dialog>
+  </template>
+</body>
+
+</html>
+
