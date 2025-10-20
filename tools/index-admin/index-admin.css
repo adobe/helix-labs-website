@@ -222,7 +222,7 @@
 
       .properties-header {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr 60px;
+        grid-template-columns: 1fr 1fr 1fr 140px 1fr 60px;
         gap: var(--spacing-s);
         padding: var(--spacing-s) var(--spacing-m);
         background: var(--gray-100);
@@ -248,7 +248,7 @@
 
       .index-property {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr 60px;
+        grid-template-columns: 1fr 1fr 1fr 140px 1fr 60px;
         gap: var(--spacing-s);
         padding: var(--spacing-s) var(--spacing-m);
         border-bottom: 1px solid var(--gray-200);

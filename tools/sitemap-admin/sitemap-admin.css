@@ -1,0 +1,213 @@
+.sitemap-admin {
+  .status-light {
+    white-space: nowrap;
+
+    &::before {
+      color: var(--red-900);
+    }
+
+    &.http1::before {
+      color: var(--blue-900);
+    }
+
+    &.http2::before {
+      color: var(--green-900);
+    }
+
+    &.http3::before {
+      color: var(--yellow-900);
+    }
+  }
+
+  #sitemaps-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--spacing-l);
+
+    li {
+      background: linear-gradient(135deg, var(--gray-25) 0%, var(--gray-50) 100%);
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: var(--spacing-l);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-m);
+      justify-content: space-between;
+      align-items: stretch;
+      box-shadow: var(--shadow-default);
+      transition: all 0.2s ease-in-out;
+      position: relative;
+      overflow: hidden;
+
+      &:hover {
+        box-shadow: var(--shadow-hover);
+        border-color: var(--blue-300);
+      }
+
+      .sitemap-name {
+        font-weight: 700;
+        font-size: var(--heading-size-m);
+        margin: 0;
+        color: var(--gray-800);
+        text-align: center;
+        padding: var(--spacing-s) 0;
+        background: var(--gray-25);
+        border-radius: 8px;
+        border: 1px solid var(--gray-100);
+        position: relative;
+      }
+
+      .sitemap-attributes {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-m);
+
+        .sitemap-attribute {
+          background: var(--gray-25);
+          border-radius: 8px;
+          padding: var(--spacing-s);
+          border: 1px solid var(--gray-100);
+          transition: all 0.2s ease-in-out;
+
+          &:hover {
+            background: var(--blue-50);
+            border-color: var(--blue-200);
+          }
+
+          .sitemap-attribute-name {
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-xs);
+            display: block;
+          }
+
+          .sitemap-attribute-value {
+            margin: 0;
+            font-family: var(--code-font-family);
+            font-size: 0.8rem;
+            color: var(--gray-600);
+            line-height: 1.4;
+            word-break: break-all;
+            background: var(--gray-75);
+            padding: var(--spacing-xs);
+            border-radius: 4px;
+            border: 1px solid var(--gray-200);
+          }
+        }
+      }
+
+      .sitemap-actions {
+        display: flex;
+        gap: var(--spacing-s);
+        margin-top: var(--spacing-s);
+        justify-content: center;
+
+        .button {
+          min-width: 100px;
+          flex: 1;
+
+          &.danger {
+            background: var(--red-800);
+            color: white;
+            border-color: var(--red-900);
+
+            &:hover {
+              background: var(--red-900);
+            }
+
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .sitemap-details {
+    max-width: 800px;
+
+    .sitemap-details-content {
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .sitemap-details-header {
+      margin-bottom: var(--spacing-l);
+
+      h3 {
+        margin: 0;
+        color: var(--gray-800);
+        font-size: var(--heading-size-l);
+      }
+    }
+
+    .sitemap-details-body {
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-l);
+      }
+
+      .form-field {
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+
+        label {
+          font-weight: 600;
+          color: var(--gray-700);
+          font-size: 0.875rem;
+        }
+
+        input,
+        textarea,
+        select {
+          padding: var(--spacing-s);
+          border: 1px solid var(--gray-300);
+          border-radius: 6px;
+          font-size: 0.875rem;
+          transition: border-color 0.2s ease;
+
+          &:focus {
+            outline: none;
+            border-color: var(--blue-500);
+            box-shadow: 0 0 0 3px var(--blue-100);
+          }
+        }
+
+        /* stylelint-disable-next-line no-descending-specificity */
+        textarea {
+          min-height: 100px;
+          resize: vertical;
+          font-family: var(--code-font-family);
+        }
+
+        input[readonly] {
+          background: var(--gray-50);
+          color: var(--gray-600);
+          cursor: not-allowed;
+        }
+      }
+
+      .button-area {
+        display: flex;
+        gap: var(--spacing-m);
+        justify-content: flex-end;
+
+        button {
+          font-size: var(--body-size-s);
+        }
+      }
+    }
+  }
+}

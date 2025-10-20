@@ -59,26 +59,31 @@ function displayIndexDetails(indexName, indexDef, newIndex = false) {
     const nameField = property.querySelector('#index-property-name');
     const selectField = property.querySelector('#index-property-select');
     const selectFirstField = property.querySelector('#index-property-select-first');
+    const valueTypeField = property.querySelector('#index-property-value-type');
     const valueField = property.querySelector('#index-property-value');
 
     nameField.id = `index-property-name-${idSuffix}`;
     selectField.id = `index-property-select-${idSuffix}`;
     selectFirstField.id = `index-property-select-first-${idSuffix}`;
+    valueTypeField.id = `index-property-value-type-${idSuffix}`;
     valueField.id = `index-property-value-${idSuffix}`;
 
     nameField.value = propName;
     selectField.value = propInfo.select || '';
     selectFirstField.value = propInfo.selectFirst || '';
-    valueField.value = propInfo.value;
+    valueTypeField.value = propInfo.value !== undefined ? 'value' : 'values';
+    valueField.value = propInfo.value ?? propInfo.values?.join?.('\n') ?? propInfo.values ?? '';
 
     const nameFieldLabel = property.querySelector('label[for="index-property-name"]');
     const selectFieldLabel = property.querySelector('label[for="index-property-select"]');
     const selectFirstFieldLabel = property.querySelector('label[for="index-property-select-first"]');
+    const valueTypeFieldLabel = property.querySelector('label[for="index-property-value-type"]');
     const valueFieldLabel = property.querySelector('label[for="index-property-value"]');
 
     nameFieldLabel.htmlFor = `index-property-name-${idSuffix}`;
     selectFieldLabel.htmlFor = `index-property-select-${idSuffix}`;
     selectFirstFieldLabel.htmlFor = `index-property-select-first-${idSuffix}`;
+    valueTypeFieldLabel.htmlFor = `index-property-value-type-${idSuffix}`;
     valueFieldLabel.htmlFor = `index-property-value-${idSuffix}`;
 
     property.querySelector('.remove-property-btn').addEventListener('click', () => {
@@ -99,21 +104,25 @@ function displayIndexDetails(indexName, indexDef, newIndex = false) {
     const nameField = property.querySelector('#index-property-name');
     const selectField = property.querySelector('#index-property-select');
     const selectFirstField = property.querySelector('#index-property-select-first');
+    const valueTypeField = property.querySelector('#index-property-value-type');
     const valueField = property.querySelector('#index-property-value');
 
     nameField.id = `index-property-name-${idSuffix}`;
     selectField.id = `index-property-select-${idSuffix}`;
     selectFirstField.id = `index-property-select-first-${idSuffix}`;
+    valueTypeField.id = `index-property-value-type-${idSuffix}`;
     valueField.id = `index-property-value-${idSuffix}`;
 
     const nameFieldLabel = property.querySelector('label[for="index-property-name"]');
     const selectFieldLabel = property.querySelector('label[for="index-property-select"]');
     const selectFirstFieldLabel = property.querySelector('label[for="index-property-select-first"]');
+    const valueTypeFieldLabel = property.querySelector('label[for="index-property-value-type"]');
     const valueFieldLabel = property.querySelector('label[for="index-property-value"]');
 
     nameFieldLabel.htmlFor = `index-property-name-${idSuffix}`;
     selectFieldLabel.htmlFor = `index-property-select-${idSuffix}`;
     selectFirstFieldLabel.htmlFor = `index-property-select-first-${idSuffix}`;
+    valueTypeFieldLabel.htmlFor = `index-property-value-type-${idSuffix}`;
     valueFieldLabel.htmlFor = `index-property-value-${idSuffix}`;
 
     property.querySelector('.remove-property-btn').addEventListener('click', () => {
@@ -132,9 +141,16 @@ function displayIndexDetails(indexName, indexDef, newIndex = false) {
       const name = property.querySelector(`#index-property-name-${idSuffix}`).value.trim();
       const select = property.querySelector(`#index-property-select-${idSuffix}`).value.trim();
       const selectFirst = property.querySelector(`#index-property-select-first-${idSuffix}`).value.trim();
-      const value = property.querySelector(`#index-property-value-${idSuffix}`).value.trim();
+      const valueType = property.querySelector(`#index-property-value-type-${idSuffix}`).value;
+      const valueInput = property.querySelector(`#index-property-value-${idSuffix}`).value.trim();
 
-      properties[name] = { value };
+      if (valueType === 'values') {
+        const valueLines = valueInput.split('\n').map((line) => line.trim()).filter((line) => line);
+        properties[name] = { values: valueLines.length > 0 ? valueLines : [valueInput] };
+      } else {
+        properties[name] = { value: valueInput };
+      }
+
       if (select) {
         properties[name].select = select;
       }

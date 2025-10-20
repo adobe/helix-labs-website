@@ -116,7 +116,8 @@
                   <div class="header-cell">Name</div>
                   <div class="header-cell">Select</div>
                   <div class="header-cell">Select First</div>
-                  <div class="header-cell">Value</div>
+                  <div class="header-cell">Type</div>
+                  <div class="header-cell">Value(s)</div>
                   <div class="header-cell"></div>
                 </div>
               </div>
@@ -149,7 +150,14 @@
         <input type="text" id="index-property-select-first" name="index-property-select-first" />
       </div>
       <div class="form-field">
-        <label for="index-property-value">Property Value</label>
+        <label for="index-property-value-type">Type</label>
+        <select id="index-property-value-type" name="index-property-value-type">
+          <option value="value">Single</option>
+          <option value="values">Multiple</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="index-property-value">Property Value/Values</label>
         <input type="text" id="index-property-value" name="index-property-value" required />
       </div>
       <div class="form-field remove-field">
