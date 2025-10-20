@@ -54,6 +54,7 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
 
   if (isMultiLang) {
     // Multi-language sitemap mode - only edit top-level fields
+    sitemapDetails.querySelector('#sitemap-origin').value = sitemapDef.origin || '';
     sitemapDetails.querySelector('#sitemap-default').value = sitemapDef.default || '';
     sitemapDetails.querySelector('#sitemap-lastmod').value = sitemapDef.lastmod || '';
     sitemapDetails.querySelector('#sitemap-extension').value = sitemapDef.extension || '';
@@ -76,6 +77,7 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
 
     if (isMultiLang) {
       // Build/update multi-language sitemap - only top-level fields
+      const origin = sitemapDetails.querySelector('#sitemap-origin').value.trim();
       const defaultLang = sitemapDetails.querySelector('#sitemap-default').value.trim();
       const lastmod = sitemapDetails.querySelector('#sitemap-lastmod').value.trim();
       const extension = sitemapDetails.querySelector('#sitemap-extension').value.trim();
@@ -83,6 +85,12 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
       // Preserve existing languages if editing, or create empty languages object if new
       if (!loadedSitemaps.sitemaps[name]) {
         loadedSitemaps.sitemaps[name] = { languages: {} };
+      }
+
+      if (origin) {
+        loadedSitemaps.sitemaps[name].origin = origin;
+      } else {
+        delete loadedSitemaps.sitemaps[name].origin;
       }
 
       if (defaultLang) {
@@ -351,6 +359,7 @@ function populateSitemaps(sitemaps) {
       // Display multi-language sitemap info
       const languageCount = Object.keys(sitemapDef.languages).length;
       sitemapItem.querySelector('.sitemap-attribute-value-languages').textContent = `${languageCount} language${languageCount !== 1 ? 's' : ''}`;
+      sitemapItem.querySelector('.sitemap-attribute-value-origin').textContent = sitemapDef.origin || 'n/a';
       sitemapItem.querySelector('.sitemap-attribute-value-default').textContent = sitemapDef.default || 'n/a';
 
       // Show list of languages with edit/remove buttons
