@@ -52,7 +52,6 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
     sitemapDetails.querySelector('#sitemap-name').readOnly = true;
   }
 
-  // Common fields for both types
   sitemapDetails.querySelector('#sitemap-origin').value = sitemapDef.origin || '';
   sitemapDetails.querySelector('#sitemap-lastmod').value = sitemapDef.lastmod || '';
   sitemapDetails.querySelector('#sitemap-extension').value = sitemapDef.extension || '';
@@ -386,17 +385,24 @@ function populateSitemaps(sitemaps) {
       btn.disabled = true;
       btn.textContent = 'Generating...';
 
-      if (isMultiLang) {
-        // For multi-language sitemaps, generate all language destinations
-        const destinations = Object.values(sitemapDef.languages).map((lang) => lang.destination);
-        // eslint-disable-next-line no-restricted-syntax
-        for (const dest of destinations) {
-          // eslint-disable-next-line no-await-in-loop
-          await generateSitemap(dest);
-        }
-      } else {
-        await generateSitemap(sitemapDef.destination);
+      let destPath = '';
+      if (sitemapDef.destination) {
+        destPath = sitemapDef.destination;
+      } else if (isMultiLang && sitemapDef.default && sitemapDef.languages[sitemapDef.default]) {
+        destPath = sitemapDef.languages[sitemapDef.default].destination;
+      } else if (isMultiLang && Object.keys(sitemapDef.languages).length > 0) {
+        destPath = sitemapDef.languages[Object.keys(sitemapDef.languages)[0]].destination;
       }
+
+      if (!destPath) {
+        // eslint-disable-next-line no-alert
+        alert('No destination configured for this sitemap');
+        btn.disabled = false;
+        btn.textContent = 'Generate';
+        return;
+      }
+
+      await generateSitemap(destPath);
 
       btn.disabled = false;
       btn.textContent = 'Generate';
