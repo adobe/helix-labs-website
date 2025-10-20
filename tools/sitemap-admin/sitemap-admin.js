@@ -52,19 +52,16 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
     sitemapDetails.querySelector('#sitemap-name').readOnly = true;
   }
 
+  // Common fields for both types
+  sitemapDetails.querySelector('#sitemap-origin').value = sitemapDef.origin || '';
+  sitemapDetails.querySelector('#sitemap-lastmod').value = sitemapDef.lastmod || '';
+  sitemapDetails.querySelector('#sitemap-extension').value = sitemapDef.extension || '';
+
   if (isMultiLang) {
-    // Multi-language sitemap mode - only edit top-level fields
-    sitemapDetails.querySelector('#sitemap-origin').value = sitemapDef.origin || '';
     sitemapDetails.querySelector('#sitemap-default').value = sitemapDef.default || '';
-    sitemapDetails.querySelector('#sitemap-lastmod').value = sitemapDef.lastmod || '';
-    sitemapDetails.querySelector('#sitemap-extension').value = sitemapDef.extension || '';
   } else {
-    // Simple sitemap mode
     sitemapDetails.querySelector('#sitemap-source').value = sitemapDef.source || '';
     sitemapDetails.querySelector('#sitemap-destination').value = sitemapDef.destination || '';
-    sitemapDetails.querySelector('#sitemap-origin').value = sitemapDef.origin || '';
-    sitemapDetails.querySelector('#sitemap-lastmod').value = sitemapDef.lastmod || '';
-    sitemapDetails.querySelector('#sitemap-extension').value = sitemapDef.extension || '';
   }
 
   sitemapDetails.showModal();
@@ -76,40 +73,22 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
     const name = sitemapDetails.querySelector('#sitemap-name').value.trim();
 
     if (isMultiLang) {
-      // Build/update multi-language sitemap - only top-level fields
       const origin = sitemapDetails.querySelector('#sitemap-origin').value.trim();
       const defaultLang = sitemapDetails.querySelector('#sitemap-default').value.trim();
       const lastmod = sitemapDetails.querySelector('#sitemap-lastmod').value.trim();
       const extension = sitemapDetails.querySelector('#sitemap-extension').value.trim();
 
       // Preserve existing languages if editing, or create empty languages object if new
-      if (!loadedSitemaps.sitemaps[name]) {
-        loadedSitemaps.sitemaps[name] = { languages: {} };
-      }
+      const existingLanguages = loadedSitemaps.sitemaps[name]?.languages || {};
 
-      if (origin) {
-        loadedSitemaps.sitemaps[name].origin = origin;
-      } else {
-        delete loadedSitemaps.sitemaps[name].origin;
-      }
+      loadedSitemaps.sitemaps[name] = {
+        languages: existingLanguages,
+      };
 
-      if (defaultLang) {
-        loadedSitemaps.sitemaps[name].default = defaultLang;
-      } else {
-        delete loadedSitemaps.sitemaps[name].default;
-      }
-
-      if (lastmod) {
-        loadedSitemaps.sitemaps[name].lastmod = lastmod;
-      } else {
-        delete loadedSitemaps.sitemaps[name].lastmod;
-      }
-
-      if (extension) {
-        loadedSitemaps.sitemaps[name].extension = extension;
-      } else {
-        delete loadedSitemaps.sitemaps[name].extension;
-      }
+      if (origin) loadedSitemaps.sitemaps[name].origin = origin;
+      if (defaultLang) loadedSitemaps.sitemaps[name].default = defaultLang;
+      if (lastmod) loadedSitemaps.sitemaps[name].lastmod = lastmod;
+      if (extension) loadedSitemaps.sitemaps[name].extension = extension;
     } else {
       // Build simple sitemap structure
       const source = sitemapDetails.querySelector('#sitemap-source').value.trim();
