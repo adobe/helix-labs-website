@@ -97,8 +97,11 @@ function setupStorageManager(mediaLibrary, siteKey) {
 }
 
 function updateClearButtonVisibility(show) {
-  const display = show ? 'inline-block' : 'none';
-  domCache.clearSiteButton.style.display = display;
+  if (show) {
+    domCache.clearSiteButton.style.display = 'inline-flex';
+  } else {
+    domCache.clearSiteButton.style.display = 'none';
+  }
 }
 
 function setMediaLibraryAttributes(mediaLibrary, siteKey, storageType) {

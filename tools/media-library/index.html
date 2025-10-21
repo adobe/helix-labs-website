@@ -22,42 +22,44 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="media-library appear">
-  <!-- Helix Labs Website Mode -->
-  <div class="helix-mode">
-    <header></header>
-    <main>
-      <!-- CONFIGURATION FORM -->
-      <div style="max-width: 1400px; margin: 0 auto;">
-        <form id="media-config-form" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; padding: 16px; background: #f9fafb; border-radius: 8px;">
-          <div class="form-field site-url-field" id="site-url-field" style="flex: 1 1 auto; min-width: 180px;">
-            <label for="site-url" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Website URL</label>
-            <input name="site-url" id="site-url" type="url" placeholder="https://example.com" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;" />
-          </div>
-          
-          <div style="padding-bottom: 8px; color: #666; font-size: 14px; flex-shrink: 0;">(or)</div>
-          
-          <div class="form-field sitemap-field" id="sitemap-field" style="flex: 1 1 auto; min-width: 200px;">
-            <label for="sitemap-url" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Sitemap URL</label>
-            <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;" />
-          </div>
-          
-          <button type="button" id="start-new-scan" class="button" style="flex-shrink: 0; padding: 8px 24px; margin-bottom: 0; white-space: nowrap;">Scan</button>
-          
-          <div style="width: 1px; height: 36px; background: #d1d5db; margin: 0 8px; flex-shrink: 0;"></div>
-          
-          <div class="form-field" style="flex: 1 1 auto; min-width: 180px;">
-            <label for="saved-sites" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Load Previous</label>
-            <select name="saved-sites" id="saved-sites" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; background: white;">
-              <option value="">Select a site...</option>
-            </select>
-          </div>
-          
-          <button type="button" id="clear-site-data" class="button" style="background-color: #dc2626; color: white; display: none; flex-shrink: 0; padding: 8px 16px; margin-bottom: 0; white-space: nowrap;">Clear Data</button>
-        </form>
-      </div>
-      
-      <!-- MEDIA LIBRARY COMPONENT -->
-      <div class="media-library-container">
+  <header></header>
+  <main>
+    <div>
+      <h1>Media Library</h1>
+    </div>
+
+    <div>
+      <form id="media-config-form">
+        <div class="form-field site-url-field" id="site-url-field">
+          <label for="site-url">Website URL</label>
+          <input name="site-url" id="site-url" type="url" placeholder="https://example.com" />
+        </div>
+        
+        <div class="form-separator">(or)</div>
+        
+        <div class="form-field sitemap-field" id="sitemap-field">
+          <label for="sitemap-url">Sitemap URL</label>
+          <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" />
+        </div>
+        
+        <button type="button" id="start-new-scan" class="button">Scan</button>
+        
+        <div class="form-divider"></div>
+        
+        <div class="form-field saved-sites-field">
+          <label for="saved-sites">Load Previous</label>
+          <select name="saved-sites" id="saved-sites">
+            <option value="">Select a site...</option>
+          </select>
+        </div>
+        
+        <button type="button" id="clear-site-data" class="button danger">Clear Data</button>
+      </form>
+    </div>
+    
+    <!-- MEDIA LIBRARY COMPONENT -->
+    <div class="media-library-container section">
+      <div>
         <media-library 
           id="media-library"
           locale="en"
@@ -66,11 +68,10 @@
           cors-proxy="https://little-forest-58aa.david8603.workers.dev/">
         </media-library>
       </div>
-    </main>
-    <footer></footer>
-  </div>
+    </div>
+  </main>
+  <footer></footer>
   
-    
   <script nonce="aem" type="module">
     import { initialize } from './scripts.js';
     
