@@ -3319,7 +3319,11 @@ var MediaLibrary = function(exports) {
       const dimensions = await getImageDimensions(imageUrl);
       analysis.width = dimensions.width;
       analysis.height = dimensions.height;
-      analysis.orientation = dimensions.width > dimensions.height ? "landscape" : "portrait";
+      if (dimensions.width === dimensions.height) {
+        analysis.orientation = "square";
+      } else {
+        analysis.orientation = dimensions.width > dimensions.height ? "landscape" : "portrait";
+      }
     }
     if (ANALYSIS_CONFIG.categorizeFromFilename) {
       const categoryResult = detectCategory(imageUrl, context, "", "", analysis.width, analysis.height);
@@ -3464,6 +3468,7 @@ var MediaLibrary = function(exports) {
         const doc = parser.parseFromString(html, "text/html");
         const mediaItems = [];
         const timestamp = new Date(url.lastmod).getTime();
+        const seenImages = /* @__PURE__ */ new Set();
         const images = doc.querySelectorAll("img");
         const imageItems = await Promise.all([...images].map(async (img) => {
           if (this.isInNonRenderedElement(img)) {
@@ -3482,7 +3487,19 @@ var MediaLibrary = function(exports) {
           const cleanFilename = this.getCleanFilename(actualSrc);
           const domWidth = parseInt(img.getAttribute("width"), 10) || 0;
           const domHeight = parseInt(img.getAttribute("height"), 10) || 0;
-          const altValue = img.hasAttribute("alt") ? img.getAttribute("alt") : null;
+          let altValue = null;
+          if (img.hasAttribute("alt")) {
+            altValue = img.getAttribute("alt");
+            if (altValue === null) {
+              altValue = "";
+            }
+          }
+          const normalizedSrc = this.normalizeUrlForHash(actualSrc);
+          const dedupeKey = `${normalizedSrc}|${altValue}`;
+          if (seenImages.has(dedupeKey)) {
+            return null;
+          }
+          seenImages.add(dedupeKey);
           const mediaItem = {
             url: fixedUrl,
             name: cleanFilename,
@@ -3494,7 +3511,7 @@ var MediaLibrary = function(exports) {
               actualSrc,
               url.loc,
               altValue,
-              this.getOccurrenceIndex(actualSrc, url.loc)
+              this.getOccurrenceIndex(normalizedSrc, url.loc)
             ),
             firstUsedAt: timestamp,
             lastUsedAt: timestamp,
@@ -3550,7 +3567,11 @@ var MediaLibrary = function(exports) {
             }
           }
           if (!this.enableImageAnalysis && domWidth > 0 && domHeight > 0) {
-            mediaItem.orientation = domWidth > domHeight ? "landscape" : "portrait";
+            if (domWidth === domHeight) {
+              mediaItem.orientation = "square";
+            } else {
+              mediaItem.orientation = domWidth > domHeight ? "landscape" : "portrait";
+            }
             mediaItem.width = domWidth;
             mediaItem.height = domHeight;
           }
@@ -3563,6 +3584,7 @@ var MediaLibrary = function(exports) {
             const resolvedUrl = this.resolveUrl(video.src, url.loc);
             const documentDomain = new URL(url.loc).hostname;
             const fixedUrl = this.fixLocalhostUrl(resolvedUrl, documentDomain);
+            const normalizedSrc = this.normalizeUrlForHash(video.src);
             mediaItems.push({
               url: fixedUrl,
               name: this.getCleanFilename(video.src),
@@ -3570,7 +3592,7 @@ var MediaLibrary = function(exports) {
               type: `video > ${this.getFileExtension(video.src)}`,
               doc: url.loc,
               ctx: this.captureContext(video, "video"),
-              hash: this.createUniqueHash(video.src, url.loc, "", this.getOccurrenceIndex(video.src, url.loc)),
+              hash: this.createUniqueHash(video.src, url.loc, "", this.getOccurrenceIndex(normalizedSrc, url.loc)),
               firstUsedAt: timestamp,
               lastUsedAt: timestamp
             });
@@ -3582,6 +3604,7 @@ var MediaLibrary = function(exports) {
             const resolvedUrl = this.resolveUrl(source.src, url.loc);
             const documentDomain = new URL(url.loc).hostname;
             const fixedUrl = this.fixLocalhostUrl(resolvedUrl, documentDomain);
+            const normalizedSrc = this.normalizeUrlForHash(source.src);
             mediaItems.push({
               url: fixedUrl,
               name: this.getCleanFilename(source.src),
@@ -3589,7 +3612,7 @@ var MediaLibrary = function(exports) {
               type: `video-source > ${this.getFileExtension(source.src)}`,
               doc: url.loc,
               ctx: this.captureContext(source, "video-source"),
-              hash: this.createUniqueHash(source.src, url.loc, "", this.getOccurrenceIndex(source.src, url.loc)),
+              hash: this.createUniqueHash(source.src, url.loc, "", this.getOccurrenceIndex(normalizedSrc, url.loc)),
               firstUsedAt: timestamp,
               lastUsedAt: timestamp
             });
@@ -3602,6 +3625,7 @@ var MediaLibrary = function(exports) {
             const resolvedUrl = this.resolveUrl(href, url.loc);
             const documentDomain = new URL(url.loc).hostname;
             const fixedUrl = this.fixLocalhostUrl(resolvedUrl, documentDomain);
+            const normalizedHref = this.normalizeUrlForHash(href);
             mediaItems.push({
               url: fixedUrl,
               name: this.getCleanFilename(href),
@@ -3613,7 +3637,7 @@ var MediaLibrary = function(exports) {
                 href,
                 url.loc,
                 link.textContent,
-                this.getOccurrenceIndex(href, url.loc)
+                this.getOccurrenceIndex(normalizedHref, url.loc)
               ),
               firstUsedAt: timestamp,
               lastUsedAt: timestamp
@@ -3902,12 +3926,8 @@ var MediaLibrary = function(exports) {
       return "";
     try {
       const urlObj = new URL(url);
-      const { pathname } = urlObj;
-      const filename = pathname.split("/").pop();
-      if (filename && filename.includes("media_")) {
-        return filename;
-      }
-      return pathname;
+      const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;
+      return cleanUrl;
     } catch {
       return url;
     }
@@ -5498,7 +5518,7 @@ var MediaLibrary = function(exports) {
   });
   __publicField(MediaTopbar, "styles", getStyles(topbarStyles));
   customElements.define("media-topbar", MediaTopbar);
-  const sidebarStyles = '.media-sidebar {\n  background: #fff;\n  border: none;\n  display: flex;\n  flex-direction: column;\n  height: 100vh;\n  overflow-x: hidden;\n  overflow-y: auto;\n  transition: width 0.3s ease;\n  width: 60px;\n}\n\n.media-sidebar.collapsed {\n  width: 60px;\n}\n\n.media-sidebar.expanded {\n  width: 160px;\n}\n\n.sidebar-icons {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 8px 8px;\n}\n\n.sidebar-icons.secondary {\n  padding: 8px 8px 12px;\n}\n\n.icon-btn {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 8px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 14px;\n  font-weight: 500;\n  gap: 12px;\n  justify-content: flex-start;\n  min-height: 40px;\n  padding: 10px 12px;\n  transition: all 0.2s ease;\n  white-space: nowrap;\n}\n\n.icon-btn:hover {\n  background: transparent;\n  color: #1e293b;\n}\n\n.icon-btn.active {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.icon-btn .icon {\n  flex-shrink: 0;\n  height: 20px;\n  width: 20px;\n}\n\n.icon-btn .icon-label {\n  opacity: 1;\n  transition: opacity 0.2s ease;\n}\n\n.collapsed .icon-btn {\n  justify-content: center;\n  padding: 10px;\n  width: 44px;\n}\n\n.collapsed .icon-btn .icon-label {\n  display: none;\n}\n\n.filter-panel {\n  padding: 0 4px;\n}\n\n.filter-section {\n  margin-bottom: 24px;\n}\n\n.filter-section h3 {\n  color: #64748b;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.05em;\n  margin: 0 0 8px;\n  padding: 0 6px;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 6px;\n  color: #1e293b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.813rem;\n  justify-content: space-between;\n  padding: 6px 8px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: transparent;\n}\n\n.filter-button.disabled {\n  background: transparent;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: transparent;\n  color: #94a3b8;\n}\n\n.count {\n  background: transparent;\n  border-radius: 4px;\n  color: #64748b;\n  font-size: 0.75rem;\n  font-variant-numeric: tabular-nums;\n  font-weight: 500;\n  min-width: 2ch;\n  padding: 2px 6px;\n  text-align: right;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button:not([aria-pressed="true"]):hover .count {\n  background: transparent;\n  color: #3b82f6;\n}\n\n/* Category section specific styles */\n.filter-section:has(.filter-list:has(.filter-button[data-category])) {\n  border-left: 3px solid #3b82f6;\n  padding-left: calc(16px - 3px);\n}\n\n.filter-section:has(.filter-list:has(.filter-button[data-category])) h3 {\n  color: #3b82f6;\n  font-weight: 700;\n}\n\n/* Category filter buttons - no bullets */\n.filter-button[data-category] {\n  /* No special styling needed - bullets removed */\n}\n\n/* Index Panel Styles */\n.index-panel {\n  padding: 8px 16px 16px;\n}\n\n.index-message {\n  color: #64748b;\n  font-size: 14px;\n  line-height: 1.5;\n}\n\n.index-message.empty {\n  color: #94a3b8;\n  font-style: italic;\n}\n';
+  const sidebarStyles = '.media-sidebar {\n  background: #fff;\n  border: none;\n  display: flex;\n  flex-direction: column;\n  height: 100vh;\n  overflow-x: hidden;\n  overflow-y: auto;\n  transition: width 0.3s ease;\n  width: 60px;\n}\n\n.media-sidebar.collapsed {\n  width: 60px;\n}\n\n.media-sidebar.expanded {\n  width: 160px;\n}\n\n.sidebar-icons {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 8px 8px;\n}\n\n.sidebar-icons.secondary {\n  padding: 8px 8px 12px;\n}\n\n.icon-btn {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 8px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 14px;\n  font-weight: 500;\n  gap: 12px;\n  justify-content: flex-start;\n  min-height: 40px;\n  padding: 10px 12px;\n  transition: all 0.2s ease;\n  white-space: nowrap;\n}\n\n.icon-btn:hover {\n  background: transparent;\n  color: #1e293b;\n}\n\n.icon-btn.active {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.icon-btn .icon {\n  flex-shrink: 0;\n  height: 20px;\n  width: 20px;\n}\n\n.icon-btn .icon-label {\n  opacity: 1;\n  transition: opacity 0.2s ease;\n}\n\n.collapsed .icon-btn {\n  justify-content: center;\n  padding: 10px;\n  width: 44px;\n}\n\n.collapsed .icon-btn .icon-label {\n  display: none;\n}\n\n.filter-panel {\n  padding: 0 4px;\n}\n\n.filter-section {\n  margin-bottom: 20px;\n}\n\n.filter-section h3 {\n  color: #334155;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.05em;\n  margin: 0 0 8px;\n  padding: 0 6px;\n  text-transform: uppercase;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 6px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.813rem;\n  justify-content: space-between;\n  padding: 6px 8px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: #f1f5f9;\n  color: #334155;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: #e2e8f0;\n  color: #1e293b;\n  font-weight: 600;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: #cbd5e1;\n}\n\n.filter-button.disabled {\n  background: transparent;\n  color: #cbd5e1;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: transparent;\n  color: #cbd5e1;\n}\n\n.count {\n  background: transparent;\n  border-radius: 4px;\n  color: #94a3b8;\n  font-size: 0.75rem;\n  font-variant-numeric: tabular-nums;\n  font-weight: 500;\n  min-width: 2ch;\n  padding: 2px 6px;\n  text-align: right;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: transparent;\n  color: #475569;\n  font-weight: 600;\n}\n\n.filter-button:hover .count {\n  color: #64748b;\n}\n\n/* Index Panel Styles */\n.index-panel {\n  padding: 8px 16px 16px;\n}\n\n.index-message {\n  color: #64748b;\n  font-size: 14px;\n  line-height: 1.5;\n}\n\n.index-message.empty {\n  color: #94a3b8;\n  font-style: italic;\n}\n';
   class MediaSidebar extends LocalizableElement {
     constructor() {
       super();
@@ -5674,8 +5694,6 @@ var MediaLibrary = function(exports) {
     }
     renderFilterItem(filterType, count, customLabel = null) {
       const label = customLabel || this.t(`filters.${filterType}`);
-      const categoryFilters = getCategoryFilters();
-      const isCategoryFilter = categoryFilters.includes(filterType);
       logger.debug(`renderFilterItem - ${filterType}: count=${count}, isScanning=${this.isScanning}`);
       if (this.isScanning) {
         return x$1`
@@ -5684,7 +5702,6 @@ var MediaLibrary = function(exports) {
             class="filter-button disabled"
             disabled
             aria-pressed="false"
-            data-category=${isCategoryFilter ? filterType : ""}
           >
             <span>${label}</span>
           </button>
@@ -5701,7 +5718,6 @@ var MediaLibrary = function(exports) {
           class="filter-button ${this.activeFilter === filterType ? "active" : ""}"
           @click=${() => this.handleFilter(filterType)}
           aria-pressed=${this.activeFilter === filterType}
-          data-category=${isCategoryFilter ? filterType : ""}
         >
           <span>${label}</span>
           <span class="count">${this.formatNumber(count)}</span>

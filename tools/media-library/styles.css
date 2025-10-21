@@ -13,7 +13,9 @@
 }
 
 .media-library main > div:not(.media-library-container) {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 0 var(--horizontal-spacing);
 }
 
 .media-library main > div:first-of-type {
@@ -72,8 +74,8 @@
 .media-library #media-config-form {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
   max-width: 100%;
   overflow: visible;
   margin-bottom: 1rem;
@@ -84,17 +86,17 @@
 
 .media-library #media-config-form .form-field {
   flex: 1 1 auto;
-  min-width: 220px;
+  min-width: 0;
 }
 
 .media-library #media-config-form .site-url-field,
 .media-library #media-config-form .sitemap-field {
-  min-width: 240px;
+  flex: 1.2 1 auto;
 }
 
 .media-library #media-config-form .saved-sites-field {
-  min-width: 220px;
-  max-width: 280px;
+  flex: 1 1 auto;
+  min-width: 180px;
 }
 
 .media-library #media-config-form .saved-sites-field select {
@@ -138,6 +140,12 @@
 }
 
 /* Responsive design */
+@media (width <= 1024px) {
+  .media-library #media-config-form {
+    flex-wrap: wrap;
+  }
+}
+
 @media (width <= 768px) {
   .media-library .media-library-top-bar {
     padding: 1rem;
@@ -161,6 +169,10 @@
   .media-library #media-config-form {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .media-library #media-config-form .form-field {
+    min-width: auto;
   }
 
   .media-library #media-config-form .config-field {
