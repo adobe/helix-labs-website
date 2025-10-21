@@ -1,94 +1,87 @@
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-alert */
 /* eslint-disable no-console */
-import { ensureLogin } from '../../blocks/profile/profile.js';
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
 
 const CONFIG = {
   CORS_PROXY_URL: 'https://little-forest-58aa.david8603.workers.dev/',
-  QUERY_LIMIT: 512,
   DEFAULT_STORAGE: 'indexeddb',
-  DEFAULT_MODE: 'sitemap',
-  AEM_BASE_URL: 'https://main--{site}--{org}.aem.live',
+  DEFAULT_MODE: 'site-url',
   MEDIA_LIBRARY_READY_EVENT: 'media-library-ready',
   STORAGE_TYPES: {
     INDEXED_DB: 'indexeddb',
     NONE: 'none',
   },
   MODES: {
-    SITEMAP: 'sitemap',
-    QUERY_INDEX: 'queryindex',
-    CUSTOM: 'custom',
+    SITE_URL: 'site-url',
+    SITEMAP_URL: 'sitemap-url',
   },
 };
 
 const SELECTORS = {
   MEDIA_LIBRARY: '#media-library',
-  ORG_INPUT: '#org',
-  SITE_INPUT: '#site',
-  MODE_INPUT: '#mode',
+  SITE_URL_INPUT: '#site-url',
   SITEMAP_INPUT: '#sitemap-url',
-  STORAGE_OPTION: '#storage-option',
   START_SCAN_BUTTON: '#start-new-scan',
-  LOAD_BUTTON: '#load-media',
-  CLEAR_BUTTON: '#clear-data',
-  SITEMAP_FIELD: '#sitemap-field',
+  SAVED_SITES_SELECT: '#saved-sites',
+  CLEAR_SITE_BUTTON: '#clear-site-data',
   MEDIA_CONFIG_FORM: '#media-config-form',
 };
 
 const domCache = {
   mediaLibrary: null,
-  orgInput: null,
-  siteInput: null,
-  modeInput: null,
+  siteUrlInput: null,
   sitemapInput: null,
-  storageOption: null,
   startScanButton: null,
-  loadButton: null,
-  clearButton: null,
-  sitemapField: null,
+  savedSitesSelect: null,
+  clearSiteButton: null,
   form: null,
 
   init() {
     this.mediaLibrary = document.querySelector(SELECTORS.MEDIA_LIBRARY);
-    this.orgInput = document.querySelector(SELECTORS.ORG_INPUT);
-    this.siteInput = document.querySelector(SELECTORS.SITE_INPUT);
-    this.modeInput = document.querySelector(SELECTORS.MODE_INPUT);
+    this.siteUrlInput = document.querySelector(SELECTORS.SITE_URL_INPUT);
     this.sitemapInput = document.querySelector(SELECTORS.SITEMAP_INPUT);
-    this.storageOption = document.querySelector(SELECTORS.STORAGE_OPTION);
     this.startScanButton = document.querySelector(SELECTORS.START_SCAN_BUTTON);
-    this.loadButton = document.querySelector(SELECTORS.LOAD_BUTTON);
-    this.clearButton = document.querySelector(SELECTORS.CLEAR_BUTTON);
-    this.sitemapField = document.querySelector(SELECTORS.SITEMAP_FIELD);
+    this.savedSitesSelect = document.querySelector(SELECTORS.SAVED_SITES_SELECT);
+    this.clearSiteButton = document.querySelector(SELECTORS.CLEAR_SITE_BUTTON);
     this.form = document.querySelector(SELECTORS.MEDIA_CONFIG_FORM);
   },
 };
 
 function getFormData() {
+  const siteUrl = domCache.siteUrlInput?.value?.trim() || '';
+  const sitemapUrl = domCache.sitemapInput?.value?.trim() || '';
+
+  let mode = CONFIG.DEFAULT_MODE;
+  if (sitemapUrl) {
+    mode = CONFIG.MODES.SITEMAP_URL;
+  } else if (siteUrl) {
+    mode = CONFIG.MODES.SITE_URL;
+  }
+
   return {
-    org: domCache.orgInput?.value?.trim() || '',
-    site: domCache.siteInput?.value?.trim() || '',
-    mode: domCache.modeInput?.value || CONFIG.DEFAULT_MODE,
-    customUrl: domCache.sitemapInput?.value?.trim() || '',
+    mode,
+    siteUrl,
+    sitemapUrl,
   };
 }
 
 function validateRequiredFields(data) {
-  if (!data.org || !data.site) {
-    throw new Error('Please fill in Organization and Site fields');
-  }
-
-  if (data.mode === CONFIG.MODES.CUSTOM && !data.customUrl) {
-    throw new Error('Please enter a custom sitemap URL');
+  if (!data.siteUrl && !data.sitemapUrl) {
+    throw new Error('Please enter either a Website URL or Sitemap URL');
   }
 }
 
-function createSiteKey(org, site, mode) {
-  return `${org}/${site}/${mode}`;
+function createSiteKey(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    return url.replace(/[^a-zA-Z0-9-]/g, '_');
+  }
 }
 
 function getStorageType() {
-  return domCache.storageOption?.value || CONFIG.DEFAULT_STORAGE;
+  return CONFIG.DEFAULT_STORAGE;
 }
 
 function handleError(error) {
@@ -103,10 +96,9 @@ function setupStorageManager(mediaLibrary, siteKey) {
   }
 }
 
-function updateButtonsVisibility(show) {
+function updateClearButtonVisibility(show) {
   const display = show ? 'inline-block' : 'none';
-  domCache.loadButton.style.display = display;
-  domCache.clearButton.style.display = display;
+  domCache.clearSiteButton.style.display = display;
 }
 
 function setMediaLibraryAttributes(mediaLibrary, siteKey, storageType) {
@@ -120,64 +112,77 @@ function setMediaLibraryAttributes(mediaLibrary, siteKey, storageType) {
   }
 }
 
-async function initializeMediaLibrary(mediaLibrary, storageType) {
+async function initializeMediaLibrary(mediaLibrary) {
   try {
     await mediaLibrary.initialize();
-
-    if (mediaLibrary.storageManager
-        && mediaLibrary.storageManager.type === CONFIG.STORAGE_TYPES.NONE) {
-      if (mediaLibrary.storageManager.clearAllSites) {
-        await mediaLibrary.storageManager.clearAllSites();
-      }
-      mediaLibrary.storage = storageType;
-      await mediaLibrary.initialize();
-    }
   } catch (error) {
     handleError(error);
     throw error;
   }
 }
 
-async function updateButtonVisibility() {
-  if (domCache.storageOption.value !== CONFIG.STORAGE_TYPES.INDEXED_DB) {
-    updateButtonsVisibility(false);
-    return;
-  }
-
+async function loadAvailableSites() {
   try {
     if (!domCache.mediaLibrary?.storageManager) {
-      updateButtonsVisibility(false);
       return;
     }
 
-    const formData = getFormData();
-    if (!formData.org || !formData.site || !formData.mode) {
-      updateButtonsVisibility(false);
+    const databases = await indexedDB.databases();
+    const mediaDbs = databases.filter((db) => db.name && db.name.startsWith('media_'));
+
+    domCache.savedSitesSelect.innerHTML = '<option value="">Select a site...</option>';
+
+    if (mediaDbs.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No saved sites';
+      option.disabled = true;
+      domCache.savedSitesSelect.appendChild(option);
       return;
     }
 
-    const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
-    setupStorageManager(domCache.mediaLibrary, siteKey);
+    const siteChecks = await Promise.all(
+      mediaDbs.map(async (db) => {
+        const siteKey = db.name.replace('media_', '').replace(/_/g, '.');
 
-    const normalizedSiteKey = domCache.mediaLibrary.storageManager.normalizeSiteKey(siteKey);
-    const dbName = `media_${normalizedSiteKey}`;
+        try {
+          const tempStorage = domCache.mediaLibrary.storageManager;
+          tempStorage.siteKey = siteKey;
+          tempStorage.dbName = `media_${tempStorage.normalizeSiteKey(siteKey)}`;
 
-    try {
-      const databases = await indexedDB.databases();
-      const dbExists = databases.some((db) => db.name === dbName);
+          const data = await tempStorage.load();
+          if (data && data.length > 0) {
+            return { siteKey, count: data.length };
+          }
+        } catch (error) {
+          console.error(`Failed to check data for ${siteKey}:`, error);
+        }
+        return null;
+      }),
+    );
 
-      if (dbExists) {
-        const existingData = await domCache.mediaLibrary.storageManager.load();
-        const hasData = existingData && existingData.length > 0;
-        updateButtonsVisibility(hasData);
-      } else {
-        updateButtonsVisibility(false);
-      }
-    } catch (error) {
-      updateButtonsVisibility(false);
+    const sitesWithData = siteChecks.filter((site) => site !== null);
+
+    if (sitesWithData.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No saved sites';
+      option.disabled = true;
+      domCache.savedSitesSelect.appendChild(option);
+      return;
     }
+
+    sitesWithData.forEach(({ siteKey, count }) => {
+      const option = document.createElement('option');
+      option.value = siteKey;
+      option.textContent = `${siteKey} (${count} usages)`;
+      domCache.savedSitesSelect.appendChild(option);
+    });
+
+    domCache.savedSitesSelect.value = '';
+    updateClearButtonVisibility(false);
   } catch (error) {
-    updateButtonsVisibility(false);
+    console.error('Failed to load available sites:', error);
   }
 }
 
@@ -216,34 +221,13 @@ async function fetchSitemap(sitemapURL) {
   return urls;
 }
 
-async function fetchQueryIndex(indexUrl) {
-  const limit = CONFIG.QUERY_LIMIT;
-  let offset = 0;
-  let more = true;
-  const urls = [];
-
-  do {
-    let res;
-    try {
-      res = await fetch(`${CONFIG.CORS_PROXY_URL}?url=${encodeURIComponent(indexUrl)}?offset=${offset}&limit=${limit}`);
-    } catch (err) {
-      throw new Error('Failed on initial fetch of index.', err);
-    }
-
-    if (!res.ok) {
-      throw new Error(`Not found: ${indexUrl}`);
-    }
-    const json = await res.json();
-    offset += limit;
-    more = json.data.length > 0;
-    const newUrls = json.data.map((item) => {
-      const path = item.path || item.Path;
-      return new URL(path, indexUrl);
-    });
-    urls.push(...newUrls);
-  } while (more);
-
-  return urls;
+function normalizeUrl(url) {
+  if (!url) return url;
+  let normalizedUrl = url.trim();
+  if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+  return normalizedUrl;
 }
 
 async function waitForMediaLibraryReady(mediaLibrary) {
@@ -270,56 +254,37 @@ export async function setupMediaLibrary() {
   }
 }
 
-async function discoverAEMContent(org, site, mode, customUrl = null) {
+async function discoverContent(inputUrl, mode) {
   try {
+    const normalizedUrl = normalizeUrl(inputUrl);
     let sitemapUrl;
 
-    if (mode === CONFIG.MODES.CUSTOM && customUrl) {
-      sitemapUrl = customUrl;
+    if (mode === CONFIG.MODES.SITEMAP_URL) {
+      sitemapUrl = normalizedUrl;
     } else {
-      const baseUrl = CONFIG.AEM_BASE_URL.replace('{site}', site).replace('{org}', org);
-      if (mode === CONFIG.MODES.QUERY_INDEX) {
-        sitemapUrl = `${baseUrl}/query-index.json`;
-      } else {
-        sitemapUrl = `${baseUrl}/sitemap.xml`;
-      }
+      const baseUrl = normalizedUrl.endsWith('/') ? normalizedUrl.slice(0, -1) : normalizedUrl;
+      sitemapUrl = `${baseUrl}/sitemap.xml`;
     }
 
-    if (sitemapUrl.endsWith('.json')) {
-      const fetchedUrls = await fetchQueryIndex(sitemapUrl);
-      return fetchedUrls.map((url) => ({
-        loc: url.href,
-        lastmod: new Date().toISOString(),
-      }));
-    }
     const fetchedUrls = await fetchSitemap(sitemapUrl);
     return fetchedUrls.map((url) => ({
       loc: url.href,
       lastmod: new Date().toISOString(),
     }));
   } catch (error) {
-    throw new Error(`Failed to fetch ${mode}: ${error.message}`);
+    throw new Error(`Failed to fetch sitemap: ${error.message}`);
   }
 }
 
 async function validateAndPrepareScan() {
   const formData = getFormData();
   validateRequiredFields(formData);
-
-  if (!await ensureLogin(formData.org, formData.site)) {
-    window.addEventListener('profile-update', ({ detail: loginInfo }) => {
-      if (loginInfo.includes(formData.org)) {
-        domCache.startScanButton.click();
-      }
-    }, { once: true });
-    return null;
-  }
-
   return formData;
 }
 
 async function configureMediaLibrary(formData) {
-  const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
+  const url = formData.mode === CONFIG.MODES.SITE_URL ? formData.siteUrl : formData.sitemapUrl;
+  const siteKey = createSiteKey(url);
   const storageType = getStorageType();
 
   domCache.mediaLibrary.mode = formData.mode;
@@ -327,40 +292,33 @@ async function configureMediaLibrary(formData) {
 
   setupStorageManager(domCache.mediaLibrary, siteKey);
   await waitForMediaLibraryReady(domCache.mediaLibrary);
-  await initializeMediaLibrary(domCache.mediaLibrary, storageType);
-
-  return { siteKey, storageType };
+  await initializeMediaLibrary(domCache.mediaLibrary);
 }
 
 async function performScan(formData) {
-  const pageList = await discoverAEMContent(
-    formData.org,
-    formData.site,
-    formData.mode,
-    formData.customUrl,
-  );
+  const url = formData.mode === CONFIG.MODES.SITE_URL ? formData.siteUrl : formData.sitemapUrl;
+  const pageList = await discoverContent(url, formData.mode);
 
   if (!pageList || pageList.length === 0) {
     throw new Error('No pages found to scan');
   }
 
-  const shouldSaveMedia = domCache.storageOption?.value
-    !== CONFIG.STORAGE_TYPES.NONE;
+  const siteKey = createSiteKey(url);
   const mediaData = await domCache.mediaLibrary.loadFromPageList(
     pageList,
     null,
-    createSiteKey(formData.org, formData.site, formData.mode),
-    shouldSaveMedia,
+    siteKey,
+    true,
     null,
     pageList,
     [],
   );
 
-  return { mediaData, shouldSaveMedia };
+  return mediaData;
 }
 
-async function saveResults(mediaData, shouldSaveMedia, siteKey) {
-  if (shouldSaveMedia && mediaData.length > 0) {
+async function saveResults(mediaData) {
+  if (mediaData.length > 0) {
     try {
       if (domCache.mediaLibrary.storageManager) {
         await domCache.mediaLibrary.storageManager.save(mediaData);
@@ -372,9 +330,7 @@ async function saveResults(mediaData, shouldSaveMedia, siteKey) {
     }
   }
 
-  localStorage.setItem('media-library-site-path', siteKey);
-  updateConfig();
-  await updateButtonVisibility();
+  await loadAvailableSites();
 }
 
 export async function startScan() {
@@ -382,25 +338,26 @@ export async function startScan() {
     const formData = await validateAndPrepareScan();
     if (!formData) return;
 
-    const { siteKey } = await configureMediaLibrary(formData);
-    const { mediaData, shouldSaveMedia } = await performScan(formData);
-    await saveResults(mediaData, shouldSaveMedia, siteKey);
+    await configureMediaLibrary(formData);
+    const mediaData = await performScan(formData);
+    await saveResults(mediaData);
   } catch (error) {
     handleError(error);
   }
 }
 
-export async function loadPreviousScan() {
+async function loadSelectedSite() {
   try {
-    const formData = getFormData();
-    if (!formData.org || !formData.site) {
-      throw new Error('Please enter organization and site');
+    const siteKey = domCache.savedSitesSelect.value;
+
+    if (!siteKey) {
+      updateClearButtonVisibility(false);
+      await domCache.mediaLibrary.clearData();
+      return;
     }
 
-    const siteKey = createSiteKey(formData.org, formData.site, formData.mode);
     const storageType = getStorageType();
 
-    domCache.mediaLibrary.mode = formData.mode;
     setMediaLibraryAttributes(domCache.mediaLibrary, siteKey, storageType);
 
     try {
@@ -420,45 +377,52 @@ export async function loadPreviousScan() {
       const existingData = await domCache.mediaLibrary.storageManager.load();
       if (existingData && existingData.length > 0) {
         await domCache.mediaLibrary.loadMediaData(existingData, siteKey, false, null);
+        updateClearButtonVisibility(true);
       } else {
         handleError(new Error('No previous scan data found'));
+        updateClearButtonVisibility(false);
       }
     } catch (error) {
       handleError(error);
+      updateClearButtonVisibility(false);
     }
   } catch (error) {
     handleError(error);
+    updateClearButtonVisibility(false);
   }
 }
 
-async function clearIndexedDBData() {
-  const formData = getFormData();
-  if (!formData) {
-    alert('Please fill in organization, site, and mode before clearing data.');
+async function clearSelectedSiteData() {
+  const siteKey = domCache.savedSitesSelect.value;
+
+  if (!siteKey) {
+    alert('Please select a site to clear.');
     return;
   }
 
-  const currentSiteKey = createSiteKey(formData.org, formData.site, formData.mode);
-
-  if (!domCache.mediaLibrary) {
+  // eslint-disable-next-line no-restricted-globals -- User confirmation needed
+  if (!confirm(`Are you sure you want to clear data for "${siteKey}"? This action cannot be undone.`)) {
     return;
   }
 
-  if (!domCache.mediaLibrary.storageManager) {
+  if (!domCache.mediaLibrary?.storageManager) {
+    alert('Storage manager not available.');
     return;
   }
-
-  setupStorageManager(domCache.mediaLibrary, currentSiteKey);
 
   try {
+    setupStorageManager(domCache.mediaLibrary, siteKey);
+
     await domCache.mediaLibrary.clearData();
 
     if (domCache.mediaLibrary.storageManager.type === CONFIG.STORAGE_TYPES.INDEXED_DB) {
-      await domCache.mediaLibrary.storageManager.deleteSite(currentSiteKey);
+      await domCache.mediaLibrary.storageManager.deleteSite(siteKey);
     }
 
-    await updateButtonVisibility();
-    alert(`Previous scan data has been cleared successfully for ${formData.org}/${formData.site} (${formData.mode}).`);
+    domCache.savedSitesSelect.value = '';
+    updateClearButtonVisibility(false);
+
+    await loadAvailableSites();
   } catch (error) {
     const isBlockedError = error.message.includes('Database deletion blocked')
       || error.message.includes('blocked')
@@ -473,48 +437,28 @@ async function clearIndexedDBData() {
   }
 }
 
-function handleModeChange(modeInput) {
-  if (modeInput.value === CONFIG.MODES.CUSTOM) {
-    domCache.sitemapField.style.display = 'block';
-    domCache.sitemapInput.required = true;
-  } else {
-    domCache.sitemapField.style.display = 'none';
-    domCache.sitemapInput.required = false;
-    domCache.sitemapInput.value = '';
-  }
-  updateButtonVisibility();
-}
-
 function setupEventDelegation() {
   document.addEventListener('click', (event) => {
     const { target } = event;
 
     if (target.matches(SELECTORS.START_SCAN_BUTTON)) {
       startScan();
-    } else if (target.matches(SELECTORS.LOAD_BUTTON)) {
-      loadPreviousScan();
-    } else if (target.matches(SELECTORS.CLEAR_BUTTON)) {
-      clearIndexedDBData();
+    } else if (target.matches(SELECTORS.CLEAR_SITE_BUTTON)) {
+      clearSelectedSiteData();
     }
   });
 
   document.addEventListener('change', (event) => {
     const { target } = event;
 
-    if (target.matches(SELECTORS.STORAGE_OPTION)
-        || target.matches(SELECTORS.ORG_INPUT)
-        || target.matches(SELECTORS.SITE_INPUT)
-        || target.matches(SELECTORS.SITEMAP_INPUT)) {
-      updateButtonVisibility();
-    } else if (target.matches(SELECTORS.MODE_INPUT)) {
-      handleModeChange(target);
+    if (target.matches(SELECTORS.SAVED_SITES_SELECT)) {
+      loadSelectedSite();
     }
   });
 
   document.addEventListener('submit', (event) => {
     if (event.target.matches(SELECTORS.MEDIA_CONFIG_FORM)) {
       event.preventDefault();
-      updateConfig();
     }
   });
 }
@@ -523,28 +467,25 @@ export async function initializeEventListeners() {
   setupEventDelegation();
 
   const params = new URLSearchParams(window.location.search);
-  const modeParam = params.get('mode');
+  const siteUrlParam = params.get('site-url');
   const sitemapParam = params.get('sitemap-url');
 
-  if (modeParam && domCache.modeInput) {
-    domCache.modeInput.value = modeParam;
-    domCache.modeInput.dispatchEvent(new Event('change'));
+  if (siteUrlParam && domCache.siteUrlInput) {
+    domCache.siteUrlInput.value = siteUrlParam;
   }
 
   if (sitemapParam && domCache.sitemapInput) {
     domCache.sitemapInput.value = sitemapParam;
   }
 
-  await updateButtonVisibility();
+  await loadAvailableSites();
 }
 
 export async function initialize() {
   try {
     domCache.init();
     await setupMediaLibrary();
-    await initConfigField();
     await initializeEventListeners();
-    await updateButtonVisibility();
   } catch (error) {
     handleError(error);
   }

@@ -634,9 +634,9 @@ var MediaLibrary = function(exports) {
       documents: "Documents",
       links: "Links",
       icons: "SVGs",
-      missingAlt: "Missing Alt Text",
+      empty: "Empty",
       decorative: "Decorative",
-      filled: "With Alt Text",
+      filled: "Filled",
       unused: "Unused",
       landscape: "Landscape",
       portrait: "Portrait",
@@ -747,9 +747,9 @@ var MediaLibrary = function(exports) {
       documents: "Documentos",
       links: "Enlaces",
       icons: "SVGs",
-      missingAlt: "Falta Texto Alt",
+      empty: "Vacío",
       decorative: "Decorativo",
-      filled: "Con Texto Alt",
+      filled: "Relleno",
       unused: "No Utilizado",
       landscape: "Horizontal",
       portrait: "Vertical",
@@ -860,9 +860,9 @@ var MediaLibrary = function(exports) {
       documents: "Dokumente",
       links: "Links",
       icons: "SVGs",
-      missingAlt: "Fehlender Alt-Text",
+      empty: "Leer",
       decorative: "Dekorativ",
-      filled: "Mit Alt-Text",
+      filled: "Ausgefüllt",
       unused: "Ungenutzt",
       landscape: "Querformat",
       portrait: "Hochformat",
@@ -973,9 +973,9 @@ var MediaLibrary = function(exports) {
       documents: "Documents",
       links: "Liens",
       icons: "SVGs",
-      missingAlt: "Texte Alt Manquant",
+      empty: "Vide",
       decorative: "Décoratif",
-      filled: "Avec Texte Alt",
+      filled: "Rempli",
       unused: "Non Utilisé",
       landscape: "Paysage",
       portrait: "Portrait",
@@ -1764,10 +1764,10 @@ var MediaLibrary = function(exports) {
           throw new Error(`Unsupported storage type: ${this.type}`);
       }
     }
-    async loadChunk(offset, limit) {
+    async loadChunk(offset2, limit) {
       switch (this.type) {
         case "indexeddb":
-          return this.loadRawDataChunk(offset, limit);
+          return this.loadRawDataChunk(offset2, limit);
         case "none":
           return [];
         default:
@@ -1819,7 +1819,7 @@ var MediaLibrary = function(exports) {
         return [];
       }
     }
-    async loadRawDataChunk(offset, limit) {
+    async loadRawDataChunk(offset2, limit) {
       try {
         const db = await this.ensureDatabase();
         if (!db.objectStoreNames.contains("media")) {
@@ -1841,7 +1841,7 @@ var MediaLibrary = function(exports) {
               resolve(cleanResults);
               return;
             }
-            if (currentOffset < offset) {
+            if (currentOffset < offset2) {
               currentOffset += 1;
               cursor.continue();
               return;
@@ -3482,7 +3482,7 @@ var MediaLibrary = function(exports) {
           const mediaItem = {
             url: fixedUrl,
             name: cleanFilename,
-            alt: img.alt || "null",
+            alt: img.alt !== void 0 && img.alt !== null ? img.alt : null,
             type: `img > ${extension}`,
             doc: url.loc,
             ctx: this.captureContext(img, "img"),
@@ -3941,9 +3941,9 @@ var MediaLibrary = function(exports) {
     documents: (item) => getMediaType$1(item) === "document",
     links: (item) => getMediaType$1(item) === "link",
     icons: (item) => isSvgFile$1(item),
-    missingAlt: (item) => {
+    empty: (item) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt === "null";
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && (item.alt === null || item.alt === "null" || item.alt === "undefined");
     },
     decorative: (item) => {
       var _a2, _b;
@@ -3951,7 +3951,7 @@ var MediaLibrary = function(exports) {
     },
     filled: (item) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null";
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null" && item.alt !== "undefined";
     },
     unused: (item) => !item.doc || item.doc.trim() === "",
     landscape: (item) => getMediaType$1(item) === "image" && !isSvgFile$1(item) && item.orientation === "landscape",
@@ -3981,9 +3981,9 @@ var MediaLibrary = function(exports) {
     documentVideos: (item, selectedDocument) => FILTER_CONFIG.videos(item) && item.doc === selectedDocument,
     documentDocuments: (item, selectedDocument) => FILTER_CONFIG.documents(item) && item.doc === selectedDocument,
     documentLinks: (item, selectedDocument) => FILTER_CONFIG.links(item) && item.doc === selectedDocument,
-    documentMissingAlt: (item, selectedDocument) => {
+    documentEmpty: (item, selectedDocument) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt === "null" && item.doc === selectedDocument;
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && (item.alt === null || item.alt === "null" || item.alt === "undefined") && item.doc === selectedDocument;
     },
     documentDecorative: (item, selectedDocument) => {
       var _a2, _b;
@@ -3991,7 +3991,7 @@ var MediaLibrary = function(exports) {
     },
     documentFilled: (item, selectedDocument) => {
       var _a2, _b;
-      return item.doc === selectedDocument && ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null";
+      return item.doc === selectedDocument && ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null" && item.alt !== "undefined";
     },
     documentTotal: () => true,
     all: (item) => !isSvgFile$1(item)
@@ -4058,7 +4058,7 @@ var MediaLibrary = function(exports) {
           return nameMatch;
         }
         case "alt": {
-          const altMatch = item.alt && item.alt.toLowerCase().includes(value);
+          const altMatch = item.alt && item.alt !== "null" && item.alt !== "undefined" && item.alt.toLowerCase().includes(value);
           return altMatch;
         }
         case "url": {
@@ -4250,7 +4250,7 @@ var MediaLibrary = function(exports) {
             break;
           }
           case "alt": {
-            if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile$1(item)) {
+            if (item.alt && item.alt !== "null" && item.alt !== "undefined" && item.alt.toLowerCase().includes(value) && !isSvgFile$1(item)) {
               suggestions.push(createSuggestionFn(item));
               if (suggestions.length >= maxResults)
                 break;
@@ -5207,24 +5207,15 @@ var MediaLibrary = function(exports) {
     }));
     return svgs;
   }
-  const topbarStyles = "/* src/components/topbar/topbar.css */\n\n/* Franklin-style SVG handling */\n:host > svg {\n  display: none;\n}\n\n/* Icon styles */\n.search-icon,\n.clear-icon,\n.view-icon,\n.scan-icon {\n  color: currentcolor;\n  display: block;\n  height: 20px;\n  width: 20px;\n}\n\n.topbar {\n  align-items: center;\n  background: #fff;\n  border-bottom: 1px solid #e2e8f0;\n  display: flex;\n  gap: 16px;\n  padding: 16px;\n}\n\n.search-container {\n  align-items: center;\n  display: flex;\n  flex: 1;\n  margin: 0 auto; /* Center the search container */\n  max-width: 800px; /* Increased maximum width */\n  min-width: 0; /* Allow flex item to shrink below content size */\n  position: relative;\n}\n\n.search-wrapper {\n  align-items: center;\n  display: flex;\n  position: relative;\n  width: 100%;\n}\n\n.search-input {\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #1e293b;\n  font-size: 0.875rem;\n  min-width: 300px; /* Increased minimum usable width */\n  padding: 8px 16px;\n  padding-left: 2.5rem;\n  padding-right: 2.5rem;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.search-input:focus {\n  border-color: #3b82f6;\n  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);\n  outline: none;\n}\n\n.search-input::placeholder {\n  color: #64748b;\n}\n\n.search-input:disabled {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.search-input:disabled::placeholder {\n  color: #94a3b8;\n}\n\n.search-icon {\n  color: #64748b;\n  left: 8px;\n  pointer-events: none;\n  position: absolute;\n  z-index: 1;\n}\n\n.clear-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 4px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  justify-content: center;\n  position: absolute;\n  right: 4px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.clear-button:hover {\n  background: #f8fafc;\n  color: #1e293b;\n}\n\n.scan-stats {\n  align-items: center;\n  background: #f8fafc;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  display: flex;\n  font-size: 0.875rem;\n  gap: 16px;\n  padding: 8px 16px;\n}\n\n.stat-item {\n  align-items: center;\n  display: flex;\n  gap: 4px;\n}\n\n.stat-number {\n  font-variant-numeric: tabular-nums;\n  min-width: 2ch;\n  text-align: right;\n  transition: all 0.1s ease;\n}\n\n.stat-text {\n  white-space: nowrap;\n}\n\n.stat-label {\n  color: #64748b;\n  font-weight: 500;\n}\n\n.stat-value {\n  color: #1e293b;\n  font-weight: 600;\n}\n\n.view-toggle-button {\n  align-items: center;\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  height: 40px;\n  justify-content: center;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 40px;\n}\n\n.view-toggle-button:hover {\n  background: #f8fafc;\n  border-color: #3b82f6;\n  color: #1e293b;\n}\n\n.view-toggle-button:active {\n  background: #3b82f6;\n  border-color: #3b82f6;\n  color: #fff;\n}\n\n.view-toggle-button:disabled {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.view-toggle-button:disabled:hover {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n}\n\n.scan-container {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.scan-button {\n  align-items: center;\n  background: #3b82f6;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #fff;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.875rem;\n  font-weight: 500;\n  gap: 8px;\n  padding: 8px 16px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n\n.scan-button:disabled {\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.scan-button:hover:not(:disabled) {\n  background: #2563eb;\n  border-color: #2563eb;\n}\n\n.analysis-toggle-container {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.analysis-toggle-text {\n  color: #64748b;\n  font-size: 0.875rem;\n  font-weight: 500;\n  white-space: nowrap;\n}\n\n.analysis-toggle-label {\n  align-items: center;\n  cursor: pointer;\n  display: flex;\n  user-select: none;\n}\n\n.analysis-toggle-input {\n  display: none;\n}\n\n.analysis-toggle-slider {\n  background: #e2e8f0;\n  border: 1px solid #cbd5e1;\n  border-radius: 4px;\n  cursor: pointer;\n  height: 32px;\n  overflow: hidden;\n  position: relative;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 60px;\n}\n\n.analysis-toggle-slider::before {\n  background: #fff;\n  border-radius: 2px;\n  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);\n  content: '';\n  height: 28px;\n  left: 2px;\n  position: absolute;\n  top: 2px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 28px;\n  z-index: 2;\n}\n\n.analysis-toggle-slider::after {\n  color: #64748b;\n  content: 'OFF';\n  font-size: 0.7rem;\n  font-weight: 600;\n  position: absolute;\n  right: 6px;\n  top: 50%;\n  transform: translateY(-50%);\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  z-index: 1;\n}\n\n.analysis-toggle-slider.enabled {\n  background: #3b82f6;\n  border-color: #3b82f6;\n}\n\n.analysis-toggle-slider.enabled::before {\n  transform: translateX(28px);\n}\n\n.analysis-toggle-slider.enabled::after {\n  color: #fff;\n  content: 'ON';\n  left: 6px;\n  right: auto;\n}\n\n.analysis-toggle-label:has(.analysis-toggle-input:disabled) {\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.analysis-toggle-label:has(.analysis-toggle-input:disabled) .analysis-toggle-slider {\n  cursor: not-allowed;\n}\n\n.scan-progress {\n  align-items: center;\n  background: #f8fafc;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #64748b;\n  display: flex;\n  font-size: 0.875rem;\n  gap: 8px;\n  padding: 8px 16px;\n}\n\n.progress-bar {\n  background: #e2e8f0;\n  border-radius: 2px;\n  height: 4px;\n  overflow: hidden;\n  width: 100px;\n}\n\n.progress-fill {\n  background: #3b82f6;\n  height: 100%;\n  transition: width 0.3s ease;\n}\n\n/* Suggestions dropdown styles */\n.suggestions-dropdown {\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 0 0 6px 6px;\n  border-top: none;\n  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);\n  left: 0;\n  margin-top: -1px; /* Overlap with input border */\n  max-height: 300px;\n  overflow-y: auto;\n  position: absolute;\n  right: 0;\n  top: 100%;\n  z-index: 1000;\n}\n\n.suggestion-item {\n  border-bottom: 1px solid #e2e8f0;\n  cursor: pointer;\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  padding: 8px 16px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.suggestion-item:last-child {\n  border-bottom: none;\n}\n\n.suggestion-item:hover,\n.suggestion-item.active {\n  background: #f8fafc;\n}\n\n.suggestion-main {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.suggestion-text {\n  color: #1e293b;\n  font-size: 0.875rem;\n  font-weight: 500;\n}\n\n.suggestion-details {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n  margin-left: 1.5rem;\n}\n\n.detail-line {\n  align-items: center;\n  color: #64748b;\n  display: flex;\n  font-size: 0.75rem;\n  gap: 4px;\n}\n\n.detail-line span {\n  color: #1e293b;\n  font-weight: 400;\n}\n\n/* Highlight matching text */\nmark {\n  background: #fef3c7;\n  border-radius: 2px;\n  color: #92400e;\n  font-weight: 600;\n  padding: 0;\n}\n\n@media (max-width: 768px) {\n  .topbar {\n    flex-wrap: wrap;\n    gap: var(--ml-space-sm);\n  }\n  \n  .search-container {\n    flex: 1 1 100%;\n    margin: 0; /* Remove centering on mobile */\n    max-width: none; /* Remove max-width on mobile */\n    min-width: 0;\n    order: 1;\n  }\n  \n  .view-toggle-button {\n    order: 2;\n  }\n  \n  .scan-button {\n    order: 3;\n  }\n}\n\n";
+  const topbarStyles = "/* src/components/topbar/topbar.css */\n\n/* Franklin-style SVG handling */\n:host > svg {\n  display: none;\n}\n\n/* Icon styles */\n.search-icon,\n.clear-icon,\n.view-icon,\n.scan-icon {\n  color: currentcolor;\n  display: block;\n  height: 20px;\n  width: 20px;\n}\n\n.topbar {\n  align-items: center;\n  background: #fff;\n  display: flex;\n  gap: 12px;\n  justify-content: center;\n  padding: 12px 16px;\n}\n\n.search-container {\n  max-width: 500px;\n  position: relative;\n  width: 100%;\n}\n\n.search-wrapper {\n  align-items: center;\n  display: flex;\n  position: relative;\n  width: 100%;\n}\n\n.search-input {\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #1e293b;\n  font-size: 14px;\n  padding: 8px 16px;\n  padding-left: 2.5rem;\n  padding-right: 2.5rem;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.search-input:focus {\n  border-color: #3b82f6;\n  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);\n  outline: none;\n}\n\n.search-input::placeholder {\n  color: #64748b;\n}\n\n.search-input:disabled {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.search-input:disabled::placeholder {\n  color: #94a3b8;\n}\n\n.search-icon {\n  color: #64748b;\n  left: 8px;\n  pointer-events: none;\n  position: absolute;\n  z-index: 1;\n}\n\n.clear-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 4px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  justify-content: center;\n  position: absolute;\n  right: 4px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.clear-button:hover {\n  background: #f8fafc;\n  color: #1e293b;\n}\n\n.result-summary {\n  color: #94a3b8;\n  font-size: 0.75rem;\n  font-style: italic;\n  font-weight: 400;\n  margin-inline-start: 12px;\n  white-space: nowrap;\n}\n\n.view-toggle-button:hover {\n  background: #f8fafc;\n  border-color: #3b82f6;\n  color: #1e293b;\n}\n\n.view-toggle-button:active {\n  background: #3b82f6;\n  border-color: #3b82f6;\n  color: #fff;\n}\n\n.view-toggle-button:disabled {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.view-toggle-button:disabled:hover {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n}\n\n.scan-container {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.scan-button {\n  align-items: center;\n  background: #3b82f6;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #fff;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.875rem;\n  font-weight: 500;\n  gap: 8px;\n  padding: 8px 16px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n\n.scan-button:disabled {\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.scan-button:hover:not(:disabled) {\n  background: #2563eb;\n  border-color: #2563eb;\n}\n\n.analysis-toggle-container {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.analysis-toggle-text {\n  color: #64748b;\n  font-size: 0.875rem;\n  font-weight: 500;\n  white-space: nowrap;\n}\n\n.analysis-toggle-label {\n  align-items: center;\n  cursor: pointer;\n  display: flex;\n  user-select: none;\n}\n\n.analysis-toggle-input {\n  display: none;\n}\n\n.analysis-toggle-slider {\n  background: #e2e8f0;\n  border: 1px solid #cbd5e1;\n  border-radius: 4px;\n  cursor: pointer;\n  height: 32px;\n  overflow: hidden;\n  position: relative;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 60px;\n}\n\n.analysis-toggle-slider::before {\n  background: #fff;\n  border-radius: 2px;\n  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);\n  content: '';\n  height: 28px;\n  left: 2px;\n  position: absolute;\n  top: 2px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 28px;\n  z-index: 2;\n}\n\n.analysis-toggle-slider::after {\n  color: #64748b;\n  content: 'OFF';\n  font-size: 0.7rem;\n  font-weight: 600;\n  position: absolute;\n  right: 6px;\n  top: 50%;\n  transform: translateY(-50%);\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  z-index: 1;\n}\n\n.analysis-toggle-slider.enabled {\n  background: #3b82f6;\n  border-color: #3b82f6;\n}\n\n.analysis-toggle-slider.enabled::before {\n  transform: translateX(28px);\n}\n\n.analysis-toggle-slider.enabled::after {\n  color: #fff;\n  content: 'ON';\n  left: 6px;\n  right: auto;\n}\n\n.analysis-toggle-label:has(.analysis-toggle-input:disabled) {\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.analysis-toggle-label:has(.analysis-toggle-input:disabled) .analysis-toggle-slider {\n  cursor: not-allowed;\n}\n\n.scan-progress {\n  align-items: center;\n  background: #f8fafc;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #64748b;\n  display: flex;\n  font-size: 0.875rem;\n  gap: 8px;\n  padding: 8px 16px;\n}\n\n.progress-bar {\n  background: #e2e8f0;\n  border-radius: 2px;\n  height: 4px;\n  overflow: hidden;\n  width: 100px;\n}\n\n.progress-fill {\n  background: #3b82f6;\n  height: 100%;\n  transition: width 0.3s ease;\n}\n\n/* Suggestions dropdown styles */\n.suggestions-dropdown {\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 0 0 6px 6px;\n  border-top: none;\n  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);\n  left: 0;\n  margin-top: -1px; /* Overlap with input border */\n  max-height: 300px;\n  overflow-y: auto;\n  position: absolute;\n  right: 0;\n  top: 100%;\n  z-index: 1000;\n}\n\n.suggestion-item {\n  border-bottom: 1px solid #e2e8f0;\n  cursor: pointer;\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n  padding: 8px 16px;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n}\n\n.suggestion-item:last-child {\n  border-bottom: none;\n}\n\n.suggestion-item:hover,\n.suggestion-item.active {\n  background: #f8fafc;\n}\n\n.suggestion-main {\n  align-items: center;\n  display: flex;\n  gap: 8px;\n}\n\n.suggestion-text {\n  color: #1e293b;\n  font-size: 0.875rem;\n  font-weight: 500;\n}\n\n.suggestion-details {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n  margin-left: 1.5rem;\n}\n\n.detail-line {\n  align-items: center;\n  color: #64748b;\n  display: flex;\n  font-size: 0.75rem;\n  gap: 4px;\n}\n\n.detail-line span {\n  color: #1e293b;\n  font-weight: 400;\n}\n\n/* Highlight matching text */\nmark {\n  background: #fef3c7;\n  border-radius: 2px;\n  color: #92400e;\n  font-weight: 600;\n  padding: 0;\n}\n\n@media (max-width: 768px) {\n  .topbar {\n    flex-wrap: wrap;\n    gap: var(--ml-space-sm);\n  }\n  \n  .search-container {\n    flex: 1 1 100%;\n    margin: 0; /* Remove centering on mobile */\n    max-width: none; /* Remove max-width on mobile */\n    min-width: 0;\n    order: 1;\n  }\n  \n  .view-toggle-button {\n    order: 2;\n  }\n  \n  .scan-button {\n    order: 3;\n  }\n}\n\n";
   class MediaTopbar extends LocalizableElement {
     constructor() {
       super();
       this.searchQuery = "";
       this.currentView = "grid";
       this.locale = "en";
-      this.isScanning = false;
-      this.scanProgress = null;
-      this.isBatchLoading = false;
-      this.realTimeStats = { images: 0, pages: 0, elapsed: 0 };
-      this.lastScanDuration = null;
-      this.scanStats = null;
-      this.imageAnalysisEnabled = false;
-      this.showAnalysisToggle = true;
       this.mediaData = [];
-      this.totalPages = 0;
-      this.isActuallyScanning = false;
+      this.resultSummary = "";
       this._suggestions = [];
       this._activeIndex = -1;
       this._originalQuery = "";
@@ -5237,12 +5228,12 @@ var MediaLibrary = function(exports) {
     async connectedCallback() {
       super.connectedCallback();
       const ICONS = [
-        "./icons/search.svg",
-        "./icons/close.svg",
-        "./icons/list.svg",
-        "./icons/grid.svg",
-        "./icons/refresh.svg",
-        "./icons/photo.svg"
+        "deps/icons/search.svg",
+        "deps/icons/close.svg",
+        "deps/icons/list.svg",
+        "deps/icons/grid.svg",
+        "deps/icons/refresh.svg",
+        "deps/icons/photo.svg"
       ];
       getSvg({ parent: this.shadowRoot, paths: ICONS });
       this.handleOutsideClick = this.handleOutsideClick.bind(this);
@@ -5287,9 +5278,8 @@ var MediaLibrary = function(exports) {
             <input 
               class="search-input"
               type="text"
-              placeholder=${this.isScanning ? this.t("mediaLibrary.searchDisabledDuringScan") : this.t("mediaLibrary.searchPlaceholder")}
+              placeholder="Search"
               .value=${this.searchQuery || ""}
-              ?disabled=${this.isScanning}
               @input=${this.handleSearchInput}
               @keydown=${this.handleKeyDown}
             />
@@ -5327,69 +5317,12 @@ var MediaLibrary = function(exports) {
           ` : ""}
         </div>
 
-        ${this.isActuallyScanning ? x$1`
-          <div class="scan-stats">
-            <div class="stat-item">
-              <span class="stat-label">Found</span>
-              <span class="stat-value stat-number">${this.realTimeStats.images}</span>
-              <span class="stat-text">media in</span>
-              <span class="stat-value stat-number">${this.realTimeStats.pages}</span>
-              <span class="stat-text">/</span>
-              <span class="stat-value stat-number">${this.totalPages}</span>
-              <span class="stat-text">changed pages in</span>
-              <span class="stat-value stat-number">${this.realTimeStats.elapsed}</span>
-              <span class="stat-text">s</span>
-            </div>
+        ${this.resultSummary ? x$1`
+          <div class="result-summary">
+            ${this.resultSummary}
           </div>
         ` : ""}
-
-        ${this.scanStats ? x$1`
-          <div class="scan-stats">
-            <div class="stat-item">
-              <span class="stat-label">Pages:</span>
-              <span class="stat-value">${this.scanStats.pagesScanned}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Media:</span>
-              <span class="stat-value">${this.scanStats.mediaFound}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Time:</span>
-              <span class="stat-value">${this.scanStats.duration}s</span>
-            </div>
-          </div>
-        ` : ""}
-
-        <button 
-          class="view-toggle-button"
-          @click=${this.toggleView}
-          ?disabled=${this.isScanning}
-          aria-label=${this.currentView === "grid" ? this.t("views.list") : this.t("views.grid")}
-          title=${this.currentView === "grid" ? this.t("views.list") : this.t("views.grid")}
-        >
-          <svg class="view-icon">
-            <use href="#${this.currentView === "grid" ? "list" : "grid"}"></use>
-          </svg>
-        </button>
-
-        ${this.showAnalysisToggle ? x$1`
-          <div class="analysis-toggle-container">
-            <span class="analysis-toggle-text">EXIF</span>
-            <label class="analysis-toggle-label">
-              <input 
-                type="checkbox" 
-                class="analysis-toggle-input"
-                ?checked=${this.imageAnalysisEnabled}
-                @change=${this.toggleImageAnalysis}
-                ?disabled=${this.isActuallyScanning}
-              />
-              <span class="analysis-toggle-slider ${this.imageAnalysisEnabled ? "enabled" : ""}"></span>
-            </label>
-          </div>
-        ` : ""}
-
       </div>
-
     `;
     }
     getOnDemandSearchSuggestions(query) {
@@ -5410,7 +5343,7 @@ var MediaLibrary = function(exports) {
         this._lastSearchQuery = query;
         this.dispatchEvent(new CustomEvent("search", { detail: { query } }));
       }, 300);
-      if (!query || !query.trim() || this._suppressSuggestions || this.isScanning) {
+      if (!query || !query.trim() || this._suppressSuggestions) {
         this._suggestions = [];
         this._suppressSuggestions = false;
       } else {
@@ -5532,33 +5465,13 @@ var MediaLibrary = function(exports) {
       this._suppressSuggestions = false;
       this.dispatchEvent(new CustomEvent("search", { detail: { query: "" } }));
     }
-    handleViewChange(view) {
-      this.dispatchEvent(new CustomEvent("viewChange", { detail: { view } }));
-    }
-    toggleView() {
-      const newView = this.currentView === "grid" ? "list" : "grid";
-      this.handleViewChange(newView);
-    }
-    toggleImageAnalysis(event) {
-      this.imageAnalysisEnabled = event.target.checked;
-      this.dispatchEvent(new CustomEvent("toggleImageAnalysis", { detail: { enabled: this.imageAnalysisEnabled } }));
-    }
   }
   __publicField(MediaTopbar, "properties", {
     searchQuery: { type: String },
     currentView: { type: String },
     locale: { type: String },
-    isScanning: { type: Boolean },
-    scanProgress: { type: Object },
-    isBatchLoading: { type: Boolean },
-    realTimeStats: { type: Object },
-    lastScanDuration: { type: String },
-    scanStats: { type: Object },
-    imageAnalysisEnabled: { type: Boolean },
-    showAnalysisToggle: { type: Boolean },
     mediaData: { type: Array },
-    totalPages: { type: Number },
-    isActuallyScanning: { type: Boolean },
+    resultSummary: { type: String },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
@@ -5566,7 +5479,7 @@ var MediaLibrary = function(exports) {
   });
   __publicField(MediaTopbar, "styles", getStyles(topbarStyles));
   customElements.define("media-topbar", MediaTopbar);
-  const sidebarStyles = '.media-sidebar {\n  background: #f8fafc;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  display: flex;\n  flex-direction: column;\n  height: 100%;\n  padding: 16px;\n}\n\n.sidebar-header {\n  margin-bottom: 24px;\n}\n\n.sidebar-title {\n  color: #1e293b;\n  font-size: 1.25rem;\n  font-weight: 600;\n  margin: 0;\n}\n\n.filter-section h3 {\n  color: #64748b;\n  font-size: 0.875rem;\n  font-weight: 600;\n  letter-spacing: 0.05em;\n  margin: 24px 0 16px;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: #fff;\n  border: 1px solid #e2e8f0;\n  border-radius: 6px;\n  color: #1e293b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.875rem;\n  justify-content: space-between;\n  padding: 8px 16px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: #f8fafc;\n  border-color: #3b82f6;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: #3b82f6;\n  border-color: #3b82f6;\n  color: #fff;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: #2563eb;\n  border-color: #2563eb;\n}\n\n.filter-button.disabled {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: #f8fafc;\n  border-color: #e2e8f0;\n}\n\n.count {\n  background: #f8fafc;\n  border-radius: 4px;\n  color: #64748b;\n  font-size: 0.75rem;\n  font-weight: 500;\n  min-width: 1.5rem;\n  padding: 4px 8px;\n  text-align: center;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: rgb(255 255 255 / 0.2);\n  color: #fff;\n}\n\n.filter-button:not([aria-pressed="true"]):hover .count {\n  background: #fff;\n  color: #3b82f6;\n}\n\n/* Category section specific styles */\n.filter-section:has(.filter-list:has(.filter-button[data-category])) {\n  border-left: 3px solid #3b82f6;\n  padding-left: calc(16px - 3px);\n}\n\n.filter-section:has(.filter-list:has(.filter-button[data-category])) h3 {\n  color: #3b82f6;\n  font-weight: 700;\n}\n\n/* Category filter buttons - no bullets */\n.filter-button[data-category] {\n  /* No special styling needed - bullets removed */\n}\n';
+  const sidebarStyles = '.media-sidebar {\n  background: #fff;\n  border: none;\n  display: flex;\n  flex-direction: column;\n  height: 100vh;\n  overflow-x: hidden;\n  overflow-y: auto;\n  transition: width 0.3s ease;\n  width: 60px;\n}\n\n.media-sidebar.collapsed {\n  width: 60px;\n}\n\n.media-sidebar.expanded {\n  width: 160px;\n}\n\n.sidebar-icons {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 8px 8px 8px;\n}\n\n.sidebar-icons.secondary {\n  padding: 8px 8px 12px 8px;\n}\n\n.icon-btn {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 8px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 14px;\n  font-weight: 500;\n  gap: 12px;\n  justify-content: flex-start;\n  min-height: 40px;\n  padding: 10px 12px;\n  transition: all 0.2s ease;\n  white-space: nowrap;\n}\n\n.icon-btn:hover {\n  background: transparent;\n  color: #1e293b;\n}\n\n.icon-btn.active {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.icon-btn .icon {\n  flex-shrink: 0;\n  height: 20px;\n  width: 20px;\n}\n\n.icon-btn .icon-label {\n  opacity: 1;\n  transition: opacity 0.2s ease;\n}\n\n.collapsed .icon-btn {\n  justify-content: center;\n  padding: 10px;\n  width: 44px;\n}\n\n.collapsed .icon-btn .icon-label {\n  display: none;\n}\n\n.filter-panel {\n  padding: 0 4px;\n}\n\n.filter-section {\n  margin-bottom: 24px;\n}\n\n.filter-section h3 {\n  color: #64748b;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.05em;\n  margin: 0 0 8px;\n  padding: 0 6px;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 6px;\n  color: #1e293b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.813rem;\n  justify-content: space-between;\n  padding: 6px 8px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: transparent;\n}\n\n.filter-button.disabled {\n  background: transparent;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: transparent;\n  color: #94a3b8;\n}\n\n.count {\n  background: transparent;\n  border-radius: 4px;\n  color: #64748b;\n  font-size: 0.75rem;\n  font-variant-numeric: tabular-nums;\n  font-weight: 500;\n  min-width: 2ch;\n  padding: 2px 6px;\n  text-align: right;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button:not([aria-pressed="true"]):hover .count {\n  background: transparent;\n  color: #3b82f6;\n}\n\n/* Category section specific styles */\n.filter-section:has(.filter-list:has(.filter-button[data-category])) {\n  border-left: 3px solid #3b82f6;\n  padding-left: calc(16px - 3px);\n}\n\n.filter-section:has(.filter-list:has(.filter-button[data-category])) h3 {\n  color: #3b82f6;\n  font-weight: 700;\n}\n\n/* Category filter buttons - no bullets */\n.filter-button[data-category] {\n  /* No special styling needed - bullets removed */\n}\n\n/* Index Panel Styles */\n.index-panel {\n  padding: 8px 16px 16px;\n}\n\n.index-message {\n  color: #64748b;\n  font-size: 14px;\n  line-height: 1.5;\n}\n\n.index-message.empty {\n  color: #94a3b8;\n  font-style: italic;\n}\n';
   class MediaSidebar extends LocalizableElement {
     constructor() {
       super();
@@ -5574,11 +5487,21 @@ var MediaLibrary = function(exports) {
       this.filterCounts = {};
       this.locale = "en";
       this.isScanning = false;
+      this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+      this.isExpanded = false;
+      this.isIndexExpanded = false;
     }
-    async connectedCallback() {
+    connectedCallback() {
       super.connectedCallback();
       this.handleClearFilters = this.handleClearFilters.bind(this);
       window.addEventListener("clear-filters", this.handleClearFilters);
+    }
+    async firstUpdated() {
+      const ICONS = [
+        "deps/icons/filter.svg",
+        "deps/icons/refresh.svg"
+      ];
+      await getSvg({ parent: this.shadowRoot, paths: ICONS });
     }
     disconnectedCallback() {
       super.disconnectedCallback();
@@ -5588,52 +5511,145 @@ var MediaLibrary = function(exports) {
       this.activeFilter = "all";
       this.requestUpdate();
     }
+    handleToggle() {
+      if (this.isIndexExpanded) {
+        this.isIndexExpanded = false;
+      }
+      this.isExpanded = !this.isExpanded;
+      this.dispatchEvent(new CustomEvent("sidebarToggle", {
+        detail: { expanded: this.isExpanded },
+        bubbles: true,
+        composed: true
+      }));
+    }
+    handleIndexToggle() {
+      if (this.isExpanded) {
+        this.isExpanded = false;
+      }
+      this.isIndexExpanded = !this.isIndexExpanded;
+    }
+    renderIconButton(iconRef, label, isActive = false, customHandler = null) {
+      const handler = customHandler || this.handleToggle.bind(this);
+      return x$1`
+      <button
+        class="icon-btn ${isActive ? "active" : ""}"
+        @click=${handler}
+        title=${label}
+        aria-label=${label}
+        aria-expanded=${isActive}
+      >
+        <svg class="icon">
+          <use href="#${iconRef}"></use>
+        </svg>
+        ${this.isExpanded || this.isIndexExpanded ? x$1`<span class="icon-label">${label}</span>` : ""}
+      </button>
+    `;
+    }
+    renderIndexPanel() {
+      var _a2, _b, _c, _d, _e2, _f;
+      if (this.isScanning) {
+        return x$1`
+        <div class="index-panel">
+          <div class="index-message">
+            ${((_a2 = this.scanProgress) == null ? void 0 : _a2.pages) || 0} pages, ${((_b = this.scanProgress) == null ? void 0 : _b.media) || 0} media
+          </div>
+        </div>
+      `;
+      }
+      const hasCompletedScan = ((_c = this.scanProgress) == null ? void 0 : _c.duration) || !this.isScanning && (((_d = this.scanProgress) == null ? void 0 : _d.pages) > 0 || ((_e2 = this.scanProgress) == null ? void 0 : _e2.media) > 0);
+      if (hasCompletedScan) {
+        if (this.scanProgress.hasChanges === false) {
+          return x$1`
+          <div class="index-panel">
+            <div class="index-message">
+              No changes found
+            </div>
+          </div>
+        `;
+        }
+        if (this.scanProgress.hasChanges === true) {
+          return x$1`
+          <div class="index-panel">
+            <div class="index-message">
+              Found ${((_f = this.scanProgress) == null ? void 0 : _f.media) || 0} media
+            </div>
+          </div>
+        `;
+        }
+        return x$1`
+        <div class="index-panel">
+          <div class="index-message">
+            Scan completed
+          </div>
+        </div>
+      `;
+      }
+      return x$1`
+      <div class="index-panel">
+        <div class="index-message empty">
+          Ready to index
+        </div>
+      </div>
+    `;
+    }
     render() {
       const counts = this.filterCounts || {};
       logger.debug("Sidebar render - filterCounts:", counts);
       logger.debug("Sidebar render - isScanning:", this.isScanning);
+      logger.debug("Sidebar render - isExpanded:", this.isExpanded);
+      logger.debug("Sidebar render - isIndexExpanded:", this.isIndexExpanded);
       return x$1`
-      <aside class="media-sidebar">
-        <div class="sidebar-header">
-          <h1 class="sidebar-title">${this.t("mediaLibrary.title")}</h1>
-        </div>
-        
-        <div class="filter-section">
-          <h3>${this.t("common.filter")}</h3>
-          <ul class="filter-list">
-            ${this.renderFilterItem("all", counts.all)}
-            ${this.renderFilterItem("images", counts.images)}
-            ${this.renderFilterItem("videos", counts.videos)}
-            ${this.renderFilterItem("documents", counts.documents)}
-            ${this.renderFilterItem("links", counts.links)}
-            ${this.renderFilterItem("icons", counts.icons, "SVGs")}
-            ${this.renderFilterItem("unused", counts.unused)}
-          </ul>
+      <aside class="media-sidebar ${this.isExpanded || this.isIndexExpanded ? "expanded" : "collapsed"}">
+        <div class="sidebar-icons">
+          ${this.renderIconButton("filter", this.t("common.filter"), this.isExpanded)}
         </div>
 
-        ${counts.filled > 0 || counts.decorative > 0 || counts.missingAlt > 0 ? x$1`
-          <div class="filter-section">
-            <h3>Accessibility</h3>
-            <ul class="filter-list">
-              ${this.renderFilterItem("filled", counts.filled)}
-              ${this.renderFilterItem("decorative", counts.decorative)}
-              ${this.renderFilterItem("missingAlt", counts.missingAlt, "No Alt Text")}
-            </ul>
+        ${this.isExpanded ? x$1`
+          <div class="filter-panel">
+            <div class="filter-section">
+              <h3>Types</h3>
+              <ul class="filter-list">
+                ${this.renderFilterItem("all", counts.all)}
+                ${this.renderFilterItem("images", counts.images)}
+                ${this.renderFilterItem("videos", counts.videos)}
+                ${this.renderFilterItem("documents", counts.documents)}
+                ${this.renderFilterItem("links", counts.links)}
+                ${this.renderFilterItem("icons", counts.icons, "SVGs")}
+                ${this.renderFilterItem("unused", counts.unused)}
+              </ul>
+            </div>
+
+            ${counts.filled > 0 || counts.decorative > 0 || counts.empty > 0 ? x$1`
+              <div class="filter-section">
+                <h3>Accessibility</h3>
+                <ul class="filter-list">
+                  ${this.renderFilterItem("filled", counts.filled)}
+                  ${this.renderFilterItem("decorative", counts.decorative)}
+                  ${this.renderFilterItem("empty", counts.empty)}
+                </ul>
+              </div>
+            ` : ""}
+
+            ${this.isScanning || counts.landscape > 0 || counts.portrait > 0 || counts.square > 0 ? x$1`
+              <div class="filter-section">
+                <h3>Orientation</h3>
+                <ul class="filter-list">
+                  ${this.renderFilterItem("landscape", counts.landscape)}
+                  ${this.renderFilterItem("portrait", counts.portrait)}
+                  ${this.renderFilterItem("square", counts.square)}
+                </ul>
+              </div>
+            ` : ""}
+
+            ${this.renderCategorySection(counts)}
           </div>
         ` : ""}
 
-        ${this.isScanning || counts.landscape > 0 || counts.portrait > 0 || counts.square > 0 ? x$1`
-          <div class="filter-section">
-            <h3>Orientation</h3>
-            <ul class="filter-list">
-              ${this.renderFilterItem("landscape", counts.landscape)}
-              ${this.renderFilterItem("portrait", counts.portrait)}
-              ${this.renderFilterItem("square", counts.square)}
-            </ul>
-          </div>
-        ` : ""}
+        <div class="sidebar-icons secondary">
+          ${this.renderIconButton("refresh", "Index", this.isIndexExpanded, this.handleIndexToggle.bind(this))}
+        </div>
 
-        ${this.renderCategorySection(counts)}
+        ${this.isIndexExpanded ? this.renderIndexPanel() : ""}
       </aside>
     `;
     }
@@ -5696,7 +5712,10 @@ var MediaLibrary = function(exports) {
     activeFilter: { type: String },
     filterCounts: { type: Object },
     locale: { type: String },
-    isScanning: { type: Boolean }
+    isScanning: { type: Boolean },
+    scanProgress: { type: Object },
+    isExpanded: { type: Boolean, state: true },
+    isIndexExpanded: { type: Boolean, state: true }
   });
   __publicField(MediaSidebar, "styles", getStyles(sidebarStyles));
   customElements.define("media-sidebar", MediaSidebar);
@@ -5770,323 +5789,1535 @@ var MediaLibrary = function(exports) {
       return this.ut = a2, m$1(s2, v2), T$1;
     }
   });
-  const SCROLL_CONSTANTS = {
-    GRID_ITEM_WIDTH: 410,
-    GRID_ITEM_HEIGHT: 400,
-    GRID_CARD_SPACING: 20,
-    LIST_ITEM_HEIGHT: 80,
-    BUFFER_SIZE: 5,
-    SCROLL_THROTTLE: 16,
-    MAX_VISIBLE_ITEMS: 50,
-    MIN_BUFFER_SIZE: 3,
-    MAX_BUFFER_SIZE: 10,
-    FAST_SCROLL_THRESHOLD: 100
-  };
-  class VirtualScrollManager {
-    getResponsiveItemWidth() {
-      if (typeof window === "undefined")
-        return SCROLL_CONSTANTS.GRID_ITEM_WIDTH;
-      const width = window.innerWidth;
-      if (width >= 1200) {
-        return 410;
-      }
-      if (width >= 992) {
-        return 360;
-      }
-      if (width >= 768) {
-        return 310;
-      }
-      if (width >= 576) {
-        return 290;
-      }
-      return 260;
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  class RangeChangedEvent extends Event {
+    constructor(range) {
+      super(RangeChangedEvent.eventName, { bubbles: false });
+      this.first = range.first;
+      this.last = range.last;
     }
-    constructor(options = {}) {
-      this.container = null;
-      this.scrollListenerAttached = false;
-      this.scrollTimeout = null;
-      this.throttledScroll = null;
-      this.itemHeight = options.itemHeight || SCROLL_CONSTANTS.GRID_ITEM_HEIGHT;
-      this.itemWidth = options.itemWidth || this.getResponsiveItemWidth();
-      this.cardSpacing = options.cardSpacing || SCROLL_CONSTANTS.GRID_CARD_SPACING;
-      this.bufferSize = options.bufferSize || SCROLL_CONSTANTS.BUFFER_SIZE;
-      this.maxVisibleItems = options.maxVisibleItems || SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
-      this.scrollThrottle = options.scrollThrottle || SCROLL_CONSTANTS.SCROLL_THROTTLE;
-      this.visibleStart = 0;
-      this.visibleEnd = 0;
-      this.totalItems = 0;
-      this.containerHeight = 0;
-      this.containerWidth = 0;
-      this.lastScrollTop = 0;
-      this.lastScrollTime = 0;
-      this.scrollSpeed = 0;
-      this.onRangeChange = options.onRangeChange || null;
-      this.onColCountChange = options.onColCountChange || null;
-      this.onScroll = this.onScroll.bind(this);
-      this.onResize = this.onResize.bind(this);
+  }
+  RangeChangedEvent.eventName = "rangeChanged";
+  class VisibilityChangedEvent extends Event {
+    constructor(range) {
+      super(VisibilityChangedEvent.eventName, { bubbles: false });
+      this.first = range.first;
+      this.last = range.last;
     }
-    init(container, totalItems) {
-      this.container = container;
-      this.totalItems = totalItems;
-      this.updateContainerDimensions();
-      this.calculateVisibleRange();
-      this.attachScrollListener();
-      this.attachResizeListener();
+  }
+  VisibilityChangedEvent.eventName = "visibilityChanged";
+  class UnpinnedEvent extends Event {
+    constructor() {
+      super(UnpinnedEvent.eventName, { bubbles: false });
     }
-    updateContainerDimensions() {
-      if (!this.container)
-        return;
-      const rect = this.container.getBoundingClientRect();
-      this.containerHeight = rect.height;
-      this.containerWidth = rect.width;
-    }
-    calculateVisibleRange() {
-      if (!this.container || this.totalItems === 0) {
-        this.visibleStart = 0;
-        this.visibleEnd = 0;
-        return;
-      }
-      const { scrollTop } = this.container;
-      const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-      const startRow = Math.floor(scrollTop / (this.itemHeight + this.cardSpacing));
-      const endRow = Math.ceil(
-        (scrollTop + this.containerHeight) / (this.itemHeight + this.cardSpacing)
-      );
-      this.visibleStart = Math.max(0, startRow * itemsPerRow - this.bufferSize);
-      this.visibleEnd = Math.min(this.totalItems, (endRow + 1) * itemsPerRow + this.bufferSize);
-      if (this.visibleEnd - this.visibleStart > this.maxVisibleItems) {
-        const center = Math.floor((this.visibleStart + this.visibleEnd) / 2);
-        this.visibleStart = Math.max(0, center - Math.floor(this.maxVisibleItems / 2));
-        this.visibleEnd = Math.min(this.totalItems, this.visibleStart + this.maxVisibleItems);
+  }
+  UnpinnedEvent.eventName = "unpinned";
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  class ScrollerShim {
+    constructor(element) {
+      this._element = null;
+      const node = element ?? window;
+      this._node = node;
+      if (element) {
+        this._element = element;
       }
     }
-    onScroll() {
-      if (this.scrollTimeout) {
-        clearTimeout(this.scrollTimeout);
+    get element() {
+      return this._element || document.scrollingElement || document.documentElement;
+    }
+    get scrollTop() {
+      return this.element.scrollTop || window.scrollY;
+    }
+    get scrollLeft() {
+      return this.element.scrollLeft || window.scrollX;
+    }
+    get scrollHeight() {
+      return this.element.scrollHeight;
+    }
+    get scrollWidth() {
+      return this.element.scrollWidth;
+    }
+    get viewportHeight() {
+      return this._element ? this._element.getBoundingClientRect().height : window.innerHeight;
+    }
+    get viewportWidth() {
+      return this._element ? this._element.getBoundingClientRect().width : window.innerWidth;
+    }
+    get maxScrollTop() {
+      return this.scrollHeight - this.viewportHeight;
+    }
+    get maxScrollLeft() {
+      return this.scrollWidth - this.viewportWidth;
+    }
+  }
+  class ScrollerController extends ScrollerShim {
+    constructor(client, element) {
+      super(element);
+      this._clients = /* @__PURE__ */ new Set();
+      this._retarget = null;
+      this._end = null;
+      this.__destination = null;
+      this.correctingScrollError = false;
+      this._checkForArrival = this._checkForArrival.bind(this);
+      this._updateManagedScrollTo = this._updateManagedScrollTo.bind(this);
+      this.scrollTo = this.scrollTo.bind(this);
+      this.scrollBy = this.scrollBy.bind(this);
+      const node = this._node;
+      this._originalScrollTo = node.scrollTo;
+      this._originalScrollBy = node.scrollBy;
+      this._originalScroll = node.scroll;
+      this._attach(client);
+    }
+    get _destination() {
+      return this.__destination;
+    }
+    get scrolling() {
+      return this._destination !== null;
+    }
+    scrollTo(p1, p2) {
+      const options = typeof p1 === "number" && typeof p2 === "number" ? { left: p1, top: p2 } : p1;
+      this._scrollTo(options);
+    }
+    scrollBy(p1, p2) {
+      const options = typeof p1 === "number" && typeof p2 === "number" ? { left: p1, top: p2 } : p1;
+      if (options.top !== void 0) {
+        options.top += this.scrollTop;
       }
-      const currentTime = performance.now();
-      const currentScrollTop = this.container.scrollTop;
-      if (this.lastScrollTime > 0) {
-        const timeDelta = currentTime - this.lastScrollTime;
-        const scrollDelta = Math.abs(currentScrollTop - this.lastScrollTop);
-        this.scrollSpeed = timeDelta > 0 ? scrollDelta / timeDelta : 0;
-        if (this.scrollSpeed > SCROLL_CONSTANTS.FAST_SCROLL_THRESHOLD) {
-          this.bufferSize = Math.min(SCROLL_CONSTANTS.MAX_BUFFER_SIZE, this.bufferSize + 1);
-        } else {
-          this.bufferSize = Math.max(SCROLL_CONSTANTS.MIN_BUFFER_SIZE, this.bufferSize - 1);
+      if (options.left !== void 0) {
+        options.left += this.scrollLeft;
+      }
+      this._scrollTo(options);
+    }
+    _nativeScrollTo(options) {
+      this._originalScrollTo.bind(this._element || window)(options);
+    }
+    _scrollTo(options, retarget = null, end = null) {
+      if (this._end !== null) {
+        this._end();
+      }
+      if (options.behavior === "smooth") {
+        this._setDestination(options);
+        this._retarget = retarget;
+        this._end = end;
+      } else {
+        this._resetScrollState();
+      }
+      this._nativeScrollTo(options);
+    }
+    _setDestination(options) {
+      let { top, left } = options;
+      top = top === void 0 ? void 0 : Math.max(0, Math.min(top, this.maxScrollTop));
+      left = left === void 0 ? void 0 : Math.max(0, Math.min(left, this.maxScrollLeft));
+      if (this._destination !== null && left === this._destination.left && top === this._destination.top) {
+        return false;
+      }
+      this.__destination = { top, left, behavior: "smooth" };
+      return true;
+    }
+    _resetScrollState() {
+      this.__destination = null;
+      this._retarget = null;
+      this._end = null;
+    }
+    _updateManagedScrollTo(coordinates) {
+      if (this._destination) {
+        if (this._setDestination(coordinates)) {
+          this._nativeScrollTo(this._destination);
         }
       }
-      this.lastScrollTop = currentScrollTop;
-      this.lastScrollTime = currentTime;
-      this.scrollTimeout = setTimeout(() => {
-        requestAnimationFrame(() => {
-          this.calculateVisibleRange();
-          this.onVisibleRangeChange();
+    }
+    managedScrollTo(options, retarget, end) {
+      this._scrollTo(options, retarget, end);
+      return this._updateManagedScrollTo;
+    }
+    correctScrollError(coordinates) {
+      this.correctingScrollError = true;
+      requestAnimationFrame(() => requestAnimationFrame(() => this.correctingScrollError = false));
+      this._nativeScrollTo(coordinates);
+      if (this._retarget) {
+        this._setDestination(this._retarget());
+      }
+      if (this._destination) {
+        this._nativeScrollTo(this._destination);
+      }
+    }
+    _checkForArrival() {
+      if (this._destination !== null) {
+        const { scrollTop, scrollLeft } = this;
+        let { top, left } = this._destination;
+        top = Math.min(top || 0, this.maxScrollTop);
+        left = Math.min(left || 0, this.maxScrollLeft);
+        const topDiff = Math.abs(top - scrollTop);
+        const leftDiff = Math.abs(left - scrollLeft);
+        if (topDiff < 1 && leftDiff < 1) {
+          if (this._end) {
+            this._end();
+          }
+          this._resetScrollState();
+        }
+      }
+    }
+    detach(client) {
+      this._clients.delete(client);
+      if (this._clients.size === 0) {
+        this._node.scrollTo = this._originalScrollTo;
+        this._node.scrollBy = this._originalScrollBy;
+        this._node.scroll = this._originalScroll;
+        this._node.removeEventListener("scroll", this._checkForArrival);
+      }
+      return null;
+    }
+    _attach(client) {
+      this._clients.add(client);
+      if (this._clients.size === 1) {
+        this._node.scrollTo = this.scrollTo;
+        this._node.scrollBy = this.scrollBy;
+        this._node.scroll = this.scrollTo;
+        this._node.addEventListener("scroll", this._checkForArrival);
+      }
+    }
+  }
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  let _ResizeObserver = typeof window !== "undefined" ? window.ResizeObserver : void 0;
+  const virtualizerRef = Symbol("virtualizerRef");
+  const SIZER_ATTRIBUTE = "virtualizer-sizer";
+  let DefaultLayoutConstructor;
+  class Virtualizer {
+    constructor(config) {
+      this._benchmarkStart = null;
+      this._layout = null;
+      this._clippingAncestors = [];
+      this._scrollSize = null;
+      this._scrollError = null;
+      this._childrenPos = null;
+      this._childMeasurements = null;
+      this._toBeMeasured = /* @__PURE__ */ new Map();
+      this._rangeChanged = true;
+      this._itemsChanged = true;
+      this._visibilityChanged = true;
+      this._scrollerController = null;
+      this._isScroller = false;
+      this._sizer = null;
+      this._hostElementRO = null;
+      this._childrenRO = null;
+      this._mutationObserver = null;
+      this._scrollEventListeners = [];
+      this._scrollEventListenerOptions = {
+        passive: true
+      };
+      this._loadListener = this._childLoaded.bind(this);
+      this._scrollIntoViewTarget = null;
+      this._updateScrollIntoViewCoordinates = null;
+      this._items = [];
+      this._first = -1;
+      this._last = -1;
+      this._firstVisible = -1;
+      this._lastVisible = -1;
+      this._scheduled = /* @__PURE__ */ new WeakSet();
+      this._measureCallback = null;
+      this._measureChildOverride = null;
+      this._layoutCompletePromise = null;
+      this._layoutCompleteResolver = null;
+      this._layoutCompleteRejecter = null;
+      this._pendingLayoutComplete = null;
+      this._layoutInitialized = null;
+      this._connected = false;
+      if (!config) {
+        throw new Error("Virtualizer constructor requires a configuration object");
+      }
+      if (config.hostElement) {
+        this._init(config);
+      } else {
+        throw new Error('Virtualizer configuration requires the "hostElement" property');
+      }
+    }
+    set items(items) {
+      if (Array.isArray(items) && items !== this._items) {
+        this._itemsChanged = true;
+        this._items = items;
+        this._schedule(this._updateLayout);
+      }
+    }
+    _init(config) {
+      this._isScroller = !!config.scroller;
+      this._initHostElement(config);
+      const layoutConfig = config.layout || {};
+      this._layoutInitialized = this._initLayout(layoutConfig);
+    }
+    _initObservers() {
+      this._mutationObserver = new MutationObserver(this._finishDOMUpdate.bind(this));
+      this._hostElementRO = new _ResizeObserver(() => this._hostElementSizeChanged());
+      this._childrenRO = new _ResizeObserver(this._childrenSizeChanged.bind(this));
+    }
+    _initHostElement(config) {
+      const hostElement = this._hostElement = config.hostElement;
+      this._applyVirtualizerStyles();
+      hostElement[virtualizerRef] = this;
+    }
+    connected() {
+      this._initObservers();
+      const includeSelf = this._isScroller;
+      this._clippingAncestors = getClippingAncestors(this._hostElement, includeSelf);
+      this._scrollerController = new ScrollerController(this, this._clippingAncestors[0]);
+      this._schedule(this._updateLayout);
+      this._observeAndListen();
+      this._connected = true;
+    }
+    _observeAndListen() {
+      this._mutationObserver.observe(this._hostElement, { childList: true });
+      this._hostElementRO.observe(this._hostElement);
+      this._scrollEventListeners.push(window);
+      window.addEventListener("scroll", this, this._scrollEventListenerOptions);
+      this._clippingAncestors.forEach((ancestor) => {
+        ancestor.addEventListener("scroll", this, this._scrollEventListenerOptions);
+        this._scrollEventListeners.push(ancestor);
+        this._hostElementRO.observe(ancestor);
+      });
+      this._hostElementRO.observe(this._scrollerController.element);
+      this._children.forEach((child) => this._childrenRO.observe(child));
+      this._scrollEventListeners.forEach((target) => target.addEventListener("scroll", this, this._scrollEventListenerOptions));
+    }
+    disconnected() {
+      var _a2, _b, _c, _d;
+      this._scrollEventListeners.forEach((target) => target.removeEventListener("scroll", this, this._scrollEventListenerOptions));
+      this._scrollEventListeners = [];
+      this._clippingAncestors = [];
+      (_a2 = this._scrollerController) == null ? void 0 : _a2.detach(this);
+      this._scrollerController = null;
+      (_b = this._mutationObserver) == null ? void 0 : _b.disconnect();
+      this._mutationObserver = null;
+      (_c = this._hostElementRO) == null ? void 0 : _c.disconnect();
+      this._hostElementRO = null;
+      (_d = this._childrenRO) == null ? void 0 : _d.disconnect();
+      this._childrenRO = null;
+      this._rejectLayoutCompletePromise("disconnected");
+      this._connected = false;
+    }
+    _applyVirtualizerStyles() {
+      const hostElement = this._hostElement;
+      const style = hostElement.style;
+      style.display = style.display || "block";
+      style.position = style.position || "relative";
+      style.contain = style.contain || "size layout";
+      if (this._isScroller) {
+        style.overflow = style.overflow || "auto";
+        style.minHeight = style.minHeight || "150px";
+      }
+    }
+    _getSizer() {
+      const hostElement = this._hostElement;
+      if (!this._sizer) {
+        let sizer = hostElement.querySelector(`[${SIZER_ATTRIBUTE}]`);
+        if (!sizer) {
+          sizer = document.createElement("div");
+          sizer.setAttribute(SIZER_ATTRIBUTE, "");
+          hostElement.appendChild(sizer);
+        }
+        Object.assign(sizer.style, {
+          position: "absolute",
+          margin: "-2px 0 0 0",
+          padding: 0,
+          visibility: "hidden",
+          fontSize: "2px"
         });
-      }, this.scrollThrottle);
+        sizer.textContent = "&nbsp;";
+        sizer.setAttribute(SIZER_ATTRIBUTE, "");
+        this._sizer = sizer;
+      }
+      return this._sizer;
     }
-    onResize() {
-      this.updateContainerDimensions();
-      this.itemWidth = this.getResponsiveItemWidth();
-      this.calculateVisibleRange();
-      this.onVisibleRangeChange();
+    async updateLayoutConfig(layoutConfig) {
+      await this._layoutInitialized;
+      const Ctor = layoutConfig.type || // The new config is compatible with the current layout,
+      // so we update the config and return true to indicate
+      // a successful update
+      DefaultLayoutConstructor;
+      if (typeof Ctor === "function" && this._layout instanceof Ctor) {
+        const config = { ...layoutConfig };
+        delete config.type;
+        this._layout.config = config;
+        return true;
+      }
+      return false;
     }
-    onVisibleRangeChange() {
-      if (this.onRangeChange) {
-        this.onRangeChange({
-          start: this.visibleStart,
-          end: this.visibleEnd
+    async _initLayout(layoutConfig) {
+      let config;
+      let Ctor;
+      if (typeof layoutConfig.type === "function") {
+        Ctor = layoutConfig.type;
+        const copy = { ...layoutConfig };
+        delete copy.type;
+        config = copy;
+      } else {
+        config = layoutConfig;
+      }
+      if (Ctor === void 0) {
+        DefaultLayoutConstructor = Ctor = (await Promise.resolve().then(() => flow)).FlowLayout;
+      }
+      this._layout = new Ctor((message) => this._handleLayoutMessage(message), config);
+      if (this._layout.measureChildren && typeof this._layout.updateItemSizes === "function") {
+        if (typeof this._layout.measureChildren === "function") {
+          this._measureChildOverride = this._layout.measureChildren;
+        }
+        this._measureCallback = this._layout.updateItemSizes.bind(this._layout);
+      }
+      if (this._layout.listenForChildLoadEvents) {
+        this._hostElement.addEventListener("load", this._loadListener, true);
+      }
+      this._schedule(this._updateLayout);
+    }
+    // TODO (graynorton): Rework benchmarking so that it has no API and
+    // instead is always on except in production builds
+    startBenchmarking() {
+      if (this._benchmarkStart === null) {
+        this._benchmarkStart = window.performance.now();
+      }
+    }
+    stopBenchmarking() {
+      if (this._benchmarkStart !== null) {
+        const now = window.performance.now();
+        const timeElapsed = now - this._benchmarkStart;
+        const entries = performance.getEntriesByName("uv-virtualizing", "measure");
+        const virtualizationTime = entries.filter((e2) => e2.startTime >= this._benchmarkStart && e2.startTime < now).reduce((t2, m2) => t2 + m2.duration, 0);
+        this._benchmarkStart = null;
+        return { timeElapsed, virtualizationTime };
+      }
+      return null;
+    }
+    _measureChildren() {
+      const mm = {};
+      const children = this._children;
+      const fn = this._measureChildOverride || this._measureChild;
+      for (let i2 = 0; i2 < children.length; i2++) {
+        const child = children[i2];
+        const idx = this._first + i2;
+        if (this._itemsChanged || this._toBeMeasured.has(child)) {
+          mm[idx] = fn.call(this, child, this._items[idx]);
+        }
+      }
+      this._childMeasurements = mm;
+      this._schedule(this._updateLayout);
+      this._toBeMeasured.clear();
+    }
+    /**
+     * Returns the width, height, and margins of the given child.
+     */
+    _measureChild(element) {
+      const { width, height } = element.getBoundingClientRect();
+      return Object.assign({ width, height }, getMargins(element));
+    }
+    async _schedule(method) {
+      if (!this._scheduled.has(method)) {
+        this._scheduled.add(method);
+        await Promise.resolve();
+        this._scheduled.delete(method);
+        method.call(this);
+      }
+    }
+    async _updateDOM(state) {
+      this._scrollSize = state.scrollSize;
+      this._adjustRange(state.range);
+      this._childrenPos = state.childPositions;
+      this._scrollError = state.scrollError || null;
+      const { _rangeChanged, _itemsChanged } = this;
+      if (this._visibilityChanged) {
+        this._notifyVisibility();
+        this._visibilityChanged = false;
+      }
+      if (_rangeChanged || _itemsChanged) {
+        this._notifyRange();
+        this._rangeChanged = false;
+      }
+      this._finishDOMUpdate();
+    }
+    _finishDOMUpdate() {
+      if (this._connected) {
+        this._children.forEach((child) => this._childrenRO.observe(child));
+        this._checkScrollIntoViewTarget(this._childrenPos);
+        this._positionChildren(this._childrenPos);
+        this._sizeHostElement(this._scrollSize);
+        this._correctScrollError();
+        if (this._benchmarkStart && "mark" in window.performance) {
+          window.performance.mark("uv-end");
+        }
+      }
+    }
+    _updateLayout() {
+      if (this._layout && this._connected) {
+        this._layout.items = this._items;
+        this._updateView();
+        if (this._childMeasurements !== null) {
+          if (this._measureCallback) {
+            this._measureCallback(this._childMeasurements);
+          }
+          this._childMeasurements = null;
+        }
+        this._layout.reflowIfNeeded();
+        if (this._benchmarkStart && "mark" in window.performance) {
+          window.performance.mark("uv-end");
+        }
+      }
+    }
+    _handleScrollEvent() {
+      var _a2;
+      if (this._benchmarkStart && "mark" in window.performance) {
+        try {
+          window.performance.measure("uv-virtualizing", "uv-start", "uv-end");
+        } catch (e2) {
+          console.warn("Error measuring performance data: ", e2);
+        }
+        window.performance.mark("uv-start");
+      }
+      if (this._scrollerController.correctingScrollError === false) {
+        (_a2 = this._layout) == null ? void 0 : _a2.unpin();
+      }
+      this._schedule(this._updateLayout);
+    }
+    handleEvent(event) {
+      switch (event.type) {
+        case "scroll":
+          if (event.currentTarget === window || this._clippingAncestors.includes(event.currentTarget)) {
+            this._handleScrollEvent();
+          }
+          break;
+        default:
+          console.warn("event not handled", event);
+      }
+    }
+    _handleLayoutMessage(message) {
+      if (message.type === "stateChanged") {
+        this._updateDOM(message);
+      } else if (message.type === "visibilityChanged") {
+        this._firstVisible = message.firstVisible;
+        this._lastVisible = message.lastVisible;
+        this._notifyVisibility();
+      } else if (message.type === "unpinned") {
+        this._hostElement.dispatchEvent(new UnpinnedEvent());
+      }
+    }
+    get _children() {
+      const arr = [];
+      let next = this._hostElement.firstElementChild;
+      while (next) {
+        if (!next.hasAttribute(SIZER_ATTRIBUTE)) {
+          arr.push(next);
+        }
+        next = next.nextElementSibling;
+      }
+      return arr;
+    }
+    _updateView() {
+      var _a2;
+      const hostElement = this._hostElement;
+      const scrollingElement = (_a2 = this._scrollerController) == null ? void 0 : _a2.element;
+      const layout = this._layout;
+      if (hostElement && scrollingElement && layout) {
+        let top, left, bottom, right;
+        const hostElementBounds = hostElement.getBoundingClientRect();
+        top = 0;
+        left = 0;
+        bottom = window.innerHeight;
+        right = window.innerWidth;
+        const ancestorBounds = this._clippingAncestors.map((ancestor) => ancestor.getBoundingClientRect());
+        ancestorBounds.unshift(hostElementBounds);
+        for (const bounds of ancestorBounds) {
+          top = Math.max(top, bounds.top);
+          left = Math.max(left, bounds.left);
+          bottom = Math.min(bottom, bounds.bottom);
+          right = Math.min(right, bounds.right);
+        }
+        const scrollingElementBounds = scrollingElement.getBoundingClientRect();
+        const offsetWithinScroller = {
+          left: hostElementBounds.left - scrollingElementBounds.left,
+          top: hostElementBounds.top - scrollingElementBounds.top
+        };
+        const totalScrollSize = {
+          width: scrollingElement.scrollWidth,
+          height: scrollingElement.scrollHeight
+        };
+        const scrollTop = top - hostElementBounds.top + hostElement.scrollTop;
+        const scrollLeft = left - hostElementBounds.left + hostElement.scrollLeft;
+        const height = Math.max(0, bottom - top);
+        const width = Math.max(0, right - left);
+        layout.viewportSize = { width, height };
+        layout.viewportScroll = { top: scrollTop, left: scrollLeft };
+        layout.totalScrollSize = totalScrollSize;
+        layout.offsetWithinScroller = offsetWithinScroller;
+      }
+    }
+    /**
+     * Styles the host element so that its size reflects the
+     * total size of all items.
+     */
+    _sizeHostElement(size) {
+      const max = 82e5;
+      const h2 = size && size.width !== null ? Math.min(max, size.width) : 0;
+      const v2 = size && size.height !== null ? Math.min(max, size.height) : 0;
+      if (this._isScroller) {
+        this._getSizer().style.transform = `translate(${h2}px, ${v2}px)`;
+      } else {
+        const style = this._hostElement.style;
+        style.minWidth = h2 ? `${h2}px` : "100%";
+        style.minHeight = v2 ? `${v2}px` : "100%";
+      }
+    }
+    /**
+     * Sets the top and left transform style of the children from the values in
+     * pos.
+     */
+    _positionChildren(pos) {
+      if (pos) {
+        pos.forEach(({ top, left, width, height, xOffset, yOffset }, index) => {
+          const child = this._children[index - this._first];
+          if (child) {
+            child.style.position = "absolute";
+            child.style.boxSizing = "border-box";
+            child.style.transform = `translate(${left}px, ${top}px)`;
+            if (width !== void 0) {
+              child.style.width = width + "px";
+            }
+            if (height !== void 0) {
+              child.style.height = height + "px";
+            }
+            child.style.left = xOffset === void 0 ? null : xOffset + "px";
+            child.style.top = yOffset === void 0 ? null : yOffset + "px";
+          }
         });
       }
     }
-    attachScrollListener() {
-      if (this.scrollListenerAttached || !this.container)
-        return;
-      this.container.addEventListener("scroll", this.onScroll, { passive: true });
-      this.scrollListenerAttached = true;
+    async _adjustRange(range) {
+      const { _first, _last, _firstVisible, _lastVisible } = this;
+      this._first = range.first;
+      this._last = range.last;
+      this._firstVisible = range.firstVisible;
+      this._lastVisible = range.lastVisible;
+      this._rangeChanged = this._rangeChanged || this._first !== _first || this._last !== _last;
+      this._visibilityChanged = this._visibilityChanged || this._firstVisible !== _firstVisible || this._lastVisible !== _lastVisible;
     }
-    detachScrollListener() {
-      if (!this.scrollListenerAttached || !this.container)
-        return;
-      this.container.removeEventListener("scroll", this.onScroll);
-      this.scrollListenerAttached = false;
-    }
-    attachResizeListener() {
-      if (typeof window === "undefined")
-        return;
-      window.addEventListener("resize", this.onResize, { passive: true });
-    }
-    detachResizeListener() {
-      if (typeof window === "undefined")
-        return;
-      window.removeEventListener("resize", this.onResize);
-    }
-    updateTotalItems(totalItems) {
-      this.totalItems = totalItems;
-      this.calculateVisibleRange();
-      this.onVisibleRangeChange();
-    }
-    resetState(totalItems) {
-      this.totalItems = totalItems;
-      this.visibleStart = 0;
-      this.visibleEnd = 0;
-      this.calculateVisibleRange();
-      this.onVisibleRangeChange();
-    }
-    updateColCount() {
-      this.updateContainerDimensions();
-      this.itemWidth = this.getResponsiveItemWidth();
-      this.calculateVisibleRange();
-      this.onVisibleRangeChange();
-      if (this.onColCountChange) {
-        const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-        this.onColCountChange(itemsPerRow);
+    _correctScrollError() {
+      if (this._scrollError) {
+        const { scrollTop, scrollLeft } = this._scrollerController;
+        const { top, left } = this._scrollError;
+        this._scrollError = null;
+        this._scrollerController.correctScrollError({
+          top: scrollTop - top,
+          left: scrollLeft - left
+        });
       }
     }
-    calculateTotalHeight(totalItems) {
-      if (totalItems === 0)
+    element(index) {
+      var _a2;
+      if (index === Infinity) {
+        index = this._items.length - 1;
+      }
+      return ((_a2 = this._items) == null ? void 0 : _a2[index]) === void 0 ? void 0 : {
+        scrollIntoView: (options = {}) => this._scrollElementIntoView({ ...options, index })
+      };
+    }
+    _scrollElementIntoView(options) {
+      if (options.index >= this._first && options.index <= this._last) {
+        this._children[options.index - this._first].scrollIntoView(options);
+      } else {
+        options.index = Math.min(options.index, this._items.length - 1);
+        if (options.behavior === "smooth") {
+          const coordinates = this._layout.getScrollIntoViewCoordinates(options);
+          const { behavior } = options;
+          this._updateScrollIntoViewCoordinates = this._scrollerController.managedScrollTo(Object.assign(coordinates, { behavior }), () => this._layout.getScrollIntoViewCoordinates(options), () => this._scrollIntoViewTarget = null);
+          this._scrollIntoViewTarget = options;
+        } else {
+          this._layout.pin = options;
+        }
+      }
+    }
+    /**
+     * If we are smoothly scrolling to an element and the target element
+     * is in the DOM, we update our target coordinates as needed
+     */
+    _checkScrollIntoViewTarget(pos) {
+      const { index } = this._scrollIntoViewTarget || {};
+      if (index && (pos == null ? void 0 : pos.has(index))) {
+        this._updateScrollIntoViewCoordinates(this._layout.getScrollIntoViewCoordinates(this._scrollIntoViewTarget));
+      }
+    }
+    /**
+     * Emits a rangechange event with the current first, last, firstVisible, and
+     * lastVisible.
+     */
+    _notifyRange() {
+      this._hostElement.dispatchEvent(new RangeChangedEvent({ first: this._first, last: this._last }));
+    }
+    _notifyVisibility() {
+      this._hostElement.dispatchEvent(new VisibilityChangedEvent({
+        first: this._firstVisible,
+        last: this._lastVisible
+      }));
+    }
+    get layoutComplete() {
+      if (!this._layoutCompletePromise) {
+        this._layoutCompletePromise = new Promise((resolve, reject) => {
+          this._layoutCompleteResolver = resolve;
+          this._layoutCompleteRejecter = reject;
+        });
+      }
+      return this._layoutCompletePromise;
+    }
+    _rejectLayoutCompletePromise(reason) {
+      if (this._layoutCompleteRejecter !== null) {
+        this._layoutCompleteRejecter(reason);
+      }
+      this._resetLayoutCompleteState();
+    }
+    _scheduleLayoutComplete() {
+      if (this._layoutCompletePromise && this._pendingLayoutComplete === null) {
+        this._pendingLayoutComplete = requestAnimationFrame(() => requestAnimationFrame(() => this._resolveLayoutCompletePromise()));
+      }
+    }
+    _resolveLayoutCompletePromise() {
+      if (this._layoutCompleteResolver !== null) {
+        this._layoutCompleteResolver();
+      }
+      this._resetLayoutCompleteState();
+    }
+    _resetLayoutCompleteState() {
+      this._layoutCompletePromise = null;
+      this._layoutCompleteResolver = null;
+      this._layoutCompleteRejecter = null;
+      this._pendingLayoutComplete = null;
+    }
+    /**
+     * Render and update the view at the next opportunity with the given
+     * hostElement size.
+     */
+    _hostElementSizeChanged() {
+      this._schedule(this._updateLayout);
+    }
+    // TODO (graynorton): Rethink how this works. Probably child loading is too specific
+    // to have dedicated support for; might want some more generic lifecycle hooks for
+    // layouts to use. Possibly handle measurement this way, too, or maybe that remains
+    // a first-class feature?
+    _childLoaded() {
+    }
+    // This is the callback for the ResizeObserver that watches the
+    // virtualizer's children. We land here at the end of every virtualizer
+    // update cycle that results in changes to physical items, and we also
+    // end up here if one or more children change size independently of
+    // the virtualizer update cycle.
+    _childrenSizeChanged(changes) {
+      var _a2;
+      if ((_a2 = this._layout) == null ? void 0 : _a2.measureChildren) {
+        for (const change of changes) {
+          this._toBeMeasured.set(change.target, change.contentRect);
+        }
+        this._measureChildren();
+      }
+      this._scheduleLayoutComplete();
+      this._itemsChanged = false;
+      this._rangeChanged = false;
+    }
+  }
+  function getMargins(el) {
+    const style = window.getComputedStyle(el);
+    return {
+      marginTop: getMarginValue(style.marginTop),
+      marginRight: getMarginValue(style.marginRight),
+      marginBottom: getMarginValue(style.marginBottom),
+      marginLeft: getMarginValue(style.marginLeft)
+    };
+  }
+  function getMarginValue(value) {
+    const float = value ? parseFloat(value) : NaN;
+    return Number.isNaN(float) ? 0 : float;
+  }
+  function getParentElement(el) {
+    if (el.assignedSlot !== null) {
+      return el.assignedSlot;
+    }
+    if (el.parentElement !== null) {
+      return el.parentElement;
+    }
+    const parentNode = el.parentNode;
+    if (parentNode && parentNode.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      return parentNode.host || null;
+    }
+    return null;
+  }
+  function getElementAncestors(el, includeSelf = false) {
+    const ancestors = [];
+    let parent = includeSelf ? el : getParentElement(el);
+    while (parent !== null) {
+      ancestors.push(parent);
+      parent = getParentElement(parent);
+    }
+    return ancestors;
+  }
+  function getClippingAncestors(el, includeSelf = false) {
+    let foundFixed = false;
+    return getElementAncestors(el, includeSelf).filter((a2) => {
+      if (foundFixed) {
+        return false;
+      }
+      const style = getComputedStyle(a2);
+      foundFixed = style.position === "fixed";
+      return style.overflow !== "visible";
+    });
+  }
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  const defaultKeyFunction = (item) => item;
+  const defaultRenderItem = (item, idx) => x$1`${idx}: ${JSON.stringify(item, null, 2)}`;
+  class VirtualizeDirective extends f$1 {
+    constructor(part) {
+      super(part);
+      this._virtualizer = null;
+      this._first = 0;
+      this._last = -1;
+      this._renderItem = (item, idx) => defaultRenderItem(item, idx + this._first);
+      this._keyFunction = (item, idx) => defaultKeyFunction(item, idx + this._first);
+      this._items = [];
+      if (part.type !== t$1.CHILD) {
+        throw new Error("The virtualize directive can only be used in child expressions");
+      }
+    }
+    render(config) {
+      if (config) {
+        this._setFunctions(config);
+      }
+      const itemsToRender = [];
+      if (this._first >= 0 && this._last >= this._first) {
+        for (let i2 = this._first; i2 <= this._last; i2++) {
+          itemsToRender.push(this._items[i2]);
+        }
+      }
+      return c$1(itemsToRender, this._keyFunction, this._renderItem);
+    }
+    update(part, [config]) {
+      this._setFunctions(config);
+      const itemsChanged = this._items !== config.items;
+      this._items = config.items || [];
+      if (this._virtualizer) {
+        this._updateVirtualizerConfig(part, config);
+      } else {
+        this._initialize(part, config);
+      }
+      return itemsChanged ? T$1 : this.render();
+    }
+    async _updateVirtualizerConfig(part, config) {
+      const compatible = await this._virtualizer.updateLayoutConfig(config.layout || {});
+      if (!compatible) {
+        const hostElement = part.parentNode;
+        this._makeVirtualizer(hostElement, config);
+      }
+      this._virtualizer.items = this._items;
+    }
+    _setFunctions(config) {
+      const { renderItem, keyFunction } = config;
+      if (renderItem) {
+        this._renderItem = (item, idx) => renderItem(item, idx + this._first);
+      }
+      if (keyFunction) {
+        this._keyFunction = (item, idx) => keyFunction(item, idx + this._first);
+      }
+    }
+    _makeVirtualizer(hostElement, config) {
+      if (this._virtualizer) {
+        this._virtualizer.disconnected();
+      }
+      const { layout, scroller, items } = config;
+      this._virtualizer = new Virtualizer({ hostElement, layout, scroller });
+      this._virtualizer.items = items;
+      this._virtualizer.connected();
+    }
+    _initialize(part, config) {
+      const hostElement = part.parentNode;
+      if (hostElement && hostElement.nodeType === 1) {
+        hostElement.addEventListener("rangeChanged", (e2) => {
+          this._first = e2.first;
+          this._last = e2.last;
+          this.setValue(this.render());
+        });
+        this._makeVirtualizer(hostElement, config);
+      }
+    }
+    disconnected() {
+      var _a2;
+      (_a2 = this._virtualizer) == null ? void 0 : _a2.disconnected();
+    }
+    reconnected() {
+      var _a2;
+      (_a2 = this._virtualizer) == null ? void 0 : _a2.connected();
+    }
+  }
+  const virtualize = e$2(VirtualizeDirective);
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  function dim1(direction) {
+    return direction === "horizontal" ? "width" : "height";
+  }
+  function dim2(direction) {
+    return direction === "horizontal" ? "height" : "width";
+  }
+  class BaseLayout {
+    _getDefaultConfig() {
+      return {
+        direction: "vertical"
+      };
+    }
+    constructor(hostSink, config) {
+      this._latestCoords = { left: 0, top: 0 };
+      this._direction = null;
+      this._viewportSize = { width: 0, height: 0 };
+      this.totalScrollSize = { width: 0, height: 0 };
+      this.offsetWithinScroller = { left: 0, top: 0 };
+      this._pendingReflow = false;
+      this._pendingLayoutUpdate = false;
+      this._pin = null;
+      this._firstVisible = 0;
+      this._lastVisible = 0;
+      this._physicalMin = 0;
+      this._physicalMax = 0;
+      this._first = -1;
+      this._last = -1;
+      this._sizeDim = "height";
+      this._secondarySizeDim = "width";
+      this._positionDim = "top";
+      this._secondaryPositionDim = "left";
+      this._scrollPosition = 0;
+      this._scrollError = 0;
+      this._items = [];
+      this._scrollSize = 1;
+      this._overhang = 1e3;
+      this._hostSink = hostSink;
+      Promise.resolve().then(() => this.config = config || this._getDefaultConfig());
+    }
+    set config(config) {
+      Object.assign(this, Object.assign({}, this._getDefaultConfig(), config));
+    }
+    get config() {
+      return {
+        direction: this.direction
+      };
+    }
+    /**
+     * Maximum index of children + 1, to help estimate total height of the scroll
+     * space.
+     */
+    get items() {
+      return this._items;
+    }
+    set items(items) {
+      this._setItems(items);
+    }
+    _setItems(items) {
+      if (items !== this._items) {
+        this._items = items;
+        this._scheduleReflow();
+      }
+    }
+    /**
+     * Primary scrolling direction.
+     */
+    get direction() {
+      return this._direction;
+    }
+    set direction(dir) {
+      dir = dir === "horizontal" ? dir : "vertical";
+      if (dir !== this._direction) {
+        this._direction = dir;
+        this._sizeDim = dir === "horizontal" ? "width" : "height";
+        this._secondarySizeDim = dir === "horizontal" ? "height" : "width";
+        this._positionDim = dir === "horizontal" ? "left" : "top";
+        this._secondaryPositionDim = dir === "horizontal" ? "top" : "left";
+        this._triggerReflow();
+      }
+    }
+    /**
+     * Height and width of the viewport.
+     */
+    get viewportSize() {
+      return this._viewportSize;
+    }
+    set viewportSize(dims) {
+      const { _viewDim1, _viewDim2 } = this;
+      Object.assign(this._viewportSize, dims);
+      if (_viewDim2 !== this._viewDim2) {
+        this._scheduleLayoutUpdate();
+      } else if (_viewDim1 !== this._viewDim1) {
+        this._checkThresholds();
+      }
+    }
+    /**
+     * Scroll offset of the viewport.
+     */
+    get viewportScroll() {
+      return this._latestCoords;
+    }
+    set viewportScroll(coords) {
+      Object.assign(this._latestCoords, coords);
+      const oldPos = this._scrollPosition;
+      this._scrollPosition = this._latestCoords[this._positionDim];
+      const change = Math.abs(oldPos - this._scrollPosition);
+      if (change >= 1) {
+        this._checkThresholds();
+      }
+    }
+    /**
+     * Perform a reflow if one has been scheduled.
+     */
+    reflowIfNeeded(force = false) {
+      if (force || this._pendingReflow) {
+        this._pendingReflow = false;
+        this._reflow();
+      }
+    }
+    set pin(options) {
+      this._pin = options;
+      this._triggerReflow();
+    }
+    get pin() {
+      if (this._pin !== null) {
+        const { index, block } = this._pin;
+        return {
+          index: Math.max(0, Math.min(index, this.items.length - 1)),
+          block
+        };
+      }
+      return null;
+    }
+    _clampScrollPosition(val) {
+      return Math.max(-this.offsetWithinScroller[this._positionDim], Math.min(val, this.totalScrollSize[dim1(this.direction)] - this._viewDim1));
+    }
+    unpin() {
+      if (this._pin !== null) {
+        this._sendUnpinnedMessage();
+        this._pin = null;
+      }
+    }
+    _updateLayout() {
+    }
+    // protected _viewDim2Changed(): void {
+    //   this._scheduleLayoutUpdate();
+    // }
+    /**
+     * The height or width of the viewport, whichever corresponds to the scrolling direction.
+     */
+    get _viewDim1() {
+      return this._viewportSize[this._sizeDim];
+    }
+    /**
+     * The height or width of the viewport, whichever does NOT correspond to the scrolling direction.
+     */
+    get _viewDim2() {
+      return this._viewportSize[this._secondarySizeDim];
+    }
+    _scheduleReflow() {
+      this._pendingReflow = true;
+    }
+    _scheduleLayoutUpdate() {
+      this._pendingLayoutUpdate = true;
+      this._scheduleReflow();
+    }
+    // For triggering a reflow based on incoming changes to
+    // the layout config.
+    _triggerReflow() {
+      this._scheduleLayoutUpdate();
+      Promise.resolve().then(() => this.reflowIfNeeded());
+    }
+    _reflow() {
+      if (this._pendingLayoutUpdate) {
+        this._updateLayout();
+        this._pendingLayoutUpdate = false;
+      }
+      this._updateScrollSize();
+      this._setPositionFromPin();
+      this._getActiveItems();
+      this._updateVisibleIndices();
+      this._sendStateChangedMessage();
+    }
+    /**
+     * If we are supposed to be pinned to a particular
+     * item or set of coordinates, we set `_scrollPosition`
+     * accordingly and adjust `_scrollError` as needed
+     * so that the virtualizer can keep the scroll
+     * position in the DOM in sync
+     */
+    _setPositionFromPin() {
+      if (this.pin !== null) {
+        const lastScrollPosition = this._scrollPosition;
+        const { index, block } = this.pin;
+        this._scrollPosition = this._calculateScrollIntoViewPosition({
+          index,
+          block: block || "start"
+        }) - this.offsetWithinScroller[this._positionDim];
+        this._scrollError = lastScrollPosition - this._scrollPosition;
+      }
+    }
+    /**
+     * Calculate the coordinates to scroll to, given
+     * a request to scroll to the element at a specific
+     * index.
+     *
+     * Supports the same positioning options (`start`,
+     * `center`, `end`, `nearest`) as the standard
+     * `Element.scrollIntoView()` method, but currently
+     * only considers the provided value in the `block`
+     * dimension, since we don't yet have any layouts
+     * that support virtualization in two dimensions.
+     */
+    _calculateScrollIntoViewPosition(options) {
+      const { block } = options;
+      const index = Math.min(this.items.length, Math.max(0, options.index));
+      const itemStartPosition = this._getItemPosition(index)[this._positionDim];
+      let scrollPosition = itemStartPosition;
+      if (block !== "start") {
+        const itemSize = this._getItemSize(index)[this._sizeDim];
+        if (block === "center") {
+          scrollPosition = itemStartPosition - 0.5 * this._viewDim1 + 0.5 * itemSize;
+        } else {
+          const itemEndPosition = itemStartPosition - this._viewDim1 + itemSize;
+          if (block === "end") {
+            scrollPosition = itemEndPosition;
+          } else {
+            const currentScrollPosition = this._scrollPosition;
+            scrollPosition = Math.abs(currentScrollPosition - itemStartPosition) < Math.abs(currentScrollPosition - itemEndPosition) ? itemStartPosition : itemEndPosition;
+          }
+        }
+      }
+      scrollPosition += this.offsetWithinScroller[this._positionDim];
+      return this._clampScrollPosition(scrollPosition);
+    }
+    getScrollIntoViewCoordinates(options) {
+      return {
+        [this._positionDim]: this._calculateScrollIntoViewPosition(options)
+      };
+    }
+    _sendUnpinnedMessage() {
+      this._hostSink({
+        type: "unpinned"
+      });
+    }
+    _sendVisibilityChangedMessage() {
+      this._hostSink({
+        type: "visibilityChanged",
+        firstVisible: this._firstVisible,
+        lastVisible: this._lastVisible
+      });
+    }
+    _sendStateChangedMessage() {
+      const childPositions = /* @__PURE__ */ new Map();
+      if (this._first !== -1 && this._last !== -1) {
+        for (let idx = this._first; idx <= this._last; idx++) {
+          childPositions.set(idx, this._getItemPosition(idx));
+        }
+      }
+      const message = {
+        type: "stateChanged",
+        scrollSize: {
+          [this._sizeDim]: this._scrollSize,
+          [this._secondarySizeDim]: null
+        },
+        range: {
+          first: this._first,
+          last: this._last,
+          firstVisible: this._firstVisible,
+          lastVisible: this._lastVisible
+        },
+        childPositions
+      };
+      if (this._scrollError) {
+        message.scrollError = {
+          [this._positionDim]: this._scrollError,
+          [this._secondaryPositionDim]: 0
+        };
+        this._scrollError = 0;
+      }
+      this._hostSink(message);
+    }
+    /**
+     * Number of items to display.
+     */
+    get _num() {
+      if (this._first === -1 || this._last === -1) {
         return 0;
-      const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-      const totalRows = Math.ceil(totalItems / itemsPerRow);
-      return totalRows * (this.itemHeight + this.cardSpacing);
-    }
-    calculateItemPosition(index) {
-      const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-      const row = Math.floor(index / itemsPerRow);
-      const col = index % itemsPerRow;
-      return {
-        top: row * (this.itemHeight + this.cardSpacing),
-        left: col * (this.itemWidth + this.cardSpacing)
-      };
-    }
-    setupScrollListener(container) {
-      this.container = container;
-      this.updateContainerDimensions();
-      this.calculateVisibleRange();
-      this.attachScrollListener();
-      this.attachResizeListener();
-    }
-    cleanup() {
-      this.destroy();
-    }
-    getTotalItems() {
-      return this.totalItems;
-    }
-    getVisibleRange() {
-      return {
-        start: this.visibleStart,
-        end: this.visibleEnd
-      };
-    }
-    getVisibleItems(data) {
-      if (!data || data.length === 0)
-        return [];
-      return data.slice(this.visibleStart, this.visibleEnd);
-    }
-    scrollToItem(index) {
-      if (!this.container || index < 0 || index >= this.totalItems)
-        return;
-      const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-      const row = Math.floor(index / itemsPerRow);
-      const scrollTop = row * (this.itemHeight + this.cardSpacing);
-      this.container.scrollTop = scrollTop;
-    }
-    destroy() {
-      this.detachScrollListener();
-      this.detachResizeListener();
-      if (this.scrollTimeout) {
-        clearTimeout(this.scrollTimeout);
-        this.scrollTimeout = null;
       }
-      this.container = null;
-      this.totalItems = 0;
+      return this._last - this._first + 1;
+    }
+    _checkThresholds() {
+      if (this._viewDim1 === 0 && this._num > 0 || this._pin !== null) {
+        this._scheduleReflow();
+      } else {
+        const min = Math.max(0, this._scrollPosition - this._overhang);
+        const max = Math.min(this._scrollSize, this._scrollPosition + this._viewDim1 + this._overhang);
+        if (this._physicalMin > min || this._physicalMax < max) {
+          this._scheduleReflow();
+        } else {
+          this._updateVisibleIndices({ emit: true });
+        }
+      }
+    }
+    /**
+     * Find the indices of the first and last items to intersect the viewport.
+     * Emit a visibleindiceschange event when either index changes.
+     */
+    _updateVisibleIndices(options) {
+      if (this._first === -1 || this._last === -1)
+        return;
+      let firstVisible = this._first;
+      while (firstVisible < this._last && Math.round(this._getItemPosition(firstVisible)[this._positionDim] + this._getItemSize(firstVisible)[this._sizeDim]) <= Math.round(this._scrollPosition)) {
+        firstVisible++;
+      }
+      let lastVisible = this._last;
+      while (lastVisible > this._first && Math.round(this._getItemPosition(lastVisible)[this._positionDim]) >= Math.round(this._scrollPosition + this._viewDim1)) {
+        lastVisible--;
+      }
+      if (firstVisible !== this._firstVisible || lastVisible !== this._lastVisible) {
+        this._firstVisible = firstVisible;
+        this._lastVisible = lastVisible;
+        if (options && options.emit) {
+          this._sendVisibilityChangedMessage();
+        }
+      }
     }
   }
-  class GridVirtualScrollManager extends VirtualScrollManager {
-    constructor(options = {}) {
-      super({
-        itemHeight: 400,
-        itemWidth: 410,
-        cardSpacing: 20,
-        ...options
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  function paddingValueToNumber(v2) {
+    if (v2 === "match-gap") {
+      return Infinity;
+    }
+    return parseInt(v2);
+  }
+  function gapValueToNumber(v2) {
+    if (v2 === "auto") {
+      return Infinity;
+    }
+    return parseInt(v2);
+  }
+  function gap1(direction) {
+    return direction === "horizontal" ? "column" : "row";
+  }
+  function gap2(direction) {
+    return direction === "horizontal" ? "row" : "column";
+  }
+  function padding1(direction) {
+    return direction === "horizontal" ? ["left", "right"] : ["top", "bottom"];
+  }
+  function padding2(direction) {
+    return direction === "horizontal" ? ["top", "bottom"] : ["left", "right"];
+  }
+  class SizeGapPaddingBaseLayout extends BaseLayout {
+    constructor() {
+      super(...arguments);
+      this._itemSize = {};
+      this._gaps = {};
+      this._padding = {};
+    }
+    _getDefaultConfig() {
+      return Object.assign({}, super._getDefaultConfig(), {
+        itemSize: { width: "300px", height: "300px" },
+        gap: "8px",
+        padding: "match-gap"
       });
     }
-    calculateVisibleRange() {
-      if (!this.container || this.totalItems === 0) {
-        this.visibleStart = 0;
-        this.visibleEnd = 0;
-        return;
+    // Temp, to support current flexWrap implementation
+    get _gap() {
+      return this._gaps.row;
+    }
+    // Temp, to support current flexWrap implementation
+    get _idealSize() {
+      return this._itemSize[dim1(this.direction)];
+    }
+    get _idealSize1() {
+      return this._itemSize[dim1(this.direction)];
+    }
+    get _idealSize2() {
+      return this._itemSize[dim2(this.direction)];
+    }
+    get _gap1() {
+      return this._gaps[gap1(this.direction)];
+    }
+    get _gap2() {
+      return this._gaps[gap2(this.direction)];
+    }
+    get _padding1() {
+      const padding = this._padding;
+      const [start, end] = padding1(this.direction);
+      return [padding[start], padding[end]];
+    }
+    get _padding2() {
+      const padding = this._padding;
+      const [start, end] = padding2(this.direction);
+      return [padding[start], padding[end]];
+    }
+    set itemSize(dims) {
+      const size = this._itemSize;
+      if (typeof dims === "string") {
+        dims = {
+          width: dims,
+          height: dims
+        };
       }
-      const { scrollTop } = this.container;
-      const itemsPerRow = Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
-      const startRow = Math.floor(scrollTop / (this.itemHeight + this.cardSpacing));
-      const endRow = Math.ceil(
-        (scrollTop + this.containerHeight) / (this.itemHeight + this.cardSpacing)
-      );
-      this.visibleStart = Math.max(0, startRow * itemsPerRow - this.bufferSize);
-      this.visibleEnd = Math.min(this.totalItems, (endRow + 1) * itemsPerRow + this.bufferSize);
-      if (this.visibleEnd - this.visibleStart > this.maxVisibleItems) {
-        const center = Math.floor((this.visibleStart + this.visibleEnd) / 2);
-        this.visibleStart = Math.max(0, center - Math.floor(this.maxVisibleItems / 2));
-        this.visibleEnd = Math.min(this.totalItems, this.visibleStart + this.maxVisibleItems);
+      const width = parseInt(dims.width);
+      const height = parseInt(dims.height);
+      if (width !== size.width) {
+        size.width = width;
+        this._triggerReflow();
+      }
+      if (height !== size.height) {
+        size.height = height;
+        this._triggerReflow();
       }
     }
-    getItemsPerRow() {
-      return Math.floor(this.containerWidth / (this.itemWidth + this.cardSpacing));
+    set gap(spec) {
+      this._setGap(spec);
     }
-    getTotalRows() {
-      const itemsPerRow = this.getItemsPerRow();
-      return Math.ceil(this.totalItems / itemsPerRow);
+    // This setter is overridden in specific layouts to narrow the accepted types
+    _setGap(spec) {
+      const values = spec.split(" ").map((v2) => gapValueToNumber(v2));
+      const gaps = this._gaps;
+      if (values[0] !== gaps.row) {
+        gaps.row = values[0];
+        this._triggerReflow();
+      }
+      if (values[1] === void 0) {
+        if (values[0] !== gaps.column) {
+          gaps.column = values[0];
+          this._triggerReflow();
+        }
+      } else {
+        if (values[1] !== gaps.column) {
+          gaps.column = values[1];
+          this._triggerReflow();
+        }
+      }
     }
-    getRowForItem(index) {
-      const itemsPerRow = this.getItemsPerRow();
-      return Math.floor(index / itemsPerRow);
-    }
-    getColumnForItem(index) {
-      const itemsPerRow = this.getItemsPerRow();
-      return index % itemsPerRow;
+    set padding(spec) {
+      const padding = this._padding;
+      const values = spec.split(" ").map((v2) => paddingValueToNumber(v2));
+      if (values.length === 1) {
+        padding.top = padding.right = padding.bottom = padding.left = values[0];
+        this._triggerReflow();
+      } else if (values.length === 2) {
+        padding.top = padding.bottom = values[0];
+        padding.right = padding.left = values[1];
+        this._triggerReflow();
+      } else if (values.length === 3) {
+        padding.top = values[0];
+        padding.right = padding.left = values[1];
+        padding.bottom = values[2];
+        this._triggerReflow();
+      } else if (values.length === 4) {
+        ["top", "right", "bottom", "left"].forEach((side, idx) => padding[side] = values[idx]);
+        this._triggerReflow();
+      }
     }
   }
-  class ListVirtualScrollManager extends VirtualScrollManager {
-    constructor(options = {}) {
-      super({
-        itemHeight: 80,
-        itemWidth: 0,
-        cardSpacing: 0,
-        ...options
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  class GridBaseLayout extends SizeGapPaddingBaseLayout {
+    constructor() {
+      super(...arguments);
+      this._metrics = null;
+      this.flex = null;
+      this.justify = null;
+    }
+    _getDefaultConfig() {
+      return Object.assign({}, super._getDefaultConfig(), {
+        flex: false,
+        justify: "start"
       });
     }
-    calculateVisibleRange() {
-      if (!this.container || this.totalItems === 0) {
-        this.visibleStart = 0;
-        this.visibleEnd = 0;
-        return;
+    set gap(spec) {
+      super._setGap(spec);
+    }
+    _updateLayout() {
+      const justify = this.justify;
+      const [padding1Start, padding1End] = this._padding1;
+      const [padding2Start, padding2End] = this._padding2;
+      ["_gap1", "_gap2"].forEach((gap) => {
+        const gapValue = this[gap];
+        if (gapValue === Infinity && !["space-between", "space-around", "space-evenly"].includes(justify)) {
+          throw new Error(`grid layout: gap can only be set to 'auto' when justify is set to 'space-between', 'space-around' or 'space-evenly'`);
+        }
+        if (gapValue === Infinity && gap === "_gap2") {
+          throw new Error(`grid layout: ${gap2(this.direction)}-gap cannot be set to 'auto' when direction is set to ${this.direction}`);
+        }
+      });
+      const usePaddingAndGap2 = this.flex || ["start", "center", "end"].includes(justify);
+      const metrics = {
+        rolumns: -1,
+        itemSize1: -1,
+        itemSize2: -1,
+        // Infinity represents 'auto', so we set an invalid placeholder until we can calculate
+        gap1: this._gap1 === Infinity ? -1 : this._gap1,
+        gap2: usePaddingAndGap2 ? this._gap2 : 0,
+        // Infinity represents 'match-gap', so we set padding to match gap
+        padding1: {
+          start: padding1Start === Infinity ? this._gap1 : padding1Start,
+          end: padding1End === Infinity ? this._gap1 : padding1End
+        },
+        padding2: usePaddingAndGap2 ? {
+          start: padding2Start === Infinity ? this._gap2 : padding2Start,
+          end: padding2End === Infinity ? this._gap2 : padding2End
+        } : {
+          start: 0,
+          end: 0
+        },
+        positions: []
+      };
+      const availableSpace = this._viewDim2 - metrics.padding2.start - metrics.padding2.end;
+      if (availableSpace <= 0) {
+        metrics.rolumns = 0;
+      } else {
+        const gapSize = usePaddingAndGap2 ? metrics.gap2 : 0;
+        let rolumns = 0;
+        let spaceTaken = 0;
+        if (availableSpace >= this._idealSize2) {
+          rolumns = Math.floor((availableSpace - this._idealSize2) / (this._idealSize2 + gapSize)) + 1;
+          spaceTaken = rolumns * this._idealSize2 + (rolumns - 1) * gapSize;
+        }
+        if (this.flex) {
+          if ((availableSpace - spaceTaken) / (this._idealSize2 + gapSize) >= 0.5) {
+            rolumns = rolumns + 1;
+          }
+          metrics.rolumns = rolumns;
+          metrics.itemSize2 = Math.round((availableSpace - gapSize * (rolumns - 1)) / rolumns);
+          const preserve = this.flex === true ? "area" : this.flex.preserve;
+          switch (preserve) {
+            case "aspect-ratio":
+              metrics.itemSize1 = Math.round(this._idealSize1 / this._idealSize2 * metrics.itemSize2);
+              break;
+            case dim1(this.direction):
+              metrics.itemSize1 = Math.round(this._idealSize1);
+              break;
+            case "area":
+            default:
+              metrics.itemSize1 = Math.round(this._idealSize1 * this._idealSize2 / metrics.itemSize2);
+          }
+        } else {
+          metrics.itemSize1 = this._idealSize1;
+          metrics.itemSize2 = this._idealSize2;
+          metrics.rolumns = rolumns;
+        }
+        let pos;
+        if (usePaddingAndGap2) {
+          const spaceTaken2 = metrics.rolumns * metrics.itemSize2 + (metrics.rolumns - 1) * metrics.gap2;
+          pos = this.flex || justify === "start" ? metrics.padding2.start : justify === "end" ? this._viewDim2 - metrics.padding2.end - spaceTaken2 : Math.round(this._viewDim2 / 2 - spaceTaken2 / 2);
+        } else {
+          const spaceToDivide = availableSpace - metrics.rolumns * metrics.itemSize2;
+          if (justify === "space-between") {
+            metrics.gap2 = Math.round(spaceToDivide / (metrics.rolumns - 1));
+            pos = 0;
+          } else if (justify === "space-around") {
+            metrics.gap2 = Math.round(spaceToDivide / metrics.rolumns);
+            pos = Math.round(metrics.gap2 / 2);
+          } else {
+            metrics.gap2 = Math.round(spaceToDivide / (metrics.rolumns + 1));
+            pos = metrics.gap2;
+          }
+          if (this._gap1 === Infinity) {
+            metrics.gap1 = metrics.gap2;
+            if (padding1Start === Infinity) {
+              metrics.padding1.start = pos;
+            }
+            if (padding1End === Infinity) {
+              metrics.padding1.end = pos;
+            }
+          }
+        }
+        for (let i2 = 0; i2 < metrics.rolumns; i2++) {
+          metrics.positions.push(pos);
+          pos += metrics.itemSize2 + metrics.gap2;
+        }
       }
-      const { scrollTop } = this.container;
-      const startIndex = Math.floor(scrollTop / this.itemHeight);
-      const endIndex = Math.ceil((scrollTop + this.containerHeight) / this.itemHeight);
-      this.visibleStart = Math.max(0, startIndex - this.bufferSize);
-      this.visibleEnd = Math.min(this.totalItems, endIndex + this.bufferSize);
-      if (this.visibleEnd - this.visibleStart > this.maxVisibleItems) {
-        const center = Math.floor((this.visibleStart + this.visibleEnd) / 2);
-        this.visibleStart = Math.max(0, center - Math.floor(this.maxVisibleItems / 2));
-        this.visibleEnd = Math.min(this.totalItems, this.visibleStart + this.maxVisibleItems);
-      }
-    }
-    scrollToItem(index) {
-      if (!this.container || index < 0 || index >= this.totalItems)
-        return;
-      const scrollTop = index * this.itemHeight;
-      this.container.scrollTop = scrollTop;
-    }
-    getTotalHeight() {
-      return this.totalItems * this.itemHeight;
-    }
-    getItemOffset(index) {
-      return index * this.itemHeight;
+      this._metrics = metrics;
     }
   }
-  const gridStyles = "/* src/components/grid/grid.css */\n\n.media-main {\n  background: #fff;\n  height: calc(100vh - 200px);\n  overflow-y: auto;\n  padding: 24px;\n  position: relative;\n}\n\n.media-grid {\n  position: relative;\n  width: 100%;\n}\n\n.media-card {\n  background: #f8fafc;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);\n  box-sizing: border-box;\n  cursor: default;\n  display: grid;\n  grid-template-rows: auto 1fr;\n  overflow: hidden;\n  padding: 0;\n  position: absolute;\n  transition: box-shadow 0.2s ease, border-color 0.2s ease;\n}\n\n.media-card:hover {\n  border-color: #e2e8f0;\n  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);\n  transform: translateY(-2px);\n}\n\n.media-preview {\n  align-items: center;\n  background: #f8fafc;\n  border-bottom: 1px solid #e2e8f0;\n  display: flex;\n  height: 280px;\n  justify-content: center;\n  overflow: hidden;\n  position: relative;\n}\n\n.media-preview.clickable {\n  cursor: pointer;\n  transition: background-color 0.2s ease;\n}\n\n.media-preview.clickable:hover {\n  background: #fff;\n}\n\n.media-image {\n  height: 100%;\n  object-fit: contain;\n  transition: transform 0.2s ease;\n  width: 100%;\n}\n\n.media-card:hover .media-image {\n  transform: scale(1.05);\n}\n\n.media-placeholder {\n  align-items: center;\n  color: #64748b;\n  display: flex;\n  flex-direction: column;\n  font-size: 2.5rem;\n  gap: 0.5rem;\n  justify-content: center;\n  opacity: 0.6;\n}\n\n.media-placeholder.cors-error {\n  background: linear-gradient(135deg, #fef2f2 0%, #fef2f2 100%);\n  color: #ef4444;\n  opacity: 1;\n}\n\n.cors-message {\n  align-items: center;\n  display: flex;\n  flex-direction: column;\n  font-size: 0.75rem;\n  gap: 0.25rem;\n  text-align: center;\n}\n\n.cors-message small {\n  display: block;\n  font-weight: 500;\n}\n\n/* Franklin-style SVG handling */\n:host > svg {\n  display: none;\n}\n\n/* Icon styles */\n.empty-icon,\n.media-type-icon,\n.action-icon,\n.placeholder-icon {\n  color: currentcolor;\n  display: block;\n}\n\n.empty-icon {\n  color: #64748b;\n  height: 48px;\n  margin-bottom: 8px;\n  width: 48px;\n}\n\n.media-type-badge {\n  align-items: center;\n  background: rgb(0 0 0 / 0.7);\n  border: none;\n  border-radius: 4px;\n  box-shadow: none;\n  color: #fff;\n  display: flex;\n  justify-content: center;\n  outline: none;\n  padding: 4px;\n  position: absolute;\n  right: 8px;\n  top: 8px;\n}\n\n.media-type-badge svg {\n  color: #fff;\n  fill: currentcolor;\n}\n\n.media-type-icon {\n  color: #fff;\n  fill: currentcolor;\n  height: 16px;\n  width: 16px;\n}\n\n.action-icon {\n  color: #fff;\n  fill: currentcolor;\n  height: 18px;\n  width: 18px;\n}\n\n.placeholder-icon {\n  color: #64748b;\n  height: 32px;\n  margin-bottom: 8px;\n  width: 32px;\n}\n\n.media-info {\n  background: #2d3748;\n  display: flex;\n  flex-direction: column;\n  justify-content: space-between;\n  padding: 8px;\n  position: relative;\n}\n\n.media-name {\n  color: #fff;\n  font-size: 0.875rem;\n  font-weight: 700;\n  line-height: 1.4;\n  margin: 0 0 4px;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n\n.media-details {\n  display: flex;\n  flex: 1;\n  flex-direction: column;\n  gap: 2px;\n}\n\n.media-actions {\n  align-items: center;\n  display: flex;\n  gap: 4px;\n  justify-content: space-between;\n  margin-top: 4px;\n  min-height: 32px;\n}\n\n.usage-count {\n  background: rgb(255 255 255 / 0.1);\n  border: 1px solid rgb(255 255 255 / 0.2);\n  border-radius: 4px;\n  color: rgb(255 255 255 / 0.8);\n  font-size: var(--ml-font-size-xs);\n  font-weight: 600;\n  padding: 2px 6px;\n}\n\n.action-button {\n  align-items: center;\n  background: rgb(255 255 255 / 0.15);\n  border: 1px solid rgb(255 255 255 / 0.4);\n  border-radius: 4px;\n  box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);\n  color: #fff;\n  cursor: pointer;\n  display: flex;\n  height: 32px;\n  justify-content: center;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 32px;\n}\n\n.action-button:hover {\n  background: rgb(255 255 255 / 0.2);\n  border-color: rgb(255 255 255 / 0.5);\n  color: #fff;\n}\n\n/* Responsive breakpoints for card widths */\n@media (max-width: 1200px) {\n  .media-preview {\n    height: 200px;\n  }\n}\n\n@media (max-width: 992px) {\n  .media-preview {\n    height: 190px;\n  }\n}\n\n@media (max-width: 768px) {\n  .media-main {\n    padding: var(--ml-space-sm);\n  }\n  \n  .media-preview {\n    height: 180px;\n  }\n}\n\n@media (max-width: 576px) {\n  .media-main {\n    padding: var(--ml-space-xs);\n  }\n  \n  .media-preview {\n    height: 170px;\n  }\n}\n\n@media (max-width: 480px) {\n  .media-main {\n    padding: var(--ml-space-xs);\n  }\n  \n  .media-preview {\n    height: 160px;\n  }\n}\n\n.empty-state {\n  align-items: center;\n  color: #64748b;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 24px;\n  text-align: center;\n  width: 100%;\n}\n\n.empty-state svg {\n  height: 48px;\n  margin-bottom: 16px;\n  opacity: 0.5;\n  width: 48px;\n}\n\n/* Search highlighting */\nmark {\n  background: #fef3c7;\n  border-radius: 2px;\n  color: #92400e;\n  font-weight: 600;\n  padding: 0;\n}\n";
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  const grid = (config) => Object.assign({
+    type: GridLayout
+  }, config);
+  class GridLayout extends GridBaseLayout {
+    /**
+     * Returns the average size (precise or estimated) of an item in the scrolling direction,
+     * including any surrounding space.
+     */
+    get _delta() {
+      return this._metrics.itemSize1 + this._metrics.gap1;
+    }
+    _getItemSize(_idx) {
+      return {
+        [this._sizeDim]: this._metrics.itemSize1,
+        [this._secondarySizeDim]: this._metrics.itemSize2
+      };
+    }
+    _getActiveItems() {
+      const metrics = this._metrics;
+      const { rolumns } = metrics;
+      if (rolumns === 0) {
+        this._first = -1;
+        this._last = -1;
+        this._physicalMin = 0;
+        this._physicalMax = 0;
+      } else {
+        const { padding1: padding12 } = metrics;
+        const min = Math.max(0, this._scrollPosition - this._overhang);
+        const max = Math.min(this._scrollSize, this._scrollPosition + this._viewDim1 + this._overhang);
+        const firstCow = Math.max(0, Math.floor((min - padding12.start) / this._delta));
+        const lastCow = Math.max(0, Math.ceil((max - padding12.start) / this._delta));
+        this._first = firstCow * rolumns;
+        this._last = Math.min(lastCow * rolumns - 1, this.items.length - 1);
+        this._physicalMin = padding12.start + this._delta * firstCow;
+        this._physicalMax = padding12.start + this._delta * lastCow;
+      }
+    }
+    _getItemPosition(idx) {
+      const { rolumns, padding1: padding12, positions, itemSize1, itemSize2 } = this._metrics;
+      return {
+        [this._positionDim]: padding12.start + Math.floor(idx / rolumns) * this._delta,
+        [this._secondaryPositionDim]: positions[idx % rolumns],
+        [dim1(this.direction)]: itemSize1,
+        [dim2(this.direction)]: itemSize2
+      };
+    }
+    _updateScrollSize() {
+      const { rolumns, gap1: gap12, padding1: padding12, itemSize1 } = this._metrics;
+      let size = 1;
+      if (rolumns > 0) {
+        const cows = Math.ceil(this.items.length / rolumns);
+        size = padding12.start + cows * itemSize1 + (cows - 1) * gap12 + padding12.end;
+      }
+      this._scrollSize = size;
+    }
+  }
+  const gridStyles = "/* src/components/grid/grid.css */\n\n.media-main {\n  background: #fff;\n  height: calc(100vh - 200px);\n  overflow-y: auto;\n  padding: 16px 24px 0;\n  position: relative;\n}\n\n.media-grid {\n  position: relative;\n  width: 100%;\n}\n\n.media-card {\n  background: #f5f5f5;\n  border-radius: 8px;\n  box-sizing: border-box;\n  cursor: default;\n  overflow: hidden;\n  padding: 0;\n  position: absolute;\n  transition: box-shadow 0.2s ease, transform 0.2s ease;\n}\n\n.media-card:hover {\n  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);\n  transform: translateY(-2px);\n}\n\n.media-preview {\n  align-items: center;\n  display: flex;\n  height: 100%;\n  justify-content: center;\n  overflow: hidden;\n  position: relative;\n  width: 100%;\n}\n\n.media-preview.clickable {\n  cursor: pointer;\n}\n\n.media-image {\n  height: 100%;\n  object-fit: cover;\n  transition: transform 0.2s ease;\n  width: 100%;\n}\n\n.media-card:hover .media-image {\n  transform: scale(1.05);\n}\n\n.media-preview video,\n.media-preview iframe,\n.media-preview img {\n  height: 100%;\n  object-fit: cover;\n  transition: transform 0.2s ease;\n  width: 100%;\n  z-index: 2;\n}\n\n.media-placeholder {\n  align-items: center;\n  background: #e9ecef;\n  color: #64748b;\n  display: flex;\n  flex-direction: column;\n  font-size: 2.5rem;\n  gap: 0.5rem;\n  height: 100%;\n  justify-content: center;\n  left: 0;\n  opacity: 0.6;\n  position: absolute;\n  top: 0;\n  width: 100%;\n}\n\n.media-placeholder.cors-error {\n  background: linear-gradient(135deg, #fef2f2 0%, #fef2f2 100%);\n  color: #ef4444;\n  opacity: 1;\n}\n\n.cors-message {\n  align-items: center;\n  display: flex;\n  flex-direction: column;\n  font-size: 0.75rem;\n  gap: 0.25rem;\n  text-align: center;\n}\n\n.cors-message small {\n  display: block;\n  font-weight: 500;\n}\n\n/* Type label in top-right corner of preview */\n.subtype-label {\n  background: rgba(0 0 0 / 0.7);\n  border-radius: 4px;\n  color: #fff;\n  font-size: 11px;\n  font-weight: 700;\n  letter-spacing: 0.5px;\n  padding: 4px 8px;\n  position: absolute;\n  right: 8px;\n  top: 8px;\n  z-index: 5;\n}\n\n/* Video preview containers */\n.video-preview-container,\n.video-thumbnail-container {\n  align-items: center;\n  display: flex;\n  height: 100%;\n  justify-content: center;\n  position: relative;\n  width: 100%;\n}\n\n.video-play-overlay {\n  align-items: center;\n  display: flex;\n  height: 100%;\n  justify-content: center;\n  left: 0;\n  position: absolute;\n  top: 0;\n  width: 100%;\n  z-index: 3;\n}\n\n.play-icon {\n  color: #fff;\n  fill: #fff;\n  filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.3));\n  height: 48px;\n  width: 48px;\n}\n\n.video-preview-container .media-video,\n.video-thumbnail-container .video-thumbnail {\n  height: 100%;\n  object-fit: cover;\n  width: 100%;\n}\n\n/* Franklin-style SVG handling */\n:host > svg {\n  display: none;\n}\n\n/* Icon styles */\n.empty-icon,\n.placeholder-icon {\n  color: currentcolor;\n  display: block;\n}\n\n.empty-icon {\n  color: #64748b;\n  height: 48px;\n  margin-bottom: 8px;\n  width: 48px;\n}\n\n.placeholder-icon {\n  color: #64748b;\n  height: 32px;\n  margin-bottom: 8px;\n  width: 32px;\n}\n\n/* Hover overlay - hidden by default, shown on card hover */\n.media-info {\n  background: linear-gradient(0deg, rgba(0 0 0 / 0.7) 0%, rgba(0 0 0 / 0.11) 100%);\n  bottom: 0;\n  height: 100%;\n  left: 0;\n  opacity: 0;\n  overflow: visible;\n  pointer-events: none;\n  position: absolute;\n  right: 0;\n  top: 0;\n  transition: opacity 0.2s ease, visibility 0.2s ease;\n  visibility: hidden;\n  width: 100%;\n  z-index: 10;\n}\n\n.media-card:hover .media-info {\n  opacity: 1;\n  visibility: visible;\n}\n\n.media-info.clickable {\n  cursor: pointer;\n}\n\n/* Metadata badges - positioned top-right in overlay */\n.media-meta {\n  align-items: center;\n  display: flex;\n  flex-wrap: wrap;\n  gap: 8px;\n  justify-content: flex-end;\n  margin-bottom: 8px;\n  padding: 16px;\n  pointer-events: auto;\n}\n\n.media-label {\n  border-radius: 4px;\n  color: #fff;\n  font-size: 12px;\n  font-weight: 600;\n  padding: 4px 12px;\n  text-transform: uppercase;\n  white-space: nowrap;\n}\n\n.media-subtype {\n  background: #ff6b35;\n}\n\n.media-used {\n  background: #3fa9f5;\n}\n\n/* Actions - positioned at bottom of overlay */\n.media-actions {\n  align-items: center;\n  bottom: 0;\n  display: flex;\n  left: 0;\n  padding: 16px;\n  pointer-events: none;\n  position: absolute;\n  right: 0;\n  z-index: 10;\n}\n\n/* Alt text indicator */\n.filled-alt-indicator {\n  align-items: center;\n  background: none;\n  border: none;\n  cursor: default;\n  display: inline-flex;\n  justify-content: center;\n  padding: 4px;\n}\n\n.filled-alt-indicator svg {\n  color: #fff;\n  fill: currentcolor;\n  height: 20px;\n  width: 20px;\n}\n\n.media-actions button,\n.media-actions .filled-alt-indicator {\n  pointer-events: auto;\n}\n\n.share-button {\n  align-items: center;\n  background: none;\n  border: none;\n  border-radius: 4px;\n  cursor: pointer;\n  display: flex;\n  justify-content: center;\n  line-height: 0;\n  margin-left: auto;\n  padding: 4px;\n  transition: background-color 0.2s ease;\n}\n\n.share-button:hover {\n  background-color: #ffffffe7;\n}\n\n.share-button svg {\n  color: #fff;\n  fill: currentcolor;\n  height: 20px;\n  width: 20px;\n}\n\n.empty-state svg {\n  height: 48px;\n  margin-bottom: 16px;\n  opacity: 0.5;\n  width: 48px;\n}\n\n.share-button:hover svg {\n  color: #1e293b;\n}\n\n/* Responsive breakpoints */\n@media (max-width: 768px) {\n  .media-main {\n    padding: 12px 16px 0;\n  }\n}\n\n@media (max-width: 576px) {\n  .media-main {\n    padding: 8px 12px 0;\n  }\n}\n\n@media (max-width: 480px) {\n  .media-main {\n    padding: 8px 8px 0;\n  }\n}\n\n.empty-state {\n  align-items: center;\n  color: #64748b;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  padding: 24px;\n  text-align: center;\n  width: 100%;\n}\n\n/* Search highlighting */\nmark {\n  background: #fef3c7;\n  border-radius: 2px;\n  color: #92400e;\n  font-weight: 600;\n  padding: 0;\n}\n";
   class MediaGrid extends LocalizableElement {
     constructor() {
       super();
@@ -6094,102 +7325,22 @@ var MediaLibrary = function(exports) {
       this.searchQuery = "";
       this.locale = "en";
       this.isProcessing = false;
-      this.visibleStart = 0;
-      this.visibleEnd = 50;
-      this.colCount = 4;
-      this.iconsLoaded = false;
-      this.containerRef = e$1();
-      this.virtualScroll = new GridVirtualScrollManager({
-        onRangeChange: (range) => {
-          this.visibleStart = range.start;
-          this.visibleEnd = range.end;
-          requestAnimationFrame(() => {
-            this.requestUpdate();
-          });
-        },
-        onColCountChange: (colCount) => {
-          this.colCount = colCount;
-          requestAnimationFrame(() => {
-            this.requestUpdate();
-          });
-        }
-      });
-    }
-    connectedCallback() {
-      super.connectedCallback();
     }
     async firstUpdated() {
-      this.setupScrollListener();
-      window.addEventListener("resize", () => {
-        this.virtualScroll.updateColCount();
-      });
+      const ICONS = [
+        "deps/icons/photo.svg",
+        "deps/icons/video.svg",
+        "deps/icons/pdf.svg",
+        "deps/icons/external-link.svg",
+        "deps/icons/copy.svg",
+        "deps/icons/share.svg",
+        "deps/icons/accessibility.svg",
+        "deps/icons/play.svg"
+      ];
+      await getSvg({ parent: this.shadowRoot, paths: ICONS });
     }
     shouldUpdate(changedProperties) {
-      return changedProperties.has("mediaData") || changedProperties.has("searchQuery") || changedProperties.has("isProcessing") || changedProperties.has("visibleStart") || changedProperties.has("visibleEnd") || changedProperties.has("colCount") || changedProperties.has("locale");
-    }
-    willUpdate(changedProperties) {
-      if (changedProperties.has("mediaData")) {
-        if (this.mediaData && this.mediaData.length > 0) {
-          this.virtualScroll.resetState(this.mediaData.length);
-        } else {
-          this.visibleStart = 0;
-          this.visibleEnd = 0;
-        }
-      }
-    }
-    updated(changedProperties) {
-      var _a2;
-      if (changedProperties.has("mediaData") && ((_a2 = this.mediaData) == null ? void 0 : _a2.length) > 0 && !this.iconsLoaded) {
-        this.loadIcons();
-        this.iconsLoaded = true;
-      }
-      if (changedProperties.has("mediaData")) {
-        this.updateComplete.then(() => {
-          if (this.mediaData && this.mediaData.length > 0) {
-            if (!this.virtualScroll.scrollListenerAttached) {
-              this.setupScrollListener();
-            } else {
-              this.virtualScroll.updateTotalItems(this.mediaData.length);
-              this.virtualScroll.calculateVisibleRange();
-              this.virtualScroll.onVisibleRangeChange();
-            }
-          }
-        });
-      }
-    }
-    disconnectedCallback() {
-      super.disconnectedCallback();
-      this.virtualScroll.cleanup();
-    }
-    async loadIcons() {
-      const ICONS = [
-        "./icons/photo.svg",
-        "./icons/video.svg",
-        "./icons/pdf.svg",
-        "./icons/external-link.svg",
-        "./icons/copy.svg"
-      ];
-      const existingIcons = this.shadowRoot.querySelectorAll("svg[id]");
-      const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
-      const missingIcons = ICONS.filter((iconPath) => {
-        const iconId = iconPath.split("/").pop().replace(".svg", "");
-        return !loadedIconIds.includes(iconId);
-      });
-      if (missingIcons.length > 0) {
-        await getSvg({ parent: this.shadowRoot, paths: missingIcons });
-      }
-    }
-    setupScrollListener() {
-      requestAnimationFrame(() => {
-        var _a2;
-        const container = this.containerRef.value;
-        if (container) {
-          this.virtualScroll.init(container, ((_a2 = this.mediaData) == null ? void 0 : _a2.length) || 0);
-          this.virtualScroll.updateColCount();
-          this.virtualScroll.calculateVisibleRange();
-          this.virtualScroll.onVisibleRangeChange();
-        }
-      });
+      return changedProperties.has("mediaData") || changedProperties.has("searchQuery") || changedProperties.has("isProcessing") || changedProperties.has("locale");
     }
     render() {
       if (!this.mediaData || this.mediaData.length === 0) {
@@ -6203,59 +7354,86 @@ var MediaLibrary = function(exports) {
         </div>
       `;
       }
-      const totalHeight = this.virtualScroll.calculateTotalHeight(this.mediaData.length);
-      const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
       return x$1`
-      <main class="media-main" ${n$1(this.containerRef)}>
-        <div class="media-grid" style="height: ${totalHeight}px;">
-          ${c$1(visibleItems, (media) => media.url, (media, i2) => {
-        const index = this.visibleStart + i2;
-        const position = this.virtualScroll.calculateItemPosition(index);
-        return this.renderMediaCard(media, index, position);
+      <main class="media-main" id="grid-scroller">
+        ${virtualize({
+        items: this.mediaData,
+        renderItem: (media) => this.renderMediaCard(media),
+        keyFunction: (media) => (media == null ? void 0 : media.url) || "",
+        scroller: true,
+        layout: grid({
+          gap: "24px",
+          minColumnWidth: "240px",
+          maxColumnWidth: "350px"
+        })
       })}
-        </div>
       </main>
     `;
     }
-    renderMediaCard(media, index, position) {
+    renderMediaCard(media) {
+      if (!media)
+        return x$1``;
       const mediaType = getMediaType(media);
-      this.getMediaTypeIcon(mediaType);
+      const usageCount = media.usageCount || 0;
+      const subtype = this.getSubtype(media);
       return x$1`
-      <div 
-        class="media-card" 
-        data-index="${index}"
-        style="position: absolute; top: ${position.top}px; left: ${position.left}px; width: ${this.virtualScroll.itemWidth - this.virtualScroll.cardSpacing}px; height: ${this.virtualScroll.itemHeight - this.virtualScroll.cardSpacing}px;"
-        @click=${() => this.handleMediaClick(media)}
-      >
-        <div class="media-preview">
+      <div class="media-card">
+        <div class="media-preview clickable" @click=${() => this.handleMediaClick(media)}>
           ${this.renderMediaPreview(media, mediaType)}
-          <div class="media-type-badge">
-            <svg class="media-type-icon">
-              <use href="#${this.getMediaTypeIcon(mediaType)}"></use>
-            </svg>
-          </div>
-        </div>
-        
-        <div class="media-info">
-          <div class="media-details">
-            <h4 class="media-name" title=${media.name} .innerHTML=${this.highlightSearchTerm(this.truncateText(media.name, 35), this.searchQuery)}></h4>
-          </div>
           
-          <div class="media-actions">
-            <span class="usage-count">${this.getUsageCount(media)} uses</span>
-            <button 
-              class="action-button"
-              @click=${(e2) => this.handleAction(e2, "copy", media)}
-              title=${this.t("media.copyUrl")}
-            >
-              <svg class="action-icon">
-                <use href="#copy"></use>
-              </svg>
-            </button>
+          <div class="media-info clickable" @click=${() => this.handleMediaClick(media)}>
+            <div class="media-meta">
+              <span class="media-label media-used">${usageCount}</span>
+              ${subtype ? x$1`<span class="media-label media-subtype">${subtype}</span>` : ""}
+            </div>
+            
+            <div class="media-actions">
+              ${this.renderAltStatus(media, mediaType)}
+              <button 
+                class="share-button"
+                @click=${(e2) => this.handleAction(e2, "copy", media)}
+                title=${this.t("media.copyUrl")}
+              >
+                <svg>
+                  <use href="#share"></use>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     `;
+    }
+    renderAltStatus(media, mediaType) {
+      if (mediaType === "image" && media.alt && media.alt !== "" && media.alt !== null && media.alt !== "null") {
+        return x$1`
+        <div class="filled-alt-indicator" title="Has alt text: ${media.alt}">
+          <svg>
+            <use href="#accessibility"></use>
+          </svg>
+        </div>
+      `;
+      }
+      return "";
+    }
+    getSubtype(media) {
+      if (!media.type)
+        return "";
+      const parts = media.type.split(" > ");
+      if (parts.length > 1) {
+        return parts[1].toUpperCase();
+      }
+      return "";
+    }
+    getDisplayMediaType(mediaType) {
+      const typeMap = {
+        image: "IMAGE",
+        video: "VIDEO",
+        document: "PDF",
+        link: "LINK",
+        icon: "SVG"
+      };
+      return typeMap[mediaType] || mediaType.toUpperCase();
     }
     renderMediaPreview(media, mediaType) {
       if (isImage(media.url) && media.hasError !== true) {
@@ -6263,7 +7441,7 @@ var MediaLibrary = function(exports) {
         <img 
           class="media-image" 
           src=${media.url} 
-          alt=${media.alt || media.name}
+          alt=${media.alt && media.alt !== "null" ? media.alt : media.name}
           loading="lazy"
           @error=${(e2) => this.handleImageError(e2, media)}
         />
@@ -6323,14 +7501,6 @@ var MediaLibrary = function(exports) {
         return "unknown";
       }
     }
-    truncateText(text, maxLength = 30) {
-      if (!text || text.length <= maxLength)
-        return text;
-      return `${text.substring(0, maxLength)}...`;
-    }
-    getUsageCount(media) {
-      return media.usageCount || 0;
-    }
     handleMediaClick(media) {
       this.dispatchEvent(new CustomEvent("mediaClick", {
         detail: { media },
@@ -6353,7 +7523,7 @@ var MediaLibrary = function(exports) {
             <img 
               class="video-thumbnail" 
               src=${thumbnail} 
-              alt=${media.alt || media.name}
+              alt=${media.alt && media.alt !== "null" ? media.alt : media.name}
               loading="lazy"
               @error=${(e2) => this.handleVideoThumbnailError(e2, media)}
             />
@@ -6365,22 +7535,29 @@ var MediaLibrary = function(exports) {
             </div>
           `}
           <div class="video-play-overlay">
-            <svg class="play-icon">
-              <use href="#external-link"></use>
+            <svg class="play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="48" height="48">
+              <path fill="#fff" d="M6.3 3.2C5.6 2.8 5 3.3 5 4.1v11.8c0 0.8 0.6 1.3 1.3 0.9l9.4-5.9c0.6-0.4 0.6-1.4 0-1.8L6.3 3.2z"/>
             </svg>
           </div>
         </div>
       `;
       }
       return x$1`
-      <video 
-        class="media-video" 
-        src=${media.url} 
-        preload="metadata"
-        muted
-        @error=${(e2) => this.handleVideoError(e2, media)}
-        @loadedmetadata=${(e2) => this.handleVideoLoaded(e2, media)}
-      />
+      <div class="video-preview-container">
+        <video 
+          class="media-video" 
+          src=${media.url} 
+          preload="metadata"
+          muted
+          @error=${(e2) => this.handleVideoError(e2, media)}
+          @loadedmetadata=${(e2) => this.handleVideoLoaded(e2, media)}
+        />
+        <div class="video-play-overlay">
+          <svg class="play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="48" height="48">
+            <path fill="#fff" d="M6.3 3.2C5.6 2.8 5 3.3 5 4.1v11.8c0 0.8 0.6 1.3 1.3 0.9l9.4-5.9c0.6-0.4 0.6-1.4 0-1.8L6.3 3.2z"/>
+          </svg>
+        </div>
+      </div>
     `;
     }
     handleImageError(e2, media) {
@@ -6403,30 +7580,12 @@ var MediaLibrary = function(exports) {
         video.currentTime = 0.1;
       }
     }
-    highlightSearchTerm(text, query) {
-      if (!query || !text)
-        return text;
-      let searchTerm = query;
-      if (query.includes(":")) {
-        const parts = query.split(":");
-        if (parts.length > 1) {
-          searchTerm = parts[1].trim();
-        }
-      }
-      if (!searchTerm)
-        return text;
-      const regex = new RegExp(`(${searchTerm})`, "gi");
-      return text.replace(regex, "<mark>$1</mark>");
-    }
   }
   __publicField(MediaGrid, "properties", {
     mediaData: { type: Array },
     searchQuery: { type: String },
     locale: { type: String },
-    isProcessing: { type: Boolean },
-    visibleStart: { type: Number },
-    visibleEnd: { type: Number },
-    colCount: { type: Number }
+    isProcessing: { type: Boolean }
   });
   __publicField(MediaGrid, "styles", getStyles(gridStyles));
   customElements.define("media-grid", MediaGrid);
@@ -6437,89 +7596,19 @@ var MediaLibrary = function(exports) {
       this.mediaData = [];
       this.searchQuery = "";
       this.locale = "en";
-      this.visibleStart = 0;
-      this.visibleEnd = 50;
-      this.containerRef = e$1();
-      this.virtualScroll = new ListVirtualScrollManager({
-        onRangeChange: (range) => {
-          this.visibleStart = range.start;
-          this.visibleEnd = range.end;
-          requestAnimationFrame(() => {
-            this.requestUpdate();
-          });
-        }
-      });
     }
-    async connectedCallback() {
-      super.connectedCallback();
-      await this.loadIcons();
-    }
-    firstUpdated() {
-      this.setupScrollListener();
-      window.addEventListener("resize", () => {
-        this.virtualScroll.updateContainerDimensions();
-      });
+    async firstUpdated() {
+      const ICONS = [
+        "deps/icons/photo.svg",
+        "deps/icons/video.svg",
+        "deps/icons/pdf.svg",
+        "deps/icons/external-link.svg",
+        "deps/icons/copy.svg"
+      ];
+      await getSvg({ parent: this.shadowRoot, paths: ICONS });
     }
     shouldUpdate(changedProperties) {
-      return changedProperties.has("mediaData") || changedProperties.has("searchQuery") || changedProperties.has("visibleStart") || changedProperties.has("visibleEnd") || changedProperties.has("locale");
-    }
-    willUpdate(changedProperties) {
-      if (changedProperties.has("mediaData")) {
-        if (this.mediaData && this.mediaData.length > 0) {
-          this.virtualScroll.resetState(this.mediaData.length);
-        } else {
-          this.visibleStart = 0;
-          this.visibleEnd = 0;
-        }
-      }
-    }
-    updated(changedProperties) {
-      if (changedProperties.has("mediaData")) {
-        this.updateComplete.then(() => {
-          if (this.mediaData && this.mediaData.length > 0) {
-            if (!this.virtualScroll.scrollListenerAttached) {
-              this.setupScrollListener();
-            } else {
-              this.virtualScroll.updateTotalItems(this.mediaData.length);
-              this.virtualScroll.calculateVisibleRange();
-              this.virtualScroll.onVisibleRangeChange();
-            }
-          }
-        });
-      }
-    }
-    disconnectedCallback() {
-      super.disconnectedCallback();
-      this.virtualScroll.cleanup();
-    }
-    setupScrollListener() {
-      requestAnimationFrame(() => {
-        var _a2;
-        const container = this.containerRef.value;
-        if (container) {
-          this.virtualScroll.init(container, ((_a2 = this.mediaData) == null ? void 0 : _a2.length) || 0);
-          this.virtualScroll.calculateVisibleRange();
-          this.virtualScroll.onVisibleRangeChange();
-        }
-      });
-    }
-    async loadIcons() {
-      const ICONS = [
-        "./icons/photo.svg",
-        "./icons/video.svg",
-        "./icons/pdf.svg",
-        "./icons/external-link.svg",
-        "./icons/copy.svg"
-      ];
-      const existingIcons = this.shadowRoot.querySelectorAll("svg[id]");
-      const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
-      const missingIcons = ICONS.filter((iconPath) => {
-        const iconId = iconPath.split("/").pop().replace(".svg", "");
-        return !loadedIconIds.includes(iconId);
-      });
-      if (missingIcons.length > 0) {
-        await getSvg({ parent: this.shadowRoot, paths: missingIcons });
-      }
+      return changedProperties.has("mediaData") || changedProperties.has("searchQuery") || changedProperties.has("locale");
     }
     render() {
       if (!this.mediaData || this.mediaData.length === 0) {
@@ -6533,8 +7622,6 @@ var MediaLibrary = function(exports) {
         </div>
       `;
       }
-      const totalHeight = this.virtualScroll.getTotalHeight();
-      const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
       return x$1`
       <main class="list-main">
         <div class="list-header">
@@ -6545,25 +7632,24 @@ var MediaLibrary = function(exports) {
           <div class="header-cell">Alt Text</div>
           <div class="header-cell">Actions</div>
         </div>
-        <div class="list-content" ${n$1(this.containerRef)}>
-          <div class="list-grid" style="height: ${totalHeight}px;">
-            ${c$1(visibleItems, (media) => media.url, (media, i2) => {
-        const index = this.visibleStart + i2;
-        const offset = this.virtualScroll.getItemOffset(index);
-        return this.renderListItem(media, index, offset);
+        <div class="list-content" id="list-scroller">
+          ${virtualize({
+        items: this.mediaData,
+        renderItem: (media) => this.renderListItem(media),
+        keyFunction: (media) => (media == null ? void 0 : media.url) || "",
+        scroller: true
       })}
-          </div>
         </div>
       </main>
     `;
     }
-    renderListItem(media, index, offset) {
+    renderListItem(media) {
+      if (!media)
+        return x$1``;
       const mediaType = getMediaType(media);
       return x$1`
       <div 
-        class="media-item" 
-        data-index="${index}"
-        style="position: absolute; top: ${offset}px; left: 0; right: 0;"
+        class="media-item"
         @click=${() => this.handleMediaClick(media)}
       >
         <div class="media-thumbnail">
@@ -6582,7 +7668,7 @@ var MediaLibrary = function(exports) {
         <div class="media-doc" title=${media.doc || ""} .innerHTML=${this.highlightSearchTerm(this.getShortDoc(media.doc), this.searchQuery)}>
         </div>
         
-        <div class="media-alt" title=${media.alt || ""} .innerHTML=${this.highlightSearchTerm(this.getShortAlt(media.alt), this.searchQuery)}>
+        <div class="media-alt" title=${media.alt && media.alt !== "null" ? media.alt : ""} .innerHTML=${this.highlightSearchTerm(this.getShortAlt(media.alt), this.searchQuery)}>
         </div>
         
         <div class="media-actions">
@@ -6679,7 +7765,7 @@ var MediaLibrary = function(exports) {
       return doc.split("/").pop() || doc;
     }
     getShortAlt(alt) {
-      if (!alt || alt === "null")
+      if (!alt || alt === null || alt === "null" || alt === "undefined")
         return "—";
       return alt;
     }
@@ -6720,13 +7806,11 @@ var MediaLibrary = function(exports) {
   __publicField(MediaList, "properties", {
     mediaData: { type: Array },
     searchQuery: { type: String },
-    locale: { type: String },
-    visibleStart: { type: Number },
-    visibleEnd: { type: Number }
+    locale: { type: String }
   });
   __publicField(MediaList, "styles", getStyles(listStyles));
   customElements.define("media-list", MediaList);
-  const modalManagerStyles = `/* src/components/modal-manager/modal-manager.css */
+  const mediaDetailsStyles = `/* src/components/media-details/media-details.css */
 
 /* Franklin-style SVG handling */
 :host > svg {
@@ -6735,8 +7819,7 @@ var MediaLibrary = function(exports) {
 
 /* Icon styles */
 .close-icon,
-.preview-icon,
-.action-icon {
+.preview-icon {
   color: currentcolor;
   display: block;
 }
@@ -6750,11 +7833,6 @@ var MediaLibrary = function(exports) {
   color: #64748b;
   height: 64px;
   width: 64px;
-}
-
-.action-icon {
-  height: 16px;
-  width: 16px;
 }
 
   .modal-overlay {
@@ -6783,8 +7861,8 @@ var MediaLibrary = function(exports) {
     background: #f8f9fa;
     border-radius: 8px;
     box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 0.5fr;
     max-height: 95vh;
     max-width: 1200px;
     overflow: hidden;
@@ -6798,19 +7876,37 @@ var MediaLibrary = function(exports) {
   }
 
   .modal-header {
-    align-items: center;
+    align-items: start;
     background: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
     display: flex;
-    justify-content: space-between;
-    padding: 20px 24px;
+    flex-direction: column;
+    justify-content: start;
+    padding: 24px 20px;
+    position: relative;
+  }
+  
+  .modal-header::after {
+    background: linear-gradient(90deg, rgba(255 255 255 / 0) 0%, rgba(255 255 255 / 1) 70%);
+    content: "";
+    display: block;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 200px;
+  }
+  
+  .media-source {
+    color: #6b7280;
+    font-size: 13px;
   }
 
   .modal-title {
-    color: #1e293b;
-    font-size: 1.125rem;
+    color: #111827;
+    font-size: 18px;
     font-weight: 600;
-    margin: 0;
+    margin: 0 0 4px;
   }
 
   .close-button {
@@ -6818,53 +7914,106 @@ var MediaLibrary = function(exports) {
     background: transparent;
     border: none;
     border-radius: 4px;
-    color: #64748b;
+    color: #6b7280;
     cursor: pointer;
     display: flex;
     height: 32px;
     justify-content: center;
+    position: absolute;
+    right: 10px;
+    top: 10px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     width: 32px;
+    z-index: 1;
   }
 
   .close-button:hover {
-    background: #f3f4f6;
-    color: #1e293b;
+    background: #e5e7eb;
+    color: #111827;
   }
   
+  .modal-details {
+    overflow: hidden;
+  }
 
   .modal-body {
     background: #f8f9fa;
     flex: 1;
+    height: 460px;
     overflow-y: auto;
-    padding: 24px;
+    padding: 20px;
   }
   
   .media-preview-section {
     align-items: center;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    background: #4d4d4d;
+    box-sizing: border-box;
     display: flex;
+    height: 100%;
     justify-content: center;
-    margin-bottom: 24px;
-    max-height: 400px;
-    min-height: 300px;
+    min-height: 400px;
     overflow: hidden;
-    padding: 20px;
+    padding-right: 1px;
     position: relative;
-    text-align: center;
+  }
+
+  .image-preview-container {
+    display: flex;
+    height: auto;
+    max-height: 600px;
   }
 
   .media-preview {
-    border-radius: var(--ml-radius-lg);
-    box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+    border-radius: 8px;
     display: block;
     height: auto;
-    max-height: 100%;
+    max-height: 600px;
     max-width: 100%;
     object-fit: contain;
     width: auto;
+  }
+
+  .subtype-label {
+    background: #ff6b35;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    pointer-events: none;
+    position: absolute;
+    right: 12px;
+    text-transform: uppercase;
+    top: 12px;
+    white-space: nowrap;
+    z-index: 100;
+  }
+
+  .video-preview-container {
+    height: 100%;
+    position: relative;
+    width: 100%;
+  }
+
+  .video-play-overlay {
+    align-items: center;
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    z-index: 10;
+  }
+
+  .play-icon {
+    color: #fff;
+    fill: #fff;
+    filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.4));
+    height: 64px;
+    width: 64px;
   }
   
   .preview-placeholder {
@@ -6969,29 +8118,33 @@ var MediaLibrary = function(exports) {
   }
   
   .tab-btn {
+    align-items: center;
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: #64748b;
+    border-bottom: 3px solid transparent;
+    border-radius: 0 6px 0 0;
+    color: #414141;
     cursor: pointer;
-    flex: 1;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 12px 16px;
+    display: flex;
+    flex: 0 0 auto;
+    font-size: 16px;
+    font-weight: 600;
+    gap: 5px;
+    padding: 12px 24px;
     position: relative;
     transition: all 0.2s ease;
   }
   
   .tab-btn:hover {
-    background: #f1f5f9;
-    color: #1e293b;
+    background: #e3e3e3;
+    color: #000;
   }
   
   .tab-btn.active {
-    background: #fff;
-    border-bottom-color: #3b82f6;
-    color: #3b82f6;
-    font-weight: 600;
+    border-bottom-color: #000;
+    border-bottom-width: 3px;
+    color: #222;
+    transition: background-color 0.2s ease;
   }
   
   .tab-btn.active::after {
@@ -7002,6 +8155,12 @@ var MediaLibrary = function(exports) {
     left: 0;
     position: absolute;
     right: 0;
+  }
+  
+  .tab-icon {
+    fill: currentcolor;
+    flex-shrink: 0;
+    transform: translateY(3px);
   }
 
   .media-info {
@@ -7065,6 +8224,7 @@ var MediaLibrary = function(exports) {
   .usage-table {
     border-collapse: collapse;
     font-size: 13px;
+    table-layout: fixed;
     width: 100%;
   }
   
@@ -7120,7 +8280,8 @@ var MediaLibrary = function(exports) {
     font-size: 0.875rem;
     line-height: 1.5;
     overflow-wrap: break-word;
-    white-space: pre-line;
+    white-space: normal;
+    word-break: break-all;
   }
 
 
@@ -7168,64 +8329,198 @@ var MediaLibrary = function(exports) {
   .usage-sections {
     display: flex;
     flex-direction: column;
-    gap: 24px;
   }
   
   .usage-section {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px;
+    transition: background 0.2s ease;
+  }
+  
+  .usage-section:hover {
+    background: #f8fafc;
   }
   
   .document-heading {
-    background: #f8f9fa;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 12px 16px;
+    align-items: flex-start;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .document-heading > div {
+    flex: 1;
   }
   
   .document-heading h3 {
-    color: #1e293b;
-    font-size: 16px;
+    color: #111827;
+    font-size: 14px;
     font-weight: 600;
     margin: 0 0 4px;
     word-break: break-all;
   }
   
-  .usage-table-container {
-    margin-bottom: 24px;
-    overflow-x: auto;
-    padding: 0;
+  .document-path {
+    color: #6b7280;
+    font-size: 12px;
   }
   
-  .usage-table {
-    min-width: 1000px;
-  }
-  
-  .usage-table th {
-    background: #e9ecef;
-    border-bottom: 1px solid #e5e7eb;
-    color: #1e293b;
-    font-size: 0.75rem;
+  .usage-title {
+    color: #6b7280;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.5px;
-    padding: 8px 12px;
-    text-align: left;
+    margin: 8px 0 6px;
     text-transform: uppercase;
   }
+
+  .open-page-button {
+    align-items: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    flex-shrink: 0;
+    height: 32px;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+    width: 32px;
+  }
+
+  .open-page-button:hover {
+    background: #e5e7eb;
+    color: #111827;
+  }
+
+  .action-icon {
+    color: #6b7280;
+    display: block;
+    fill: currentcolor;
+  }
   
-  .alt-cell {
-    min-width: 200px;
-    width: 200px;
+  .open-page-button .action-icon {
+    color: #374151;
+  }
+  
+  .open-page-button:hover .action-icon {
+    color: #111827;
+  }
+  
+  .usage-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .usage-row {
+    align-items: center;
+    background: transparent;
+    border-radius: 4px;
+    color: #374151;
+    display: flex;
+    font-size: 14px;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 8px 12px;
+  }
+  
+  .usage-row:hover {
+    background: #f3f4f6;
+  }
+
+  .usage-alt {
+    flex: 1;
+  }
+
+  .usage-actions {
+    align-items: center;
+    display: flex;
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  .action-button {
+    align-items: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    height: 32px;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+    width: 32px;
+  }
+
+  .action-button:hover {
+    background: #e5e7eb;
+  }
+
+  .action-button:hover .action-icon {
+    color: #111827;
+  }
+  
+  .action-icon path {
+    fill: currentcolor;
+  }
+  
+  .alt-missing,
+  .alt-decorative,
+  .alt-filled,
+  .alt-na {
+    align-items: center;
+    display: inline-flex;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    gap: 6px;
+  }
+  
+  .alt-missing {
+    color: #f59e0b;
+  }
+  
+  .alt-decorative {
+    color: #3b82f6;
+  }
+  
+  .alt-filled {
+    color: #10b981;
+  }
+  
+  .alt-na {
+    color: #9ca3af;
+    font-style: italic;
+  }
+  
+  .alt-status-icon {
+    flex-shrink: 0;
+  }
+  
+  .alt-status-icon.missing {
+    color: #f59e0b;
+  }
+  
+  .alt-status-icon.decorative {
+    color: #3b82f6;
+  }
+  
+  .alt-status-icon.filled {
+    color: #10b981;
   }
   
   .context-cell {
-    flex: 2;
-    min-width: 500px;
+    color: #6b7280;
+    font-size: 13px;
   }
   
   .actions-cell {
-    text-align: center;
-    width: 120px;
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
   }
   
   .actions-container {
@@ -7309,25 +8604,9 @@ var MediaLibrary = function(exports) {
     white-space: pre-line;
   }
   
-  .action-button {
-    align-items: center;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    color: #1e293b;
-    cursor: pointer;
-    display: inline-flex;
-    font-size: 0.75rem;
-    font-weight: 500;
-    gap: 4px;
-    padding: 4px 8px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .action-button:hover {
-    background: #3b82f6;
-    border-color: #3b82f6;
-    color: #fff;
+  .action-button svg {
+    height: 16px;
+    width: 16px;
   }
   
 .no-usage {
@@ -7335,19 +8614,32 @@ var MediaLibrary = function(exports) {
   padding: 64px 24px;
   text-align: center;
 }
+
 `;
-  class ModalManager extends LocalizableElement {
+  class MediaDetails extends LocalizableElement {
     constructor() {
       super();
-      __publicField(this, "handleOpenModal", (e2) => {
+      __publicField(this, "handleOpenModal", async (e2) => {
         window.dispatchEvent(new Event("close-modal"));
         this.modalData = e2.detail;
         this.isOpen = true;
+        const { media } = e2.detail.data;
+        if (media) {
+          await this.loadFileMetadata(media);
+          if (this.isImage(media.url)) {
+            await this.loadExifData(media.url);
+          }
+        }
       });
       __publicField(this, "handleCloseModal", () => {
         this.isOpen = false;
         this.modalData = null;
         this._activeTab = "usage";
+        this._mimeType = null;
+        this._fileSize = null;
+        this._mediaOrigin = null;
+        this._mediaPath = null;
+        this._exifData = null;
       });
       __publicField(this, "handleTabChange", (e2) => {
         const { tab } = e2.target.dataset;
@@ -7357,25 +8649,36 @@ var MediaLibrary = function(exports) {
       this.isOpen = false;
       this.modalData = null;
       this._activeTab = "usage";
+      this._mimeType = null;
+      this._fileSize = null;
+      this._mediaOrigin = null;
+      this._mediaPath = null;
+      this._exifData = null;
     }
-    async connectedCallback() {
+    connectedCallback() {
       super.connectedCallback();
-      await this.loadIcons();
       window.addEventListener("open-modal", this.handleOpenModal);
       window.addEventListener("close-modal", this.handleCloseModal);
     }
-    async loadIcons() {
-      const ICONS = [
-        "./icons/close.svg",
-        "./icons/photo.svg",
-        "./icons/video.svg",
-        "./icons/pdf.svg",
-        "./icons/external-link.svg",
-        "./icons/copy.svg"
-      ];
-      const existingIcons = this.shadowRoot.querySelectorAll("svg[id]");
-      if (existingIcons.length === 0) {
-        await getSvg({ parent: this.shadowRoot, paths: ICONS });
+    async updated(changedProperties) {
+      if (changedProperties.has("isOpen") && this.isOpen) {
+        const existingIcons = this.shadowRoot.querySelectorAll("svg[id], g[id]");
+        if (existingIcons.length === 0) {
+          const ICONS = [
+            "deps/icons/close.svg",
+            "deps/icons/photo.svg",
+            "deps/icons/video.svg",
+            "deps/icons/pdf.svg",
+            "deps/icons/external-link.svg",
+            "deps/icons/copy.svg",
+            "deps/icons/eye.svg",
+            "deps/icons/reference.svg",
+            "deps/icons/info.svg",
+            "deps/icons/open-in.svg",
+            "deps/icons/play.svg"
+          ];
+          await getSvg({ parent: this.shadowRoot, paths: ICONS });
+        }
       }
     }
     disconnectedCallback() {
@@ -7388,25 +8691,39 @@ var MediaLibrary = function(exports) {
       const usageCount = ((_c = (_b = (_a2 = this.modalData) == null ? void 0 : _a2.data) == null ? void 0 : _b.media) == null ? void 0 : _c.usageCount) || 0;
       return usageCount;
     }
-    shouldShowPreviewEditButtons() {
-      var _a2, _b;
-      const previewEditDomains = [
-        "content.da.live"
-      ];
-      const source = ((_b = (_a2 = this.modalData) == null ? void 0 : _a2.data) == null ? void 0 : _b.source) || "";
-      return previewEditDomains.some((domain) => source.includes(domain));
-    }
     getAltTextDisplay(alt, mediaType = null) {
-      if (mediaType && (mediaType.startsWith("video") || mediaType === "video")) {
-        return "N/A";
+      if (mediaType && !mediaType.startsWith("img")) {
+        return x$1`<span class="alt-na">N/A</span>`;
       }
-      if (!alt || alt === "null") {
-        return "Missing Alt";
+      if (!alt || alt === null || alt === "null" || alt === "undefined") {
+        return x$1`
+        <span class="alt-missing">
+          <svg class="alt-status-icon missing" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm1 13H7V7h2v6zm0-8H7V3h2v2z"/>
+          </svg>
+          Missing Alt
+        </span>
+      `;
       }
       if (alt === "") {
-        return "Decorative";
+        return x$1`
+        <span class="alt-decorative">
+          <svg class="alt-status-icon decorative" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" fill="none" stroke-width="2"/>
+            <circle cx="8" cy="8" r="3" fill="currentColor"/>
+          </svg>
+          Decorative
+        </span>
+      `;
       }
-      return alt;
+      return x$1`
+      <span class="alt-filled">
+        <svg class="alt-status-icon filled" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm-1.5 12L3 8.5l1.4-1.4 2.1 2.1 4.1-4.1L12 6.5 6.5 12z"/>
+        </svg>
+        ${alt}
+      </span>
+    `;
     }
     formatContextAsHtml(context) {
       if (!context)
@@ -7493,41 +8810,52 @@ var MediaLibrary = function(exports) {
       return x$1`
       <div class="modal-overlay" ?open=${this.isOpen} @click=${this.handleOverlayClick}>
         <div class="modal-content" @click=${this.handleContentClick}>
-          <div class="modal-header">
-            <h2 class="modal-title">${this.getModalTitle()}</h2>
-            <button class="close-button" @click=${this.handleCloseModal} title="Close">
-              <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-          
+          <!-- Left Column: Preview -->
           <div class="media-preview-section">
             ${this.renderModalPreview()}
           </div>
           
-          <div class="modal-tabs">
-            <button 
-              type="button"
-              class="tab-btn ${this._activeTab === "usage" ? "active" : ""}"
-              data-tab="usage"
-              @click=${this.handleTabChange}
-            >
-              Usage (${this.getUsageCount()})
-            </button>
-            <button 
-              type="button"
-              class="tab-btn ${this._activeTab === "metadata" ? "active" : ""}"
-              data-tab="metadata"
-              @click=${this.handleTabChange}
-            >
-              Metadata
-            </button>
-          </div>
-          
-          <div class="modal-body">
-            ${this._activeTab === "usage" ? this.renderUsageTab() : this.renderMetadataTab()}
+          <!-- Right Column: Details -->
+          <div class="modal-details">
+            <div class="modal-header">
+              <h2 class="modal-title">${this.getModalTitle()}</h2>
+              <div class="media-source">${this.getMediaOriginFilename()}</div>
+              <button class="close-button" @click=${this.handleCloseModal} title="Close">
+                <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="modal-tabs">
+              <button 
+                type="button"
+                class="tab-btn ${this._activeTab === "usage" ? "active" : ""}"
+                data-tab="usage"
+                @click=${this.handleTabChange}
+              >
+                <svg class="tab-icon" width="20" height="20">
+                  <use href="#reference"></use>
+                </svg>
+                ${this.getUsageCount()} ${this.getUsageCount() === 1 ? "Reference" : "References"}
+              </button>
+              <button 
+                type="button"
+                class="tab-btn ${this._activeTab === "metadata" ? "active" : ""}"
+                data-tab="metadata"
+                @click=${this.handleTabChange}
+              >
+                <svg class="tab-icon" width="20" height="20">
+                  <use href="#info"></use>
+                </svg>
+                Metadata
+              </button>
+            </div>
+            
+            <div class="modal-body">
+              ${this._activeTab === "usage" ? this.renderUsageTab() : this.renderMetadataTab()}
+            </div>
           </div>
         </div>
       </div>
@@ -7552,60 +8880,55 @@ var MediaLibrary = function(exports) {
       }, {});
       return x$1`
       <div class="usage-sections">
-        ${Object.entries(groupedUsages).map(([doc, usages]) => x$1`
+        ${Object.entries(groupedUsages).map(([doc, usages]) => {
+        var _a2, _b;
+        return x$1`
           <div class="usage-section">
             <div class="document-heading">
-              <h3>${doc}</h3>
+              <div>
+                <h3>${doc}</h3>
+                <div class="document-path">${usages.length} ${usages.length === 1 ? "usage" : "usages"}</div>
+              </div>
+              <button 
+                class="action-button open-page-button" 
+                @click=${() => this.handleViewDocument(doc)} 
+                title="Open page in new tab"
+              >
+                <svg class="action-icon" width="16" height="16" viewBox="0 0 20 20">
+                  <use href="#open-in"></use>
+                </svg>
+              </button>
             </div>
-            <div class="usage-table-container">
-              <table class="usage-table">
-                <thead>
-                  <tr>
-                    <th>Alt Text</th>
-                    <th>Context</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${usages.map((usage) => {
-        const shouldShowPreviewEdit = this.shouldShowPreviewEditButtons();
-        return x$1`
-                    <tr class="usage-row">
-                      <td class="alt-cell">
-                        <div class="alt-text">${this.getAltTextDisplay(usage.alt, usage.type)}</div>
-                      </td>
-                      <td class="context-cell">
-                        <div class="context-text">${this.formatContextAsHtml(usage.ctx)}</div>
-                      </td>
-                      <td class="actions-cell">
-                        <div class="actions-container">
-                          ${shouldShowPreviewEdit ? x$1`
-                            <button class="action-button" @click=${() => this.handleViewDocument(doc)}>
-                              Preview
-                            </button>
-                            <button class="action-button" @click=${() => this.handleEditDocument(doc)}>
-                              Edit
-                            </button>
-                          ` : x$1`
-                            <button class="action-button" @click=${() => this.handleViewDocument(doc)}>
-                              Open
-                            </button>
-                          `}
-                        </div>
-                      </td>
-                    </tr>
-                    `;
-      })}
-                </tbody>
-              </table>
-            </div>
+            ${((_b = (_a2 = usages[0]) == null ? void 0 : _a2.type) == null ? void 0 : _b.startsWith("img")) ? x$1`
+              <h5 class="usage-title">Alt</h5>
+              <div class="usage-container">
+                ${usages.map((usage) => x$1`
+                  <div class="usage-row">
+                    <div class="usage-alt">
+                      ${this.getAltTextDisplay(usage.alt, usage.type)}
+                    </div>
+                    <div class="usage-actions">
+                      <button 
+                        class="action-button" 
+                        @click=${() => this.handleViewMedia(this.modalData.data.media.url)} 
+                        title="Open media in new tab"
+                      >
+                        <svg class="action-icon" width="16" height="16" viewBox="0 0 20 20">
+                          <use href="#open-in"></use>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                `)}
+              </div>
+            ` : ""}
           </div>
-        `)}
+        `;
+      })}
       </div>
     `;
     }
     renderMetadataTab() {
-      const { media } = this.modalData.data;
       return x$1`
       <div class="metadata-section">
         <div class="metadata-table-container">
@@ -7618,19 +8941,23 @@ var MediaLibrary = function(exports) {
             </thead>
             <tbody>
               <tr class="metadata-row">
-                <td class="metadata-label">File Name</td>
-                <td class="metadata-value">${media.name}</td>
+                <td class="metadata-label">MIME Type</td>
+                <td class="metadata-value">${this._mimeType || "Loading..."}</td>
               </tr>
               <tr class="metadata-row">
-                <td class="metadata-label">URL</td>
-                <td class="metadata-value">${media.url}</td>
+                <td class="metadata-label">File Size</td>
+                <td class="metadata-value">${this._fileSize || "Loading..."}</td>
               </tr>
               <tr class="metadata-row">
-                <td class="metadata-label">Type</td>
-                <td class="metadata-value">${media.type}</td>
+                <td class="metadata-label">Origin</td>
+                <td class="metadata-value">${this._mediaOrigin || "Loading..."}</td>
+              </tr>
+              <tr class="metadata-row">
+                <td class="metadata-label">Path</td>
+                <td class="metadata-value">${this._mediaPath || "Loading..."}</td>
               </tr>
               
-              ${this.renderAnalysisMetadata(media)}
+              ${this.renderExifSection()}
             </tbody>
           </table>
         </div>
@@ -7696,16 +9023,159 @@ var MediaLibrary = function(exports) {
       </tr>
     `;
     }
+    async loadFileMetadata(media) {
+      if (!media || !media.url)
+        return;
+      try {
+        const url = new URL(media.url);
+        this._mediaOrigin = url.origin;
+        this._mediaPath = url.pathname;
+        const ext = this.getFileExtension(media.url).toLowerCase();
+        const mimeTypes = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          gif: "image/gif",
+          webp: "image/webp",
+          svg: "image/svg+xml",
+          mp4: "video/mp4",
+          webm: "video/webm",
+          pdf: "application/pdf"
+        };
+        this._mimeType = mimeTypes[ext] || "Unknown";
+        try {
+          const corsProxyUrl = `https://media-library-cors-proxy.aem-poc-lab.workers.dev/?url=${encodeURIComponent(media.url)}`;
+          let response = await fetch(corsProxyUrl, { method: "HEAD" });
+          if (response.ok) {
+            const size = response.headers.get("content-length");
+            if (size) {
+              this._fileSize = this.formatFileSize(parseInt(size, 10));
+            } else {
+              response = await fetch(corsProxyUrl, { method: "GET" });
+              if (response.ok) {
+                const blob = await response.blob();
+                this._fileSize = this.formatFileSize(blob.size);
+              } else {
+                this._fileSize = "Unknown";
+              }
+            }
+          } else {
+            this._fileSize = "Unknown";
+          }
+        } catch (error) {
+          this._fileSize = "Unknown";
+        }
+      } catch {
+        this._mediaOrigin = "Unknown";
+        this._mediaPath = "Unknown";
+        this._mimeType = "Unknown";
+        this._fileSize = "Unknown";
+      }
+    }
+    async loadExifData(imageUrl) {
+      if (!imageUrl)
+        return;
+      try {
+        if (!window.EXIF) {
+          await this.loadExifLibrary();
+        }
+        const corsProxyUrl = `https://media-library-cors-proxy.aem-poc-lab.workers.dev/?url=${encodeURIComponent(imageUrl)}`;
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise((resolve) => {
+          img.onload = () => {
+            try {
+              window.EXIF.getData(img, () => {
+                const allTags = window.EXIF.getAllTags(img);
+                this._exifData = allTags && Object.keys(allTags).length > 0 ? allTags : null;
+                resolve();
+              });
+            } catch {
+              this._exifData = null;
+              resolve();
+            }
+          };
+          img.onerror = () => {
+            this._exifData = null;
+            resolve();
+          };
+          img.src = corsProxyUrl;
+        });
+      } catch {
+        this._exifData = null;
+      }
+    }
+    async loadExifLibrary() {
+      return new Promise((resolve, reject) => {
+        if (window.EXIF) {
+          resolve();
+          return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/exif-js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load EXIF library"));
+        document.head.appendChild(script);
+      });
+    }
+    renderExifSection() {
+      if (!this._exifData || Object.keys(this._exifData).length === 0) {
+        return "";
+      }
+      const exifRows = [];
+      const displayKeys = {
+        Make: "Camera Make",
+        Model: "Camera Model",
+        DateTime: "Date Taken",
+        FNumber: "F-Number",
+        ExposureTime: "Exposure Time",
+        ISOSpeedRatings: "ISO",
+        FocalLength: "Focal Length",
+        LensModel: "Lens"
+      };
+      Object.keys(displayKeys).forEach((key) => {
+        if (this._exifData[key]) {
+          const value = this._exifData[key];
+          exifRows.push(x$1`
+          <tr class="metadata-row exif-row">
+            <td class="metadata-label">${displayKeys[key]}</td>
+            <td class="metadata-value">${value}</td>
+          </tr>
+        `);
+        }
+      });
+      if (exifRows.length === 0)
+        return "";
+      return x$1`
+      <tr class="metadata-row exif-section">
+        <td class="metadata-label">EXIF Data</td>
+        <td class="metadata-value"></td>
+      </tr>
+      ${exifRows}
+    `;
+    }
+    formatFileSize(bytes) {
+      if (bytes === 0)
+        return "0 Bytes";
+      const k2 = 1024;
+      const sizes = ["Bytes", "KB", "MB", "GB"];
+      const i2 = Math.floor(Math.log(bytes) / Math.log(k2));
+      return `${Math.round(bytes / k2 ** i2 * 100) / 100} ${sizes[i2]}`;
+    }
     renderModalPreview() {
       const { media } = this.modalData.data;
       if (this.isImage(media.url)) {
+        const ext = this.getFileExtension(media.url).toUpperCase();
         return x$1`
-        <img 
-          class="media-preview" 
-          src=${media.url} 
-          alt=${media.alt || media.name}
-          @error=${(e2) => this.handleImageError(e2, media)}
-        />
+        <div class="image-preview-container">
+          <img 
+            class="media-preview" 
+            src=${media.url} 
+            alt=${media.alt || media.name}
+            @error=${(e2) => this.handleImageError(e2, media)}
+          />
+          ${ext ? x$1`<div class="subtype-label">${ext}</div>` : ""}
+        </div>
       `;
       }
       if (this.isVideo(media.url)) {
@@ -7745,6 +9215,7 @@ var MediaLibrary = function(exports) {
     `;
     }
     renderVideoPreview(media) {
+      const ext = this.getFileExtension(media.url).toUpperCase();
       if (isExternalVideoUrl(media.url)) {
         const thumbnail = getVideoThumbnail(media.url);
         return x$1`
@@ -7765,10 +9236,11 @@ var MediaLibrary = function(exports) {
               </div>
             `}
             <div class="video-play-overlay">
-              <svg class="play-icon">
-                <use href="#external-link"></use>
+              <svg class="play-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="64" height="64">
+                <path fill="#fff" d="M6.3 3.2C5.6 2.8 5 3.3 5 4.1v11.8c0 0.8 0.6 1.3 1.3 0.9l9.4-5.9c0.6-0.4 0.6-1.4 0-1.8L6.3 3.2z"/>
               </svg>
             </div>
+            ${ext ? x$1`<div class="subtype-label">${ext}</div>` : ""}
           </div>
           <div class="video-info">
             <h3>External Video</h3>
@@ -7788,15 +9260,18 @@ var MediaLibrary = function(exports) {
       `;
       }
       return x$1`
-      <video 
-        class="media-preview video-preview" 
-        src=${media.url} 
-        controls
-        preload="metadata"
-        @error=${(e2) => this.handleVideoError(e2, media)}
-      >
-        <p>Your browser does not support the video tag.</p>
-      </video>
+      <div class="video-preview-container">
+        <video 
+          class="media-preview video-preview" 
+          src=${media.url} 
+          controls
+          preload="metadata"
+          @error=${(e2) => this.handleVideoError(e2, media)}
+        >
+          <p>Your browser does not support the video tag.</p>
+        </video>
+        ${ext ? x$1`<div class="subtype-label">${ext}</div>` : ""}
+      </div>
     `;
     }
     handleImageError(e2, media) {
@@ -7824,14 +9299,20 @@ var MediaLibrary = function(exports) {
     }
     getModalTitle() {
       var _a2;
-      const { type, data } = this.modalData;
-      switch (type) {
-        case "details":
-          return ((_a2 = data == null ? void 0 : data.media) == null ? void 0 : _a2.name) || "Media Details";
-        case "edit":
-          return this.t("media.editAltText");
-        default:
-          return "Modal";
+      const { data } = this.modalData;
+      return ((_a2 = data == null ? void 0 : data.media) == null ? void 0 : _a2.name) || "Media Details";
+    }
+    getMediaOriginFilename() {
+      const { data } = this.modalData;
+      const media = data == null ? void 0 : data.media;
+      if (!(media == null ? void 0 : media.url))
+        return "Unknown";
+      try {
+        const url = new URL(media.url);
+        const originParts = url.origin.split("/");
+        return originParts[originParts.length - 1] || "Unknown";
+      } catch {
+        return "Unknown";
       }
     }
     getMediaTypeIcon(media) {
@@ -7889,12 +9370,6 @@ var MediaLibrary = function(exports) {
     handleContentClick(e2) {
       e2.stopPropagation();
     }
-    handleEdit() {
-      this.modalData = {
-        type: "edit",
-        data: this.modalData.data
-      };
-    }
     handleCopy() {
       const { media } = this.modalData.data;
       navigator.clipboard.writeText(media.url);
@@ -7909,12 +9384,12 @@ var MediaLibrary = function(exports) {
     handleViewDocument(docPath) {
       if (!docPath)
         return;
-      window.open(docPath, "_blank");
+      window.open(docPath, "_blank", "noopener,noreferrer");
     }
-    handleEditDocument(docPath) {
-      if (!docPath)
+    handleViewMedia(mediaUrl) {
+      if (!mediaUrl)
         return;
-      window.open(docPath, "_blank");
+      window.open(mediaUrl, "_blank", "noopener,noreferrer");
     }
     handlePdfAction(event, pdfUrl, fileName) {
       if (!pdfUrl)
@@ -7931,31 +9406,20 @@ var MediaLibrary = function(exports) {
         window.open(pdfUrl, "_blank");
       }
     }
-    handleSave(e2) {
-      e2.preventDefault();
-      const formData = new FormData(e2.target);
-      const altText = formData.get("altText");
-      window.dispatchEvent(new CustomEvent("save-alt-text", {
-        detail: {
-          media: this.modalData.data.media,
-          altText
-        }
-      }));
-      this.handleCloseModal();
-    }
-    handleFormSubmit(e2) {
-      e2.preventDefault();
-      this.handleSave(e2);
-    }
   }
-  __publicField(ModalManager, "properties", {
+  __publicField(MediaDetails, "properties", {
     locale: { type: String },
     isOpen: { type: Boolean },
     modalData: { type: Object },
-    _activeTab: { state: true }
+    _activeTab: { state: true },
+    _mimeType: { state: true },
+    _fileSize: { state: true },
+    _mediaOrigin: { state: true },
+    _mediaPath: { state: true },
+    _exifData: { state: true }
   });
-  __publicField(ModalManager, "styles", getStyles(modalManagerStyles));
-  customElements.define("modal-manager", ModalManager);
+  __publicField(MediaDetails, "styles", getStyles(mediaDetailsStyles));
+  customElements.define("media-details", MediaDetails);
   const mediaLibraryStyles = `:host {
   display: block;
   font-family: system-ui, -apple-system, sans-serif;
@@ -7981,13 +9445,10 @@ var MediaLibrary = function(exports) {
 }
 
 .media-library {
-  background: #f8fafc;
+  background: #fff;
   display: grid;
-  gap: 8px;
-  grid-template:
-    "sidebar topbar" auto
-    "sidebar main" 1fr
-    / 240px 1fr;
+  gap: 0;
+  grid-template: "sidebar topbar" auto "sidebar main" 1fr / minmax(60px, auto) 1fr;
   height: 100vh;
   max-width: 100%;
   overflow: hidden;
@@ -7998,9 +9459,10 @@ var MediaLibrary = function(exports) {
 
 .top-bar {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: none;
   grid-area: topbar;
   z-index: 1000;
 }
@@ -8008,18 +9470,17 @@ var MediaLibrary = function(exports) {
 
 .sidebar {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  border: none;
+  border-right: 1px solid #e2e8f0;
   grid-area: sidebar;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .main-content {
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   grid-area: main;
   overflow: hidden;
   position: relative;
@@ -8257,12 +9718,15 @@ var MediaLibrary = function(exports) {
     }
     async _initialize() {
       const ICONS = [
-        "./icons/close.svg",
-        "./icons/photo.svg",
-        "./icons/video.svg",
-        "./icons/pdf.svg",
-        "./icons/external-link.svg",
-        "./icons/copy.svg"
+        "deps/icons/close.svg",
+        "deps/icons/photo.svg",
+        "deps/icons/video.svg",
+        "deps/icons/pdf.svg",
+        "deps/icons/external-link.svg",
+        "deps/icons/copy.svg",
+        "deps/icons/filter.svg",
+        "deps/icons/document.svg",
+        "deps/icons/all.svg"
       ];
       await getSvg({ parent: this.shadowRoot, paths: ICONS });
       await i18n.loadLocale(this.locale);
@@ -8695,6 +10159,39 @@ var MediaLibrary = function(exports) {
     get isUIdisabled() {
       return this._isScanning || !this._mediaData || this._mediaData.length === 0;
     }
+    getResultSummary() {
+      var _a2, _b;
+      if (this._isScanning) {
+        return "";
+      }
+      const filteredCount = ((_a2 = this.filteredMediaData) == null ? void 0 : _a2.length) || 0;
+      const totalCount = ((_b = this._mediaData) == null ? void 0 : _b.length) || 0;
+      if (this._searchQuery || this._selectedFilterType !== "all") {
+        return `${filteredCount} of ${totalCount} usages`;
+      }
+      return `${totalCount} usages`;
+    }
+    getScanProgress() {
+      var _a2;
+      if (this._isScanning) {
+        return {
+          pages: this._realTimeStats.pages || 0,
+          media: this._realTimeStats.images || 0,
+          duration: null,
+          hasChanges: null
+        };
+      }
+      if (this._scanProgress || this._lastScanDuration) {
+        const mediaCount = ((_a2 = this._mediaData) == null ? void 0 : _a2.length) || 0;
+        return {
+          pages: this._totalPages || 0,
+          media: mediaCount,
+          duration: this._lastScanDuration,
+          hasChanges: true
+        };
+      }
+      return { pages: 0, media: 0, duration: null, hasChanges: null };
+    }
     handleSearch(e2) {
       if (this.isUIdisabled)
         return;
@@ -8766,20 +10263,9 @@ var MediaLibrary = function(exports) {
             .searchQuery=${this._searchQuery}
             .currentView=${this._currentView}
             .locale=${this.locale}
-            .isScanning=${this.isUIdisabled}
-            .scanProgress=${this._scanProgress}
-            .isActuallyScanning=${this._isScanning}
-            .isBatchLoading=${this._isBatchLoading}
-            .realTimeStats=${this._realTimeStats}
-            .lastScanDuration=${this._lastScanDuration}
-            .scanStats=${this._scanStats}
-            .imageAnalysisEnabled=${this._imageAnalysisEnabled}
-            .showAnalysisToggle=${this.showAnalysisToggle}
             .mediaData=${this._mediaData}
-            .totalPages=${this._totalPages}
+            .resultSummary=${this.getResultSummary()}
             @search=${this.handleSearch}
-            @viewChange=${this.handleViewChange}
-            @toggleImageAnalysis=${this.handleToggleImageAnalysis}
           ></media-topbar>
         </div>
 
@@ -8789,7 +10275,8 @@ var MediaLibrary = function(exports) {
             .activeFilter=${this._selectedFilterType}
             .filterCounts=${this.filterCounts}
             .locale=${this.locale}
-            .isScanning=${this.isUIdisabled}
+            .isScanning=${this._isScanning}
+            .scanProgress=${this.getScanProgress()}
             @filter=${this.handleFilter}
           ></media-sidebar>
         </div>
@@ -8798,7 +10285,7 @@ var MediaLibrary = function(exports) {
           ${this._error ? this.renderErrorState() : this.renderCurrentView()}
         </div>
 
-        <modal-manager .locale=${this.locale}></modal-manager>
+        <media-details .locale=${this.locale}></media-details>
       </div>
     `;
     }
@@ -10569,6 +12056,407 @@ this.ifd0Offset: ${this.ifd0Offset}, file.byteLength: ${e2.byteLength}`), e2.tif
     thumbnailUrl: be,
     tiffBlocks: H,
     tiffExtractables: W
+  }, Symbol.toStringTag, { value: "Module" }));
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  class SizeCache {
+    constructor(config) {
+      this._map = /* @__PURE__ */ new Map();
+      this._roundAverageSize = false;
+      this.totalSize = 0;
+      if ((config == null ? void 0 : config.roundAverageSize) === true) {
+        this._roundAverageSize = true;
+      }
+    }
+    set(index, value) {
+      const prev = this._map.get(index) || 0;
+      this._map.set(index, value);
+      this.totalSize += value - prev;
+    }
+    get averageSize() {
+      if (this._map.size > 0) {
+        const average = this.totalSize / this._map.size;
+        return this._roundAverageSize ? Math.round(average) : average;
+      }
+      return 0;
+    }
+    getSize(index) {
+      return this._map.get(index);
+    }
+    clear() {
+      this._map.clear();
+      this.totalSize = 0;
+    }
+  }
+  /**
+   * @license
+   * Copyright 2021 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  function leadingMargin(direction) {
+    return direction === "horizontal" ? "marginLeft" : "marginTop";
+  }
+  function trailingMargin(direction) {
+    return direction === "horizontal" ? "marginRight" : "marginBottom";
+  }
+  function offset(direction) {
+    return direction === "horizontal" ? "xOffset" : "yOffset";
+  }
+  function collapseMargins(a2, b2) {
+    const m2 = [a2, b2].sort();
+    return m2[1] <= 0 ? Math.min(...m2) : m2[0] >= 0 ? Math.max(...m2) : m2[0] + m2[1];
+  }
+  class MetricsCache {
+    constructor() {
+      this._childSizeCache = new SizeCache();
+      this._marginSizeCache = new SizeCache();
+      this._metricsCache = /* @__PURE__ */ new Map();
+    }
+    update(metrics, direction) {
+      var _a2, _b;
+      const marginsToUpdate = /* @__PURE__ */ new Set();
+      Object.keys(metrics).forEach((key) => {
+        const k2 = Number(key);
+        this._metricsCache.set(k2, metrics[k2]);
+        this._childSizeCache.set(k2, metrics[k2][dim1(direction)]);
+        marginsToUpdate.add(k2);
+        marginsToUpdate.add(k2 + 1);
+      });
+      for (const k2 of marginsToUpdate) {
+        const a2 = ((_a2 = this._metricsCache.get(k2)) == null ? void 0 : _a2[leadingMargin(direction)]) || 0;
+        const b2 = ((_b = this._metricsCache.get(k2 - 1)) == null ? void 0 : _b[trailingMargin(direction)]) || 0;
+        this._marginSizeCache.set(k2, collapseMargins(a2, b2));
+      }
+    }
+    get averageChildSize() {
+      return this._childSizeCache.averageSize;
+    }
+    get totalChildSize() {
+      return this._childSizeCache.totalSize;
+    }
+    get averageMarginSize() {
+      return this._marginSizeCache.averageSize;
+    }
+    get totalMarginSize() {
+      return this._marginSizeCache.totalSize;
+    }
+    getLeadingMarginValue(index, direction) {
+      var _a2;
+      return ((_a2 = this._metricsCache.get(index)) == null ? void 0 : _a2[leadingMargin(direction)]) || 0;
+    }
+    getChildSize(index) {
+      return this._childSizeCache.getSize(index);
+    }
+    getMarginSize(index) {
+      return this._marginSizeCache.getSize(index);
+    }
+    clear() {
+      this._childSizeCache.clear();
+      this._marginSizeCache.clear();
+      this._metricsCache.clear();
+    }
+  }
+  class FlowLayout extends BaseLayout {
+    constructor() {
+      super(...arguments);
+      this._itemSize = { width: 100, height: 100 };
+      this._physicalItems = /* @__PURE__ */ new Map();
+      this._newPhysicalItems = /* @__PURE__ */ new Map();
+      this._metricsCache = new MetricsCache();
+      this._anchorIdx = null;
+      this._anchorPos = null;
+      this._stable = true;
+      this._measureChildren = true;
+      this._estimate = true;
+    }
+    // protected _defaultConfig: BaseLayoutConfig = Object.assign({}, super._defaultConfig, {
+    // })
+    // constructor(config: Layout1dConfig) {
+    //   super(config);
+    // }
+    get measureChildren() {
+      return this._measureChildren;
+    }
+    /**
+     * Determine the average size of all children represented in the sizes
+     * argument.
+     */
+    updateItemSizes(sizes) {
+      this._metricsCache.update(sizes, this.direction);
+      this._scheduleReflow();
+    }
+    /**
+     * Set the average item size based on the total length and number of children
+     * in range.
+     */
+    // _updateItemSize() {
+    //   // Keep integer values.
+    //   this._itemSize[this._sizeDim] = this._metricsCache.averageChildSize;
+    // }
+    _getPhysicalItem(idx) {
+      return this._newPhysicalItems.get(idx) ?? this._physicalItems.get(idx);
+    }
+    _getSize(idx) {
+      const item = this._getPhysicalItem(idx);
+      return item && this._metricsCache.getChildSize(idx);
+    }
+    _getAverageSize() {
+      return this._metricsCache.averageChildSize || this._itemSize[this._sizeDim];
+    }
+    _estimatePosition(idx) {
+      const c2 = this._metricsCache;
+      if (this._first === -1 || this._last === -1) {
+        return c2.averageMarginSize + idx * (c2.averageMarginSize + this._getAverageSize());
+      } else {
+        if (idx < this._first) {
+          const delta = this._first - idx;
+          const refItem = this._getPhysicalItem(this._first);
+          return refItem.pos - (c2.getMarginSize(this._first - 1) || c2.averageMarginSize) - (delta * c2.averageChildSize + (delta - 1) * c2.averageMarginSize);
+        } else {
+          const delta = idx - this._last;
+          const refItem = this._getPhysicalItem(this._last);
+          return refItem.pos + (c2.getChildSize(this._last) || c2.averageChildSize) + (c2.getMarginSize(this._last) || c2.averageMarginSize) + delta * (c2.averageChildSize + c2.averageMarginSize);
+        }
+      }
+    }
+    /**
+     * Returns the position in the scrolling direction of the item at idx.
+     * Estimates it if the item at idx is not in the DOM.
+     */
+    _getPosition(idx) {
+      const item = this._getPhysicalItem(idx);
+      const { averageMarginSize } = this._metricsCache;
+      return idx === 0 ? this._metricsCache.getMarginSize(0) ?? averageMarginSize : item ? item.pos : this._estimatePosition(idx);
+    }
+    _calculateAnchor(lower, upper) {
+      if (lower <= 0) {
+        return 0;
+      }
+      if (upper > this._scrollSize - this._viewDim1) {
+        return this.items.length - 1;
+      }
+      return Math.max(0, Math.min(this.items.length - 1, Math.floor((lower + upper) / 2 / this._delta)));
+    }
+    _getAnchor(lower, upper) {
+      if (this._physicalItems.size === 0) {
+        return this._calculateAnchor(lower, upper);
+      }
+      if (this._first < 0) {
+        return this._calculateAnchor(lower, upper);
+      }
+      if (this._last < 0) {
+        return this._calculateAnchor(lower, upper);
+      }
+      const firstItem = this._getPhysicalItem(this._first), lastItem = this._getPhysicalItem(this._last), firstMin = firstItem.pos, lastMin = lastItem.pos, lastMax = lastMin + this._metricsCache.getChildSize(this._last);
+      if (lastMax < lower) {
+        return this._calculateAnchor(lower, upper);
+      }
+      if (firstMin > upper) {
+        return this._calculateAnchor(lower, upper);
+      }
+      let candidateIdx = this._firstVisible - 1;
+      let cMax = -Infinity;
+      while (cMax < lower) {
+        const candidate = this._getPhysicalItem(++candidateIdx);
+        cMax = candidate.pos + this._metricsCache.getChildSize(candidateIdx);
+      }
+      return candidateIdx;
+    }
+    /**
+     * Updates _first and _last based on items that should be in the current
+     * viewed range.
+     */
+    _getActiveItems() {
+      if (this._viewDim1 === 0 || this.items.length === 0) {
+        this._clearItems();
+      } else {
+        this._getItems();
+      }
+    }
+    /**
+     * Sets the range to empty.
+     */
+    _clearItems() {
+      this._first = -1;
+      this._last = -1;
+      this._physicalMin = 0;
+      this._physicalMax = 0;
+      const items = this._newPhysicalItems;
+      this._newPhysicalItems = this._physicalItems;
+      this._newPhysicalItems.clear();
+      this._physicalItems = items;
+      this._stable = true;
+    }
+    /*
+     * Updates _first and _last based on items that should be in the given range.
+     */
+    _getItems() {
+      const items = this._newPhysicalItems;
+      this._stable = true;
+      let lower, upper;
+      if (this.pin !== null) {
+        const { index } = this.pin;
+        this._anchorIdx = index;
+        this._anchorPos = this._getPosition(index);
+      }
+      lower = this._scrollPosition - this._overhang;
+      upper = this._scrollPosition + this._viewDim1 + this._overhang;
+      if (upper < 0 || lower > this._scrollSize) {
+        this._clearItems();
+        return;
+      }
+      if (this._anchorIdx === null || this._anchorPos === null) {
+        this._anchorIdx = this._getAnchor(lower, upper);
+        this._anchorPos = this._getPosition(this._anchorIdx);
+      }
+      let anchorSize = this._getSize(this._anchorIdx);
+      if (anchorSize === void 0) {
+        this._stable = false;
+        anchorSize = this._getAverageSize();
+      }
+      const anchorLeadingMargin = this._metricsCache.getMarginSize(this._anchorIdx) ?? this._metricsCache.averageMarginSize;
+      const anchorTrailingMargin = this._metricsCache.getMarginSize(this._anchorIdx + 1) ?? this._metricsCache.averageMarginSize;
+      if (this._anchorIdx === 0) {
+        this._anchorPos = anchorLeadingMargin;
+      }
+      if (this._anchorIdx === this.items.length - 1) {
+        this._anchorPos = this._scrollSize - anchorTrailingMargin - anchorSize;
+      }
+      let anchorErr = 0;
+      if (this._anchorPos + anchorSize + anchorTrailingMargin < lower) {
+        anchorErr = lower - (this._anchorPos + anchorSize + anchorTrailingMargin);
+      }
+      if (this._anchorPos - anchorLeadingMargin > upper) {
+        anchorErr = upper - (this._anchorPos - anchorLeadingMargin);
+      }
+      if (anchorErr) {
+        this._scrollPosition -= anchorErr;
+        lower -= anchorErr;
+        upper -= anchorErr;
+        this._scrollError += anchorErr;
+      }
+      items.set(this._anchorIdx, { pos: this._anchorPos, size: anchorSize });
+      this._first = this._last = this._anchorIdx;
+      this._physicalMin = this._anchorPos - anchorLeadingMargin;
+      this._physicalMax = this._anchorPos + anchorSize + anchorTrailingMargin;
+      while (this._physicalMin > lower && this._first > 0) {
+        let size = this._getSize(--this._first);
+        if (size === void 0) {
+          this._stable = false;
+          size = this._getAverageSize();
+        }
+        let margin = this._metricsCache.getMarginSize(this._first);
+        if (margin === void 0) {
+          this._stable = false;
+          margin = this._metricsCache.averageMarginSize;
+        }
+        this._physicalMin -= size;
+        const pos = this._physicalMin;
+        items.set(this._first, { pos, size });
+        this._physicalMin -= margin;
+        if (this._stable === false && this._estimate === false) {
+          break;
+        }
+      }
+      while (this._physicalMax < upper && this._last < this.items.length - 1) {
+        let size = this._getSize(++this._last);
+        if (size === void 0) {
+          this._stable = false;
+          size = this._getAverageSize();
+        }
+        let margin = this._metricsCache.getMarginSize(this._last);
+        if (margin === void 0) {
+          this._stable = false;
+          margin = this._metricsCache.averageMarginSize;
+        }
+        const pos = this._physicalMax;
+        items.set(this._last, { pos, size });
+        this._physicalMax += size + margin;
+        if (!this._stable && !this._estimate) {
+          break;
+        }
+      }
+      const extentErr = this._calculateError();
+      if (extentErr) {
+        this._physicalMin -= extentErr;
+        this._physicalMax -= extentErr;
+        this._anchorPos -= extentErr;
+        this._scrollPosition -= extentErr;
+        items.forEach((item) => item.pos -= extentErr);
+        this._scrollError += extentErr;
+      }
+      if (this._stable) {
+        this._newPhysicalItems = this._physicalItems;
+        this._newPhysicalItems.clear();
+        this._physicalItems = items;
+      }
+    }
+    _calculateError() {
+      if (this._first === 0) {
+        return this._physicalMin;
+      } else if (this._physicalMin <= 0) {
+        return this._physicalMin - this._first * this._delta;
+      } else if (this._last === this.items.length - 1) {
+        return this._physicalMax - this._scrollSize;
+      } else if (this._physicalMax >= this._scrollSize) {
+        return this._physicalMax - this._scrollSize + (this.items.length - 1 - this._last) * this._delta;
+      }
+      return 0;
+    }
+    _reflow() {
+      const { _first, _last } = this;
+      super._reflow();
+      if (this._first === -1 && this._last == -1 || this._first === _first && this._last === _last) {
+        this._resetReflowState();
+      }
+    }
+    _resetReflowState() {
+      this._anchorIdx = null;
+      this._anchorPos = null;
+      this._stable = true;
+    }
+    _updateScrollSize() {
+      const { averageMarginSize } = this._metricsCache;
+      this._scrollSize = Math.max(1, this.items.length * (averageMarginSize + this._getAverageSize()) + averageMarginSize);
+    }
+    /**
+     * Returns the average size (precise or estimated) of an item in the scrolling direction,
+     * including any surrounding space.
+     */
+    get _delta() {
+      const { averageMarginSize } = this._metricsCache;
+      return this._getAverageSize() + averageMarginSize;
+    }
+    /**
+     * Returns the top and left positioning of the item at idx.
+     */
+    _getItemPosition(idx) {
+      return {
+        [this._positionDim]: this._getPosition(idx),
+        [this._secondaryPositionDim]: 0,
+        [offset(this.direction)]: -(this._metricsCache.getLeadingMarginValue(idx, this.direction) ?? this._metricsCache.averageMarginSize)
+      };
+    }
+    /**
+     * Returns the height and width of the item at idx.
+     */
+    _getItemSize(idx) {
+      return {
+        [this._sizeDim]: this._getSize(idx) || this._getAverageSize(),
+        [this._secondarySizeDim]: this._itemSize[this._secondarySizeDim]
+      };
+    }
+    _viewDim2Changed() {
+      this._metricsCache.clear();
+      this._scheduleReflow();
+    }
+  }
+  const flow = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    FlowLayout
   }, Symbol.toStringTag, { value: "Module" }));
   exports.AUDIO_EXTENSIONS = AUDIO_EXTENSIONS;
   exports.BrowserStorage = BrowserStorage;

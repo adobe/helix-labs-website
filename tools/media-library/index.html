@@ -26,53 +26,33 @@
   <div class="helix-mode">
     <header></header>
     <main>
-      <!-- TITLE -->
-      <div>
-        <h1>Media Library</h1>
-      </div>
-      
       <!-- CONFIGURATION FORM -->
-      <div>
-        <form id="media-config-form">
-          <section class="form-field config-field">
-            <div class="form-field org-field">
-              <label for="org">Organization</label>
-              <input name="org" id="org" type="text" placeholder="e.g., adobe" required />
-              <datalist id="org-list"></datalist>
-            </div>
-            <div class="form-field site-field">
-              <label for="site">Site</label>
-              <input name="site" id="site" type="text" placeholder="e.g., helix-labs-website" required />
-              <datalist id="site-list"></datalist>
-            </div>
-            <div class="form-field mode-field">
-              <label for="mode">Source</label>
-              <select name="mode" id="mode">
-                <option value="sitemap" selected>Sitemap</option>
-                <option value="queryindex">Query Index</option>
-                <option value="custom">Sitemap URL</option>
-              </select>
-            </div>
-            
-            <div class="form-field sitemap-field" id="sitemap-field" style="display: none;">
-              <label for="sitemap-url">Sitemap URL</label>
-              <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://main--site--org.aem.live/sitemap.xml" style="width: 100%; max-width: 400px; min-width: 300px;" />
-            </div>
-            
-            <div class="form-field storage-field">
-              <label for="storage-option">Storage</label>
-              <select name="storage-option" id="storage-option">
-                <option value="none" selected>None</option>
-                <option value="indexeddb">Local IndexDB</option>
-              </select>
-            </div>
-          </section>
+      <div style="max-width: 1400px; margin: 0 auto;">
+        <form id="media-config-form" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+          <div class="form-field site-url-field" id="site-url-field" style="flex: 1 1 auto; min-width: 180px;">
+            <label for="site-url" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Website URL</label>
+            <input name="site-url" id="site-url" type="url" placeholder="https://example.com" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;" />
+          </div>
           
-          <p class="button-wrapper">
-            <button type="submit" id="load-media" class="button outline" style="display: none;">Load</button>
-            <button type="button" id="clear-data" class="button" style="background-color: #dc2626; color: white; display: none;">Clear</button>
-            <button type="button" id="start-new-scan" class="button">Scan</button>
-          </p>
+          <div style="padding-bottom: 8px; color: #666; font-size: 14px; flex-shrink: 0;">(or)</div>
+          
+          <div class="form-field sitemap-field" id="sitemap-field" style="flex: 1 1 auto; min-width: 200px;">
+            <label for="sitemap-url" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Sitemap URL</label>
+            <input name="sitemap-url" id="sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;" />
+          </div>
+          
+          <button type="button" id="start-new-scan" class="button" style="flex-shrink: 0; padding: 8px 24px; margin-bottom: 0; white-space: nowrap;">Scan</button>
+          
+          <div style="width: 1px; height: 36px; background: #d1d5db; margin: 0 8px; flex-shrink: 0;"></div>
+          
+          <div class="form-field" style="flex: 1 1 auto; min-width: 180px;">
+            <label for="saved-sites" style="display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500;">Load Previous</label>
+            <select name="saved-sites" id="saved-sites" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px; background: white;">
+              <option value="">Select a site...</option>
+            </select>
+          </div>
+          
+          <button type="button" id="clear-site-data" class="button" style="background-color: #dc2626; color: white; display: none; flex-shrink: 0; padding: 8px 16px; margin-bottom: 0; white-space: nowrap;">Clear Data</button>
         </form>
       </div>
       
