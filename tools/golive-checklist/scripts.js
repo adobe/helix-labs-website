@@ -465,6 +465,134 @@ async function checkLighthouse(org, site, domain) {
 }
 
 /**
+ * Checks push invalidation configuration
+ * @param {string} org - Organization name
+ * @param {string} site - Site name
+ * @returns {Promise<{status: string, message: string}>}
+ */
+async function checkPushInvalidation(org, site) {
+  try {
+    // Check CDN configuration via admin API
+    const url = `https://admin.hlx.page/config/${org}/sites/${site}.json`;
+    const response = await corsFetch(url);
+
+    if (!response.ok) {
+      return {
+        status: 'warning',
+        message: '<p>⚠️ Unable to verify push invalidation configuration via admin API.</p>',
+      };
+    }
+
+    const config = await response.json();
+    const messages = [];
+
+    // Check for CDN configuration
+    const cdnConfig = config.cdn || (config.data && config.data.cdn);
+
+    // Check for push invalidation CDN type
+    const supportedCDNTypes = ['fastly', 'akamai', 'cloudflare', 'cloudfront', 'managed'];
+    const cdnProdType = cdnConfig?.prod?.type;
+    const hasCDNType = cdnProdType && supportedCDNTypes.includes(cdnProdType);
+
+    if (hasCDNType) {
+      messages.push('<p>✅ Push invalidation is supported for your CDN type.</p>');
+      messages.push(`<p><strong>CDN Type:</strong> <code>${cdnProdType}</code></p>`);
+
+      // For Fastly, check if authToken is configured
+      if (cdnProdType === 'fastly') {
+        const hasAuthToken = cdnConfig?.prod?.authToken;
+        if (hasAuthToken) {
+          messages.push('<p>✅ Fastly auth token is configured.</p>');
+        } else {
+          messages.push('<p>⚠️ Warning: Fastly auth token is not configured. Push invalidation requires an auth token.</p>');
+          messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation#fastly" target="_blank">Fastly Push Invalidation setup</a>.</p>');
+          return {
+            status: 'warning',
+            message: messages.join(''),
+          };
+        }
+      }
+
+      // For Akamai, check if accessToken is configured
+      if (cdnProdType === 'akamai') {
+        const hasAccessToken = cdnConfig?.prod?.accessToken;
+        if (hasAccessToken) {
+          messages.push('<p>✅ Akamai access token is configured.</p>');
+        } else {
+          messages.push('<p>⚠️ Warning: Akamai access token is not configured. Push invalidation requires an access token.</p>');
+          messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation#akamai" target="_blank">Akamai Push Invalidation setup</a>.</p>');
+          return {
+            status: 'warning',
+            message: messages.join(''),
+          };
+        }
+      }
+
+      // For Cloudflare, check if apiToken is configured
+      if (cdnProdType === 'cloudflare') {
+        const hasApiToken = cdnConfig?.prod?.apiToken;
+        if (hasApiToken) {
+          messages.push('<p>✅ Cloudflare API token is configured.</p>');
+        } else {
+          messages.push('<p>⚠️ Warning: Cloudflare API token is not configured. Push invalidation requires an API token.</p>');
+          messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation#cloudflare" target="_blank">Cloudflare Push Invalidation setup</a>.</p>');
+          return {
+            status: 'warning',
+            message: messages.join(''),
+          };
+        }
+      }
+
+      // For CloudFront, check if secretAccessKey is configured
+      if (cdnProdType === 'cloudfront') {
+        const hasSecretAccessKey = cdnConfig?.prod?.secretAccessKey;
+        if (hasSecretAccessKey) {
+          messages.push('<p>✅ CloudFront secret access key is configured.</p>');
+        } else {
+          messages.push('<p>⚠️ Warning: CloudFront secret access key is not configured. Push invalidation requires a secret access key.</p>');
+          messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation#cloudfront" target="_blank">CloudFront Push Invalidation setup</a>.</p>');
+          return {
+            status: 'warning',
+            message: messages.join(''),
+          };
+        }
+      }
+
+      messages.push('<p>Use the <a href="/tools/push-invalidation">Push Invalidation tool</a> to test your setup.</p>');
+
+      return {
+        status: 'pass',
+        message: messages.join(''),
+      };
+    }
+
+    if (cdnProdType) {
+      messages.push(`<p>⚠️ CDN type <code>${cdnProdType}</code> may not support push invalidation.</p>`);
+      messages.push(`<p><strong>Supported types:</strong> ${supportedCDNTypes.map((t) => `<code>${t}</code>`).join(', ')}</p>`);
+      messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation" target="_blank">Push Invalidation documentation</a>.</p>');
+
+      return {
+        status: 'warning',
+        message: messages.join(''),
+      };
+    }
+
+    return {
+      status: 'warning',
+      message: `<p>⚠️ No CDN configuration found in admin API.</p>
+        <p>Push invalidation requires a supported CDN type: ${supportedCDNTypes.map((t) => `<code>${t}</code>`).join(', ')}</p>
+        <p>See <a href="https://www.aem.live/docs/byo-cdn-push-invalidation" target="_blank">Push Invalidation documentation</a>.</p>`,
+    };
+  } catch (error) {
+    return {
+      status: 'warning',
+      message: `<p>⚠️ Unable to verify push invalidation: ${error.message}</p>
+        <p>💡 Tip: Check manually at <a href="https://admin.hlx.page/config/${org}/sites/${site}.json" target="_blank">admin API</a></p>`,
+    };
+  }
+}
+
+/**
  * Checks CDN configuration
  * @param {string} org - Organization name
  * @param {string} site - Site name
@@ -472,36 +600,71 @@ async function checkLighthouse(org, site, domain) {
  * @returns {Promise<{status: string, message: string}>}
  */
 async function checkCDN(org, site, domain) {
-  if (!domain) {
-    return {
-      status: 'warning',
-      message: '<p>⚠️ Enter a production domain to check CDN configuration.</p>',
-    };
-  }
-
   try {
-    // Check if domain is accessible
-    const response = await corsFetch(`https://${domain}/`, { method: 'HEAD' });
+    // Check CDN configuration via admin API
+    const url = `https://admin.hlx.page/config/${org}/sites/${site}.json`;
+    const response = await corsFetch(url);
 
-    if (response.ok) {
+    if (!response.ok) {
+      return {
+        status: 'warning',
+        message: '<p>⚠️ Unable to verify CDN configuration via admin API.</p>',
+      };
+    }
+
+    const config = await response.json();
+    const messages = [];
+
+    // Check for CDN-related configuration
+    const cdnConfig = config.cdn || (config.data && config.data.cdn);
+    const hasHost = config.host || (config.data && config.data.host);
+
+    if (cdnConfig || hasHost) {
+      messages.push('<p>✅ CDN configuration found in admin API.</p>');
+
+      const cdnProdType = cdnConfig?.prod?.type;
+      if (cdnProdType) {
+        messages.push(`<p><strong>CDN Type:</strong> <code>${cdnProdType}</code></p>`);
+      }
+
+      if (hasHost) {
+        const hosts = Array.isArray(hasHost) ? hasHost : [hasHost];
+        messages.push(`<p><strong>Configured hosts:</strong> ${hosts.map((h) => `<code>${h}</code>`).join(', ')}</p>`);
+      }
+
+      // If domain provided, check if it's accessible
+      if (domain) {
+        try {
+          const domainResponse = await corsFetch(`https://${domain}/`, { method: 'HEAD' });
+          if (domainResponse.ok) {
+            messages.push(`<p>✅ Production domain <code>${domain}</code> is accessible.</p>`);
+          } else {
+            messages.push(`<p>⚠️ Production domain <code>${domain}</code> returned status ${domainResponse.status}</p>`);
+          }
+        } catch {
+          messages.push(`<p>⚠️ Unable to verify production domain <code>${domain}</code> accessibility.</p>`);
+        }
+      }
+
+      messages.push('<p>See <a href="https://www.aem.live/docs/byo-cdn-setup" target="_blank">BYO CDN Setup</a> documentation.</p>');
+
       return {
         status: 'pass',
-        message: `<p>✅ Production domain is accessible.</p>
-          <p>Use the <a href="/tools/push-invalidation">Push Invalidation tool</a> to validate CDN setup.</p>
-          <p>See <a href="https://www.aem.live/docs/byo-cdn-setup" target="_blank">BYO CDN Setup</a> documentation.</p>`,
+        message: messages.join(''),
       };
     }
 
     return {
       status: 'warning',
-      message: `<p>⚠️ Production domain returned status ${response.status}</p>`,
+      message: `<p>⚠️ No CDN configuration found in admin API.</p>
+        <p>If you're using a custom CDN, configure it via the admin API or headers.xlsx.</p>
+        <p>See <a href="https://www.aem.live/docs/byo-cdn-setup" target="_blank">BYO CDN Setup</a> documentation.</p>`,
     };
   } catch (error) {
     return {
       status: 'warning',
-      message: `<p>⚠️ Unable to access production domain: ${error.message}</p>
-        <p>💡 Tip: Check manually at <a href="https://${domain}/" target="_blank">https://${domain}/</a></p>
-        <p>This may be expected if CDN is not yet configured.</p>`,
+      message: `<p>⚠️ Unable to verify CDN configuration: ${error.message}</p>
+        <p>💡 Tip: Check manually at <a href="https://admin.hlx.page/config/${org}/sites/${site}.json" target="_blank">admin API</a></p>`,
     };
   }
 }
@@ -527,6 +690,7 @@ async function runChecklist(org, site, domain) {
     'check-favicon',
     'check-cors',
     'check-cdn',
+    'check-push-invalidation',
   ];
 
   automatedChecks.forEach((checkId) => {
@@ -544,6 +708,7 @@ async function runChecklist(org, site, domain) {
     { id: 'check-favicon', fn: checkFavicon },
     { id: 'check-cors', fn: checkCORS },
     { id: 'check-cdn', fn: checkCDN },
+    { id: 'check-push-invalidation', fn: checkPushInvalidation },
   ];
 
   // Run all checks in parallel
