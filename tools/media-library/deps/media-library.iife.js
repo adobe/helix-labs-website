@@ -3466,6 +3466,9 @@ var MediaLibrary = function(exports) {
         const timestamp = new Date(url.lastmod).getTime();
         const images = doc.querySelectorAll("img");
         const imageItems = await Promise.all([...images].map(async (img) => {
+          if (this.isInNonRenderedElement(img)) {
+            return null;
+          }
           const rawSrc = img.getAttribute("src");
           const lazySrc = img.getAttribute("data-src") || img.getAttribute("data-lazy-src") || img.getAttribute("data-original") || img.getAttribute("data-sling-src") || img.getAttribute("data-responsive-src");
           const actualSrc = rawSrc || lazySrc;
@@ -3479,17 +3482,18 @@ var MediaLibrary = function(exports) {
           const cleanFilename = this.getCleanFilename(actualSrc);
           const domWidth = parseInt(img.getAttribute("width"), 10) || 0;
           const domHeight = parseInt(img.getAttribute("height"), 10) || 0;
+          const altValue = img.hasAttribute("alt") ? img.getAttribute("alt") : null;
           const mediaItem = {
             url: fixedUrl,
             name: cleanFilename,
-            alt: img.alt !== void 0 && img.alt !== null ? img.alt : null,
+            alt: altValue,
             type: `img > ${extension}`,
             doc: url.loc,
             ctx: this.captureContext(img, "img"),
             hash: this.createUniqueHash(
               actualSrc,
               url.loc,
-              img.alt,
+              altValue,
               this.getOccurrenceIndex(actualSrc, url.loc)
             ),
             firstUsedAt: timestamp,
@@ -3639,6 +3643,21 @@ var MediaLibrary = function(exports) {
       } catch (error) {
         return src;
       }
+    }
+    isInNonRenderedElement(element) {
+      var _a2;
+      let current = element.parentElement;
+      let depth = 0;
+      const maxDepth = 10;
+      while (current && depth < maxDepth) {
+        const tagName = (_a2 = current.tagName) == null ? void 0 : _a2.toLowerCase();
+        if (tagName === "noscript" || tagName === "template") {
+          return true;
+        }
+        current = current.parentElement;
+        depth += 1;
+      }
+      return false;
     }
     captureContext(element, type) {
       const context = [type];
@@ -3943,7 +3962,7 @@ var MediaLibrary = function(exports) {
     icons: (item) => isSvgFile$1(item),
     empty: (item) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && (item.alt === null || item.alt === "null" || item.alt === "undefined");
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt === null;
     },
     decorative: (item) => {
       var _a2, _b;
@@ -3951,7 +3970,7 @@ var MediaLibrary = function(exports) {
     },
     filled: (item) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null" && item.alt !== "undefined";
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt !== null && item.alt !== "";
     },
     unused: (item) => !item.doc || item.doc.trim() === "",
     landscape: (item) => getMediaType$1(item) === "image" && !isSvgFile$1(item) && item.orientation === "landscape",
@@ -3983,7 +4002,7 @@ var MediaLibrary = function(exports) {
     documentLinks: (item, selectedDocument) => FILTER_CONFIG.links(item) && item.doc === selectedDocument,
     documentEmpty: (item, selectedDocument) => {
       var _a2, _b;
-      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && (item.alt === null || item.alt === "null" || item.alt === "undefined") && item.doc === selectedDocument;
+      return ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt === null && item.doc === selectedDocument;
     },
     documentDecorative: (item, selectedDocument) => {
       var _a2, _b;
@@ -3991,7 +4010,7 @@ var MediaLibrary = function(exports) {
     },
     documentFilled: (item, selectedDocument) => {
       var _a2, _b;
-      return item.doc === selectedDocument && ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt && item.alt !== "" && item.alt !== "null" && item.alt !== "undefined";
+      return item.doc === selectedDocument && ((_a2 = item.type) == null ? void 0 : _a2.startsWith("img >")) && !((_b = item.type) == null ? void 0 : _b.includes("svg")) && item.alt !== null && item.alt !== "";
     },
     documentTotal: () => true,
     all: (item) => !isSvgFile$1(item)
@@ -4058,7 +4077,7 @@ var MediaLibrary = function(exports) {
           return nameMatch;
         }
         case "alt": {
-          const altMatch = item.alt && item.alt !== "null" && item.alt !== "undefined" && item.alt.toLowerCase().includes(value);
+          const altMatch = item.alt && item.alt.toLowerCase().includes(value);
           return altMatch;
         }
         case "url": {
@@ -4250,7 +4269,7 @@ var MediaLibrary = function(exports) {
             break;
           }
           case "alt": {
-            if (item.alt && item.alt !== "null" && item.alt !== "undefined" && item.alt.toLowerCase().includes(value) && !isSvgFile$1(item)) {
+            if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile$1(item)) {
               suggestions.push(createSuggestionFn(item));
               if (suggestions.length >= maxResults)
                 break;
@@ -5479,7 +5498,7 @@ var MediaLibrary = function(exports) {
   });
   __publicField(MediaTopbar, "styles", getStyles(topbarStyles));
   customElements.define("media-topbar", MediaTopbar);
-  const sidebarStyles = '.media-sidebar {\n  background: #fff;\n  border: none;\n  display: flex;\n  flex-direction: column;\n  height: 100vh;\n  overflow-x: hidden;\n  overflow-y: auto;\n  transition: width 0.3s ease;\n  width: 60px;\n}\n\n.media-sidebar.collapsed {\n  width: 60px;\n}\n\n.media-sidebar.expanded {\n  width: 160px;\n}\n\n.sidebar-icons {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 8px 8px 8px;\n}\n\n.sidebar-icons.secondary {\n  padding: 8px 8px 12px 8px;\n}\n\n.icon-btn {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 8px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 14px;\n  font-weight: 500;\n  gap: 12px;\n  justify-content: flex-start;\n  min-height: 40px;\n  padding: 10px 12px;\n  transition: all 0.2s ease;\n  white-space: nowrap;\n}\n\n.icon-btn:hover {\n  background: transparent;\n  color: #1e293b;\n}\n\n.icon-btn.active {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.icon-btn .icon {\n  flex-shrink: 0;\n  height: 20px;\n  width: 20px;\n}\n\n.icon-btn .icon-label {\n  opacity: 1;\n  transition: opacity 0.2s ease;\n}\n\n.collapsed .icon-btn {\n  justify-content: center;\n  padding: 10px;\n  width: 44px;\n}\n\n.collapsed .icon-btn .icon-label {\n  display: none;\n}\n\n.filter-panel {\n  padding: 0 4px;\n}\n\n.filter-section {\n  margin-bottom: 24px;\n}\n\n.filter-section h3 {\n  color: #64748b;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.05em;\n  margin: 0 0 8px;\n  padding: 0 6px;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 6px;\n  color: #1e293b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.813rem;\n  justify-content: space-between;\n  padding: 6px 8px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: transparent;\n}\n\n.filter-button.disabled {\n  background: transparent;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: transparent;\n  color: #94a3b8;\n}\n\n.count {\n  background: transparent;\n  border-radius: 4px;\n  color: #64748b;\n  font-size: 0.75rem;\n  font-variant-numeric: tabular-nums;\n  font-weight: 500;\n  min-width: 2ch;\n  padding: 2px 6px;\n  text-align: right;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button:not([aria-pressed="true"]):hover .count {\n  background: transparent;\n  color: #3b82f6;\n}\n\n/* Category section specific styles */\n.filter-section:has(.filter-list:has(.filter-button[data-category])) {\n  border-left: 3px solid #3b82f6;\n  padding-left: calc(16px - 3px);\n}\n\n.filter-section:has(.filter-list:has(.filter-button[data-category])) h3 {\n  color: #3b82f6;\n  font-weight: 700;\n}\n\n/* Category filter buttons - no bullets */\n.filter-button[data-category] {\n  /* No special styling needed - bullets removed */\n}\n\n/* Index Panel Styles */\n.index-panel {\n  padding: 8px 16px 16px;\n}\n\n.index-message {\n  color: #64748b;\n  font-size: 14px;\n  line-height: 1.5;\n}\n\n.index-message.empty {\n  color: #94a3b8;\n  font-style: italic;\n}\n';
+  const sidebarStyles = '.media-sidebar {\n  background: #fff;\n  border: none;\n  display: flex;\n  flex-direction: column;\n  height: 100vh;\n  overflow-x: hidden;\n  overflow-y: auto;\n  transition: width 0.3s ease;\n  width: 60px;\n}\n\n.media-sidebar.collapsed {\n  width: 60px;\n}\n\n.media-sidebar.expanded {\n  width: 160px;\n}\n\n.sidebar-icons {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 8px 8px;\n}\n\n.sidebar-icons.secondary {\n  padding: 8px 8px 12px;\n}\n\n.icon-btn {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 8px;\n  color: #64748b;\n  cursor: pointer;\n  display: flex;\n  font-size: 14px;\n  font-weight: 500;\n  gap: 12px;\n  justify-content: flex-start;\n  min-height: 40px;\n  padding: 10px 12px;\n  transition: all 0.2s ease;\n  white-space: nowrap;\n}\n\n.icon-btn:hover {\n  background: transparent;\n  color: #1e293b;\n}\n\n.icon-btn.active {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.icon-btn .icon {\n  flex-shrink: 0;\n  height: 20px;\n  width: 20px;\n}\n\n.icon-btn .icon-label {\n  opacity: 1;\n  transition: opacity 0.2s ease;\n}\n\n.collapsed .icon-btn {\n  justify-content: center;\n  padding: 10px;\n  width: 44px;\n}\n\n.collapsed .icon-btn .icon-label {\n  display: none;\n}\n\n.filter-panel {\n  padding: 0 4px;\n}\n\n.filter-section {\n  margin-bottom: 24px;\n}\n\n.filter-section h3 {\n  color: #64748b;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.05em;\n  margin: 0 0 8px;\n  padding: 0 6px;\n}\n\n.filter-list {\n  list-style: none;\n  margin: 0;\n  padding: 0;\n}\n\n.filter-item {\n  margin-bottom: 4px;\n}\n\n.filter-button {\n  align-items: center;\n  background: transparent;\n  border: none;\n  border-radius: 6px;\n  color: #1e293b;\n  cursor: pointer;\n  display: flex;\n  font-size: 0.813rem;\n  justify-content: space-between;\n  padding: 6px 8px;\n  text-align: start;\n  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\n  width: 100%;\n}\n\n.filter-button:hover {\n  background: transparent;\n  color: #3b82f6;\n}\n\n.filter-button:focus-visible {\n  outline: 2px solid #3b82f6;\n  outline-offset: 2px;\n}\n\n.filter-button[aria-pressed="true"] {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button[aria-pressed="true"]:hover {\n  background: transparent;\n}\n\n.filter-button.disabled {\n  background: transparent;\n  color: #94a3b8;\n  cursor: not-allowed;\n  opacity: 0.6;\n}\n\n.filter-button.disabled:hover {\n  background: transparent;\n  color: #94a3b8;\n}\n\n.count {\n  background: transparent;\n  border-radius: 4px;\n  color: #64748b;\n  font-size: 0.75rem;\n  font-variant-numeric: tabular-nums;\n  font-weight: 500;\n  min-width: 2ch;\n  padding: 2px 6px;\n  text-align: right;\n}\n\n.filter-button[aria-pressed="true"] .count {\n  background: transparent;\n  color: #3b82f6;\n  font-weight: 600;\n}\n\n.filter-button:not([aria-pressed="true"]):hover .count {\n  background: transparent;\n  color: #3b82f6;\n}\n\n/* Category section specific styles */\n.filter-section:has(.filter-list:has(.filter-button[data-category])) {\n  border-left: 3px solid #3b82f6;\n  padding-left: calc(16px - 3px);\n}\n\n.filter-section:has(.filter-list:has(.filter-button[data-category])) h3 {\n  color: #3b82f6;\n  font-weight: 700;\n}\n\n/* Category filter buttons - no bullets */\n.filter-button[data-category] {\n  /* No special styling needed - bullets removed */\n}\n\n/* Index Panel Styles */\n.index-panel {\n  padding: 8px 16px 16px;\n}\n\n.index-message {\n  color: #64748b;\n  font-size: 14px;\n  line-height: 1.5;\n}\n\n.index-message.empty {\n  color: #94a3b8;\n  font-style: italic;\n}\n';
   class MediaSidebar extends LocalizableElement {
     constructor() {
       super();
@@ -7405,7 +7424,7 @@ var MediaLibrary = function(exports) {
     `;
     }
     renderAltStatus(media, mediaType) {
-      if (mediaType === "image" && media.alt && media.alt !== "" && media.alt !== null && media.alt !== "null") {
+      if (mediaType === "image" && media.alt !== null && media.alt !== "") {
         return x$1`
         <div class="filled-alt-indicator" title="Has alt text: ${media.alt}">
           <svg>
@@ -7441,7 +7460,7 @@ var MediaLibrary = function(exports) {
         <img 
           class="media-image" 
           src=${media.url} 
-          alt=${media.alt && media.alt !== "null" ? media.alt : media.name}
+          alt=${media.alt !== null ? media.alt : ""}
           loading="lazy"
           @error=${(e2) => this.handleImageError(e2, media)}
         />
@@ -7523,7 +7542,7 @@ var MediaLibrary = function(exports) {
             <img 
               class="video-thumbnail" 
               src=${thumbnail} 
-              alt=${media.alt && media.alt !== "null" ? media.alt : media.name}
+              alt=${media.alt !== null ? media.alt : ""}
               loading="lazy"
               @error=${(e2) => this.handleVideoThumbnailError(e2, media)}
             />
@@ -7690,7 +7709,7 @@ var MediaLibrary = function(exports) {
         return x$1`
         <img 
           src=${media.url} 
-          alt=${media.alt || media.name}
+          alt=${media.alt !== null ? media.alt : ""}
           loading="lazy"
           @error=${(e2) => this.handleImageError(e2, media)}
         />
@@ -7765,8 +7784,10 @@ var MediaLibrary = function(exports) {
       return doc.split("/").pop() || doc;
     }
     getShortAlt(alt) {
-      if (!alt || alt === null || alt === "null" || alt === "undefined")
-        return "—";
+      if (alt === null)
+        return "Missing";
+      if (alt === "")
+        return "Decorative";
       return alt;
     }
     handleMediaClick(media) {
@@ -8695,7 +8716,7 @@ var MediaLibrary = function(exports) {
       if (mediaType && !mediaType.startsWith("img")) {
         return x$1`<span class="alt-na">N/A</span>`;
       }
-      if (!alt || alt === null || alt === "null" || alt === "undefined") {
+      if (alt === null) {
         return x$1`
         <span class="alt-missing">
           <svg class="alt-status-icon missing" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -9171,7 +9192,7 @@ var MediaLibrary = function(exports) {
           <img 
             class="media-preview" 
             src=${media.url} 
-            alt=${media.alt || media.name}
+            alt=${media.alt !== null ? media.alt : ""}
             @error=${(e2) => this.handleImageError(e2, media)}
           />
           ${ext ? x$1`<div class="subtype-label">${ext}</div>` : ""}
@@ -9225,7 +9246,7 @@ var MediaLibrary = function(exports) {
               <img 
                 class="video-thumbnail" 
                 src=${thumbnail} 
-                alt=${media.alt || media.name}
+                alt=${media.alt !== null ? media.alt : ""}
                 @error=${(e2) => this.handleVideoThumbnailError(e2, media)}
               />
             ` : x$1`
