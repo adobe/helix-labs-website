@@ -7,6 +7,7 @@ const site = document.getElementById('site');
 const org = document.getElementById('org');
 const logTable = document.getElementById('console');
 const addIndexButton = document.getElementById('add-index');
+const fetchButton = document.getElementById('fetch');
 
 let loadedIndices;
 let YAML;
@@ -387,22 +388,32 @@ async function init() {
       return;
     }
 
-    const indexUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/content/query.yaml`;
-    const resp = await fetch(indexUrl);
-    logResponse([resp.status, 'GET', indexUrl, resp.headers.get('x-error') || '']);
+    // Set loading state
+    fetchButton.classList.add('loading');
+    fetchButton.disabled = true;
 
-    if (resp.ok) {
-      updateConfig();
-      // eslint-disable-next-line import/no-unresolved
-      YAML = YAML || await import('https://unpkg.com/yaml@2.8.1/browser/index.js');
+    try {
+      const indexUrl = `https://admin.hlx.page/config/${org.value}/sites/${site.value}/content/query.yaml`;
+      const resp = await fetch(indexUrl);
+      logResponse([resp.status, 'GET', indexUrl, resp.headers.get('x-error') || '']);
 
-      const yamlText = await resp.text();
-      loadedIndices = YAML.parse(yamlText);
+      if (resp.ok) {
+        updateConfig();
+        // eslint-disable-next-line import/no-unresolved
+        YAML = YAML || await import('https://unpkg.com/yaml@2.8.1/browser/index.js');
 
-      populateIndexes(loadedIndices.indices);
-      addIndexButton.disabled = false;
-    } else if (resp.status === 401) {
-      ensureLogin(org.value, site.value);
+        const yamlText = await resp.text();
+        loadedIndices = YAML.parse(yamlText);
+
+        populateIndexes(loadedIndices.indices);
+        addIndexButton.disabled = false;
+      } else if (resp.status === 401) {
+        ensureLogin(org.value, site.value);
+      }
+    } finally {
+      // Restore button state
+      fetchButton.classList.remove('loading');
+      fetchButton.disabled = false;
     }
   });
 }
