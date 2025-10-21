@@ -113,6 +113,118 @@ function getFormData(form) {
 }
 
 /**
+ * Checks if analytics (GTM or Adobe Launch) is configured
+ * @param {string} org - Organization name
+ * @param {string} site - Site name
+ * @param {string} domain - Optional production domain
+ * @returns {Promise<{status: string, message: string}>}
+ */
+async function checkAnalytics(org, site, domain) {
+  try {
+    const baseUrl = domain || `main--${site}--${org}.aem.live`;
+    const testUrl = `https://${baseUrl}/`;
+    const response = await corsFetch(testUrl);
+    const html = await response.text();
+
+    // Also check delayed.js for analytics loaded after page load
+    let delayedJs = '';
+    try {
+      const delayedUrl = `https://${baseUrl}/scripts/delayed.js`;
+      const delayedResponse = await corsFetch(delayedUrl);
+      if (delayedResponse.ok) {
+        delayedJs = await delayedResponse.text();
+      }
+    } catch {
+      // Delayed.js might not exist, continue without it
+    }
+
+    // Also check scripts.js which might load analytics
+    let scriptsJs = '';
+    try {
+      const scriptsUrl = `https://${baseUrl}/scripts/scripts.js`;
+      const scriptsResponse = await corsFetch(scriptsUrl);
+      if (scriptsResponse.ok) {
+        scriptsJs = await scriptsResponse.text();
+      }
+    } catch {
+      // Scripts.js might not have analytics, continue
+    }
+
+    // Combine all content for checking
+    const allContent = html + delayedJs + scriptsJs;
+
+    // Check for Google Tag Manager
+    const hasGTM = allContent.includes('googletagmanager.com/gtag/js')
+      || allContent.includes('googletagmanager.com/gtm.js')
+      || allContent.includes('www.googletagmanager.com')
+      || allContent.includes('GTM-');
+
+    // Check for Google Analytics (direct implementation)
+    const hasGA = allContent.includes('google-analytics.com/analytics.js')
+      || allContent.includes('www.google-analytics.com')
+      || allContent.includes('analytics.js')
+      || (allContent.includes('gtag(') && allContent.includes("'config'"))
+      || (allContent.includes('ga(') && allContent.includes("'create'"))
+      || allContent.includes('GA_MEASUREMENT_ID')
+      || allContent.includes('G-');
+
+    // Check for Adobe Launch
+    const hasAdobeLaunch = allContent.includes('launch.min.js')
+      || allContent.includes('assets.adobedtm.com')
+      || allContent.includes('//assets.adobedtm.com');
+
+    // Check for Adobe Analytics (direct implementation)
+    const hasAdobeAnalytics = allContent.includes('omniture.com')
+      || allContent.includes('adobedc.net')
+      || allContent.includes('sc.omtrdc.net')
+      || allContent.includes('AppMeasurement')
+      || allContent.includes('s_code.js')
+      || (allContent.includes('s.t()') || allContent.includes('s.tl('));
+
+    const messages = [];
+
+    // Check for Google Analytics (GTM or direct implementation)
+    if (hasGTM || hasGA) {
+      messages.push('<p>✅ Google Analytics detected.</p>');
+    }
+
+    // Check for Adobe Analytics (Launch or direct implementation)
+    if (hasAdobeLaunch || hasAdobeAnalytics) {
+      messages.push('<p>✅ Adobe Analytics detected.</p>');
+    }
+
+    if (hasGTM || hasGA || hasAdobeLaunch || hasAdobeAnalytics) {
+      messages.push('<p><strong>Note:</strong> Verify analytics are firing correctly:</p>');
+      messages.push('<ul>');
+      messages.push('<li>Check analytics dashboards for visitor data</li>');
+      messages.push('<li>Expect baseline metrics to change after launch</li>');
+      messages.push('<li>Coordinate with analysts about metric adjustments</li>');
+      messages.push('</ul>');
+
+      return {
+        status: 'pass',
+        message: messages.join(''),
+      };
+    }
+
+    return {
+      status: 'warning',
+      message: `<p>⚠️ No analytics platform detected.</p>
+        <p>Looking for: Google Analytics or Adobe Analytics.</p>
+        <p>If you're using a different analytics solution, verify it's properly implemented.</p>`,
+    };
+  } catch (error) {
+    const baseUrl = domain || `main--${site}--${org}.aem.live`;
+    const testUrl = `https://${baseUrl}/`;
+    return {
+      status: 'warning',
+      message: `<p>⚠️ Unable to verify analytics setup: ${error.message}</p>
+        <p>💡 Tip: Check manually at <a href="${testUrl}" target="_blank">${testUrl}</a></p>`,
+    };
+  }
+}
+
+/**
  * Checks if RUM is enabled for the site
  * @param {string} org - Organization name
  * @param {string} site - Site name
@@ -439,27 +551,92 @@ async function checkCORS(org, site, domain) {
  * @param {string} org - Organization name
  * @param {string} site - Site name
  * @param {string} domain - Optional production domain
+ * @param {string} apiKey - Optional Google API key
  * @returns {Promise<{status: string, message: string}>}
  */
-async function checkLighthouse(org, site, domain) {
+async function checkLighthouse(org, site, domain, apiKey) {
   try {
     const baseUrl = domain || `main--${site}--${org}.aem.live`;
     const testUrl = `https://${baseUrl}/`;
 
-    // Note: This is a simplified check. In production, you'd want to use the PageSpeed Insights API
-    // For now, we'll just provide a link to test manually
+    // Call PageSpeed Insights API
+    const apiEndpoint = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+    const url = new URL(apiEndpoint);
+    url.searchParams.set('url', testUrl);
+    url.searchParams.set('category', 'performance');
+    url.searchParams.set('strategy', 'mobile');
+
+    // Add API key if provided
+    if (apiKey) {
+      url.searchParams.set('key', apiKey);
+    }
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const psiUrl = `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(testUrl)}`;
+
+      // Handle rate limiting specifically
+      if (response.status === 429) {
+        return {
+          status: 'warning',
+          message: `<p>⚠️ PageSpeed Insights API rate limit reached.</p>
+            <p>The free API has usage limits. To check your Lighthouse score:</p>
+            <ul>
+              <li>Test manually at <a href="${psiUrl}" target="_blank">Google PageSpeed Insights</a></li>
+              <li>Or add a Google API key to increase rate limits (see <a href="https://developers.google.com/speed/docs/insights/v5/get-started" target="_blank">API docs</a>)</li>
+            </ul>
+            <p>Target: Score of 90+ (ideally 100)</p>`,
+        };
+      }
+
+      return {
+        status: 'warning',
+        message: `<p>⚠️ Unable to fetch Lighthouse score via API (${response.status}).</p>
+          <p>Test manually at <a href="${psiUrl}" target="_blank">Google PageSpeed Insights</a></p>
+          <p>Target: Score of 90+ (ideally 100)</p>`,
+      };
+    }
+
+    const json = await response.json();
+    const lighthouse = json.lighthouseResult;
+    const performanceScore = lighthouse.categories.performance.score * 100;
+
+    const messages = [];
     const psiUrl = `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(testUrl)}`;
 
+    if (performanceScore >= 90) {
+      messages.push(`<p>✅ Lighthouse performance score: <strong>${performanceScore}</strong></p>`);
+      messages.push('<p>Excellent! Your site meets the performance target.</p>');
+    } else if (performanceScore >= 50) {
+      messages.push(`<p>⚠️ Lighthouse performance score: <strong>${performanceScore}</strong></p>`);
+      messages.push('<p>Good, but could be improved. Target: 90+ (ideally 100)</p>');
+    } else {
+      messages.push(`<p>❌ Lighthouse performance score: <strong>${performanceScore}</strong></p>`);
+      messages.push('<p>Needs improvement. Target: 90+ (ideally 100)</p>');
+    }
+
+    messages.push(`<p><a href="${psiUrl}" target="_blank">View detailed report</a></p>`);
+
+    // Determine status
+    let status = 'pass';
+    if (performanceScore < 90) {
+      status = performanceScore >= 50 ? 'warning' : 'fail';
+    }
+
     return {
-      status: 'warning',
-      message: `<p>⚠️ Lighthouse score should be validated manually.</p>
-        <p>Test your site with <a href="${psiUrl}" target="_blank">Google PageSpeed Insights</a></p>
-        <p>Target: Score of 100 for both mobile and desktop</p>`,
+      status,
+      message: messages.join(''),
     };
   } catch (error) {
+    const baseUrl = domain || `main--${site}--${org}.aem.live`;
+    const testUrl = `https://${baseUrl}/`;
+    const psiUrl = `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(testUrl)}`;
     return {
-      status: 'fail',
-      message: `<p>❌ Error preparing Lighthouse check: ${error.message}</p>`,
+      status: 'warning',
+      message: `<p>⚠️ Unable to fetch Lighthouse score: ${error.message}</p>
+        <p>💡 Tip: Test manually at <a href="${psiUrl}" target="_blank">Google PageSpeed Insights</a></p>
+        <p>Target: Score of 90+ (ideally 100)</p>`,
     };
   }
 }
@@ -674,14 +851,16 @@ async function checkCDN(org, site, domain) {
  * @param {string} org - Organization name
  * @param {string} site - Site name
  * @param {string} domain - Optional production domain
+ * @param {string} apiKey - Optional Google API key
  */
-async function runChecklist(org, site, domain) {
+async function runChecklist(org, site, domain, apiKey) {
   // Show results section
   RESULTS.setAttribute('aria-hidden', false);
 
   // Reset all automated checks to pending
   const automatedChecks = [
     'check-lighthouse',
+    'check-analytics',
     'check-rum',
     'check-redirects',
     'check-sitemap',
@@ -700,6 +879,7 @@ async function runChecklist(org, site, domain) {
   // Run checks
   const checks = [
     { id: 'check-lighthouse', fn: checkLighthouse },
+    { id: 'check-analytics', fn: checkAnalytics },
     { id: 'check-rum', fn: checkRUM },
     { id: 'check-redirects', fn: checkRedirects },
     { id: 'check-sitemap', fn: checkSitemap },
@@ -715,7 +895,10 @@ async function runChecklist(org, site, domain) {
   await Promise.all(
     checks.map(async ({ id, fn }) => {
       try {
-        const result = await fn(org, site, domain);
+        // Pass apiKey to checkLighthouse, but not to other functions that don't need it
+        const result = id === 'check-lighthouse'
+          ? await fn(org, site, domain, apiKey)
+          : await fn(org, site, domain);
         updateChecklistItem(id, result.status, result.message);
       } catch (error) {
         updateChecklistItem(id, 'fail', `<p>❌ Error: ${error.message}</p>`);
@@ -758,10 +941,12 @@ async function registerListeners() {
     showLoadingButton(submitter);
 
     const data = getFormData(target);
-    const { org, site, domain } = data;
+    const {
+      org, site, domain, apiKey,
+    } = data;
 
     if (org && site) {
-      await runChecklist(org, site, domain);
+      await runChecklist(org, site, domain, apiKey);
       updateConfig();
     }
 

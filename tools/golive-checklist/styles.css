@@ -197,7 +197,8 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .golive-checklist .domain-field {
+  .golive-checklist .domain-field,
+  .golive-checklist .api-key-field {
     grid-column: 1 / -1;
   }
 }

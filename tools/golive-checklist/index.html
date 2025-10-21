@@ -58,6 +58,13 @@
               <p>Enter your production domain to check additional items (e.g. <code>www.yourdomain.com</code>)</p>
             </div>
           </div>
+          <div class="form-field api-key-field">
+            <label for="apiKey">Google API Key (optional)</label>
+            <input name="apiKey" id="apiKey" type="text" placeholder="AIza..." />
+            <div class="field-help-text">
+              <p>Optional: Provide a <a href="https://developers.google.com/speed/docs/insights/v5/get-started" target="_blank">Google API key</a> for unlimited Lighthouse checks. Without a key, you may hit rate limits.</p>
+            </div>
+          </div>
         </section>
 
         <p class="button-wrapper">
@@ -79,7 +86,7 @@
           <h4>Content and Design QA</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Content and Design Review</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -111,19 +118,15 @@
 
         <div class="checklist-category">
           <h4>Analytics Validation</h4>
-          <div class="checklist-item manual">
+          <div class="checklist-item" id="check-analytics">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">⏳</span>
               <span class="item-title">Analytics Setup</span>
-              <span class="status-badge manual">Manual Check</span>
+              <span class="status-badge pending">Pending</span>
             </div>
             <div class="item-details">
               <p>Verify that analytics and martech stack are firing correctly.</p>
-              <ul>
-                <li>Check analytics dashboards for visitor data</li>
-                <li>Expect baseline metrics to change after launch</li>
-                <li>Coordinate with analysts about metric adjustments</li>
-              </ul>
+              <div class="check-result"></div>
             </div>
           </div>
         </div>
@@ -234,7 +237,7 @@
           <h4>Authentication for Authors</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Author Authentication</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -249,7 +252,7 @@
           <h4>SharePoint Access</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">SharePoint Access Configuration</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -295,7 +298,7 @@
           <h4>Notify Engineering On-Call</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Engineering Notification</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -321,7 +324,7 @@
           <h4>Performance Validation</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Production Performance</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -336,7 +339,7 @@
           <h4>Google Search Console</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Search Console Monitoring</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -356,7 +359,7 @@
           <h4>Martech and Analytics Validation</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">Production Analytics</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
@@ -371,7 +374,7 @@
           <h4>404 Report</h4>
           <div class="checklist-item manual">
             <div class="item-header">
-              <span class="status-icon">⚠️</span>
+              <span class="status-icon">ℹ️</span>
               <span class="item-title">404 Monitoring</span>
               <span class="status-badge manual">Manual Check</span>
             </div>
