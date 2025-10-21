@@ -149,7 +149,7 @@ async function loadAvailableSites() {
     sites.forEach((site) => {
       const option = document.createElement('option');
       option.value = site.siteKey;
-      option.textContent = `${site.siteKey} (${site.itemCount} References) - ${new Date(site.timestamp).toLocaleString()}`;
+      option.textContent = `${site.siteKey} (${site.itemCount} refs)`;
       domCache.savedSitesSelect.appendChild(option);
     });
 
