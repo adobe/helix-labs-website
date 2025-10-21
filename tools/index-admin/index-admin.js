@@ -329,7 +329,7 @@ function populateIndexes(indexes) {
 
       // Otherwise, start a new reindex job
       // Show confirmation dialog
-      // eslint-disable-next-line no-alert
+      // eslint-disable-next-line no-alert, no-restricted-globals
       const confirmed = confirm(`Reindex the '${name}' index on branch 'main'?`);
       if (!confirmed) return;
 
