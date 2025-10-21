@@ -212,6 +212,88 @@ function displayIndexDetails(indexName, indexDef, newIndex = false) {
   });
 }
 
+function showJobStatus(jobDetails) {
+  // Clone and append the status dialog template
+  document.body.append(document.querySelector('#reindex-status-dialog-template').content.cloneNode(true));
+  const statusDialog = document.querySelector('dialog.reindex-status-dialog');
+
+  // Format and display the job details
+  const jobDetailsEl = statusDialog.querySelector('.job-details');
+  jobDetailsEl.textContent = JSON.stringify(jobDetails, null, 2);
+
+  // Set up close button
+  const closeBtn = statusDialog.querySelector('.close-status-btn');
+  closeBtn.addEventListener('click', () => {
+    statusDialog.close();
+    statusDialog.remove();
+  });
+
+  // Close on click outside modal
+  statusDialog.addEventListener('click', (e) => {
+    const {
+      left, right, top, bottom,
+    } = statusDialog.getBoundingClientRect();
+    const { clientX, clientY } = e;
+    if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
+      statusDialog.close();
+      statusDialog.remove();
+    }
+  });
+
+  statusDialog.showModal();
+}
+
+async function reIndex(indexNames) {
+  const indexUrl = `https://admin.hlx.page/index/${org.value}/${site.value}/main/*`;
+  const payload = {
+    indexNames,
+  };
+
+  try {
+    const resp = await fetch(indexUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const errorMsg = resp.headers.get('x-error') || '';
+    logResponse([resp.status, 'POST', indexUrl, errorMsg]);
+
+    // If 202 status, return job info
+    if (resp.status === 202) {
+      const jobResponse = await resp.json();
+      const selfLink = jobResponse.links?.self;
+
+      if (selfLink) {
+        return { success: true, detailsUrl: `${selfLink}/details` };
+      }
+      return { success: true, detailsUrl: null };
+    }
+
+    return { success: false, status: resp.status, error: errorMsg };
+  } catch (error) {
+    logResponse([0, 'POST', indexUrl, error.message]);
+    return { success: false, error: error.message };
+  }
+}
+
+async function fetchJobDetails(detailsUrl) {
+  try {
+    const detailsResp = await fetch(detailsUrl);
+    logResponse([detailsResp.status, 'GET', detailsUrl, detailsResp.headers.get('x-error') || '']);
+
+    if (detailsResp.ok) {
+      return await detailsResp.json();
+    }
+    return null;
+  } catch (error) {
+    logResponse([0, 'GET', detailsUrl, error.message]);
+    return null;
+  }
+}
+
 function populateIndexes(indexes) {
   const indexesList = document.getElementById('indexes-list');
   indexesList.innerHTML = '';
@@ -225,9 +307,41 @@ function populateIndexes(indexes) {
     indexItem.querySelector('.index-attribute-value-include').innerHTML = indexDef?.include?.join('<br>') || 'n/a';
     indexItem.querySelector('.index-attribute-value-exclude').innerHTML = indexDef?.exclude?.join('<br>') || 'n/a';
 
-    indexItem.querySelector('button').addEventListener('click', (e) => {
+    indexItem.querySelector('.edit-index-btn').addEventListener('click', (e) => {
       e.preventDefault();
       displayIndexDetails(name, indexDef);
+    });
+
+    const reindexBtn = indexItem.querySelector('.reindex-btn');
+    let detailsUrl = null;
+
+    reindexBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+
+      // If we have a detailsUrl, fetch and show job status
+      if (detailsUrl) {
+        const jobDetails = await fetchJobDetails(detailsUrl);
+        if (jobDetails) {
+          showJobStatus(jobDetails);
+        }
+        return;
+      }
+
+      // Otherwise, start a new reindex job
+      // Show confirmation dialog
+      // eslint-disable-next-line no-alert
+      const confirmed = confirm(`Reindex the '${name}' index on branch 'main'?`);
+      if (!confirmed) return;
+
+      const result = await reIndex([name]);
+
+      if (result.success && result.detailsUrl) {
+        // Store the details URL for later clicks
+        detailsUrl = result.detailsUrl;
+
+        // Update button state to show reindexing in progress
+        reindexBtn.textContent = 'Reindexing...';
+      }
     });
   });
 }
