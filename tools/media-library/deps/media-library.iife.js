@@ -5646,7 +5646,7 @@ var MediaLibrary = function(exports) {
         ` : ""}
 
         <div class="sidebar-icons secondary">
-          ${this.renderIconButton("refresh", "Index", this.isIndexExpanded, this.handleIndexToggle.bind(this))}
+          ${this.renderIconButton("refresh", "Status", this.isIndexExpanded, this.handleIndexToggle.bind(this))}
         </div>
 
         ${this.isIndexExpanded ? this.renderIndexPanel() : ""}
@@ -8887,7 +8887,7 @@ var MediaLibrary = function(exports) {
             <div class="document-heading">
               <div>
                 <h3>${doc}</h3>
-                <div class="document-path">${usages.length} ${usages.length === 1 ? "usage" : "usages"}</div>
+                <div class="document-path">${usages.length} ${usages.length === 1 ? "Reference" : "References"}</div>
               </div>
               <button 
                 class="action-button open-page-button" 
@@ -10167,9 +10167,9 @@ var MediaLibrary = function(exports) {
       const filteredCount = ((_a2 = this.filteredMediaData) == null ? void 0 : _a2.length) || 0;
       const totalCount = ((_b = this._mediaData) == null ? void 0 : _b.length) || 0;
       if (this._searchQuery || this._selectedFilterType !== "all") {
-        return `${filteredCount} of ${totalCount} usages`;
+        return `${filteredCount} of ${totalCount} References`;
       }
-      return `${totalCount} usages`;
+      return `${totalCount} References`;
     }
     getScanProgress() {
       var _a2;

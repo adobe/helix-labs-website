@@ -130,12 +130,14 @@ async function loadAvailableSites() {
       return;
     }
 
-    const databases = await indexedDB.databases();
-    const mediaDbs = databases.filter((db) => db.name && db.name.startsWith('media_'));
+    const allSites = await domCache.mediaLibrary.storageManager.getAllSites();
+
+    // Filter out sites with 0 references
+    const sites = allSites.filter((site) => site.itemCount > 0);
 
     domCache.savedSitesSelect.innerHTML = '<option value="">Select a site...</option>';
 
-    if (mediaDbs.length === 0) {
+    if (sites.length === 0) {
       const option = document.createElement('option');
       option.value = '';
       option.textContent = 'No saved sites';
@@ -144,41 +146,10 @@ async function loadAvailableSites() {
       return;
     }
 
-    const siteChecks = await Promise.all(
-      mediaDbs.map(async (db) => {
-        const siteKey = db.name.replace('media_', '').replace(/_/g, '.');
-
-        try {
-          const tempStorage = domCache.mediaLibrary.storageManager;
-          tempStorage.siteKey = siteKey;
-          tempStorage.dbName = `media_${tempStorage.normalizeSiteKey(siteKey)}`;
-
-          const data = await tempStorage.load();
-          if (data && data.length > 0) {
-            return { siteKey, count: data.length };
-          }
-        } catch (error) {
-          console.error(`Failed to check data for ${siteKey}:`, error);
-        }
-        return null;
-      }),
-    );
-
-    const sitesWithData = siteChecks.filter((site) => site !== null);
-
-    if (sitesWithData.length === 0) {
+    sites.forEach((site) => {
       const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No saved sites';
-      option.disabled = true;
-      domCache.savedSitesSelect.appendChild(option);
-      return;
-    }
-
-    sitesWithData.forEach(({ siteKey, count }) => {
-      const option = document.createElement('option');
-      option.value = siteKey;
-      option.textContent = `${siteKey} (${count} usages)`;
+      option.value = site.siteKey;
+      option.textContent = `${site.siteKey} (${site.itemCount} References) - ${new Date(site.timestamp).toLocaleString()}`;
       domCache.savedSitesSelect.appendChild(option);
     });
 
@@ -311,7 +282,7 @@ async function performScan(formData) {
     pageList,
     null,
     siteKey,
-    true,
+    false, // Don't save inside loadFromPageList, we save explicitly in saveResults()
     null,
     pageList,
     [],
