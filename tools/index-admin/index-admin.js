@@ -299,10 +299,11 @@ function populateIndexes(indexes) {
   const indexesList = document.getElementById('indexes-list');
   indexesList.innerHTML = '';
 
-  Object.entries(indexes).forEach(([name, indexDef]) => {
+  Object.entries(indexes).forEach(([name, indexDef], index) => {
     indexesList.append(document.querySelector('#index-card-template').content.cloneNode(true));
 
     const indexItem = indexesList.lastElementChild;
+    indexItem.style.setProperty('--animation-order', index);
     indexItem.querySelector('.index-name').textContent = name;
     indexItem.querySelector('.index-attribute-value-target').textContent = indexDef.target;
     indexItem.querySelector('.index-attribute-value-include').innerHTML = indexDef?.include?.join('<br>') || 'n/a';
@@ -331,7 +332,7 @@ function populateIndexes(indexes) {
       // Otherwise, start a new reindex job
       // Show confirmation dialog
       // eslint-disable-next-line no-alert, no-restricted-globals
-      const confirmed = confirm(`Reindex the '${name}' index on branch 'main'?`);
+      const confirmed = confirm(`Start a Bulk Reindex Job for Index: ${name}?`);
       if (!confirmed) return;
 
       const result = await reIndex([name]);
