@@ -1,6 +1,7 @@
 import DataLoader from '../../scripts/loader.js';
 import { updateChart } from './chart.js';
 import { formatRelativeDate, formatNumber } from './utils.js';
+import { decorateIcons } from '../../scripts/aem.js';
 
 const dataLoader = new DataLoader();
 dataLoader.apiEndpoint = 'https://bundles.aem.page';
@@ -10,12 +11,39 @@ const state = {
   domainKey: null,
   dateRange: null,
   urlFilter: null,
+  sourceFilter: null,
+  targetFilter: null,
+  showAllErrors: false,
 };
 
 const data = {
   cached: [],
   filtered: [],
 };
+
+// Toast notification
+function showToast(message, type = 'success') {
+  const existingToast = document.querySelector('.toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.classList.add('toast-notification', type);
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 10);
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 2000);
+}
 
 function updateState() {
   // update ui elements and url params from the state object
@@ -48,6 +76,12 @@ function updateState() {
     if (state.urlFilter) {
       explorerUrl.searchParams.set('url', state.urlFilter);
     }
+    if (state.sourceFilter) {
+      explorerUrl.searchParams.set('source', state.sourceFilter);
+    }
+    if (state.targetFilter) {
+      explorerUrl.searchParams.set('target', state.targetFilter);
+    }
     explorerUrl.searchParams.set('checkpoint', 'error');
     explorerTrigger.href = explorerUrl.href;
     explorerTrigger.style.display = 'block';
@@ -60,14 +94,42 @@ function updateState() {
   }
 
   const filterIndicator = document.querySelector('.filter-indicator');
-  const filterLink = filterIndicator.querySelector('a');
-  if (state.urlFilter) {
-    filterLink.href = state.urlFilter;
-    filterLink.textContent = state.urlFilter;
+  const hasFilters = state.urlFilter || state.sourceFilter || state.targetFilter;
+
+  if (hasFilters) {
+    const filters = [];
+
+    if (state.urlFilter) {
+      filters.push(`<div class="filter-item"><strong>URL:</strong> <a href="${state.urlFilter}" target="_blank" rel="noopener noreferrer">${state.urlFilter}</a></div>`);
+    }
+
+    if (state.sourceFilter) {
+      filters.push(`<div class="filter-item"><strong>Source:</strong> <code class="filter-text">${state.sourceFilter}</code></div>`);
+    }
+
+    if (state.targetFilter) {
+      filters.push(`<div class="filter-item"><strong>Target:</strong> <code class="filter-text">${state.targetFilter}</code></div>`);
+    }
+
+    filterIndicator.innerHTML = `
+      <div class="filter-content">
+        ${filters.join('')}
+      </div>
+      <button class="clear-filter">Clear Filters</button>
+    `;
+
+    filterIndicator.querySelector('.clear-filter').addEventListener('click', () => {
+      state.urlFilter = null;
+      state.sourceFilter = null;
+      state.targetFilter = null;
+      updateState();
+      // eslint-disable-next-line no-use-before-define
+      refreshResults(false);
+    });
+
     filterIndicator.classList.add('active');
   } else {
-    filterLink.href = '';
-    filterLink.textContent = '';
+    filterIndicator.innerHTML = '';
     filterIndicator.classList.remove('active');
   }
 }
@@ -78,8 +140,10 @@ function getStateFromURL() {
   const domain = params.get('domain');
   const dateRange = params.get('dateRange');
   const urlFilter = params.get('urlFilter');
+  const sourceFilter = params.get('sourceFilter');
+  const targetFilter = params.get('targetFilter');
   return {
-    domain, domainKey, dateRange, urlFilter,
+    domain, domainKey, dateRange, urlFilter, sourceFilter, targetFilter,
   };
 }
 
@@ -108,7 +172,20 @@ function formatUrls(urlsObject, activeFilter = null) {
 
   let result = '<ul class="url-list">';
   urlsToShow.forEach(([url, count]) => {
-    result += `<li><span class="url-filter-link" data-url="${url.replace(/"/g, '&quot;')}">${url}</span> <span class="url-count">(${formatNumber(count)})</span></li>`;
+    result += `<li>
+      <div class="url-row">
+        <span class="url-text" tabindex="0">${url}</span>
+        <span class="url-count">(${formatNumber(count)})</span>
+      </div>
+      <div class="url-actions">
+        <button class="filter-url-btn" data-url="${url.replace(/"/g, '&quot;')}" title="Filter by this URL" aria-label="Filter by URL">
+          <span class="icon icon-search"></span>
+        </button>
+        <button class="open-url-btn" data-url="${url.replace(/"/g, '&quot;')}" title="Open in new tab" aria-label="Open URL in new tab">
+          <span class="icon icon-redirect"></span>
+        </button>
+      </div>
+    </li>`;
   });
   result += '</ul>';
 
@@ -151,25 +228,174 @@ function renderFilteredData() {
   const errorList = document.getElementById('error-list');
   errorList.replaceChildren();
 
+  // Calculate max weight for relative sizing
+  const maxWeight = Math.max(...data.filtered.map((item) => item.weight));
+
+  // Determine how many items to show
+  const itemsToShow = state.showAllErrors ? data.filtered : data.filtered.slice(0, 10);
+  const hasMore = data.filtered.length > 10;
+
   // Render error items
-  data.filtered.forEach((item) => {
+  itemsToShow.forEach((item) => {
     const li = document.createElement('li');
     li.classList.add('error-item');
+
+    // Calculate relative percentage for progress bar
+    const percentage = (item.weight / maxWeight) * 100;
+
+    // Determine severity level based on weight
+    let severity = 'low';
+    if (percentage >= 70) {
+      severity = 'critical';
+    } else if (percentage >= 40) {
+      severity = 'high';
+    } else if (percentage >= 20) {
+      severity = 'medium';
+    }
+
+    li.setAttribute('data-severity', severity);
+
     li.innerHTML = `
-      <code class="error-source">${item.source}</code>
-      <code class="error-target">${item.target}</code>
+      <div class="error-source">
+        <code tabindex="0" data-value="${item.source.replace(/"/g, '&quot;')}">${item.source}</code>
+        <div class="code-actions">
+          <button class="filter-btn" data-value="${item.source.replace(/"/g, '&quot;')}" data-type="source" title="Filter by this source" aria-label="Filter by source">
+            <span class="icon icon-search"></span>
+          </button>
+          <button class="copy-btn" data-value="${item.source.replace(/"/g, '&quot;')}" title="Copy to clipboard" aria-label="Copy source">
+            <span class="icon icon-copy"></span>
+          </button>
+        </div>
+      </div>
+      <div class="error-target">
+        <code tabindex="0" data-value="${item.target.replace(/"/g, '&quot;')}">${item.target}</code>
+        <div class="code-actions">
+          <button class="filter-btn" data-value="${item.target.replace(/"/g, '&quot;')}" data-type="target" title="Filter by this target" aria-label="Filter by target">
+            <span class="icon icon-search"></span>
+          </button>
+          <button class="copy-btn" data-value="${item.target.replace(/"/g, '&quot;')}" title="Copy to clipboard" aria-label="Copy target">
+            <span class="icon icon-copy"></span>
+          </button>
+        </div>
+      </div>
       <div class="error-urls">${formatUrls(item.urls, state.urlFilter)}</div>
       <div class="error-last-seen">${item.timestamp ? formatRelativeDate(item.timestamp) : '-'}</div>
-      <div class="error-count">${formatNumber(item.weight)}</div>
+      <div class="error-count">
+        <div class="count-bar">
+          <div class="count-bar-fill ${severity}" style="width: ${percentage}%"></div>
+        </div>
+        <span class="count-badge ${severity}">${formatNumber(item.weight)}</span>
+      </div>
     `;
     errorList.append(li);
   });
 
+  // Decorate icons in the newly added items
+  decorateIcons(errorList);
+
+  // Add show more/less button if needed
+  const existingShowMoreBtn = document.querySelector('.show-more-errors-btn');
+  if (existingShowMoreBtn) {
+    existingShowMoreBtn.remove();
+  }
+
+  if (hasMore) {
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.classList.add('show-more-errors-btn', 'button', 'outline');
+    showMoreBtn.textContent = state.showAllErrors
+      ? `Show Less (showing ${data.filtered.length} of ${data.filtered.length})`
+      : `Show ${data.filtered.length - 10} More (showing 10 of ${data.filtered.length})`;
+
+    showMoreBtn.addEventListener('click', () => {
+      state.showAllErrors = !state.showAllErrors;
+      renderFilteredData();
+
+      if (!state.showAllErrors) {
+        // Scroll to top of error list when collapsing
+        document.querySelector('.error-list-container').scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }
+    });
+
+    errorList.after(showMoreBtn);
+  }
+
+  // Update graph heading with count and period
+  const totalCount = data.filtered.reduce((sum, item) => sum + item.weight, 0);
+  const periodMap = {
+    week: 'week',
+    month: 'month',
+    year: 'year',
+  };
+  const period = periodMap[state.dateRange] || 'month';
+  const graphHeading = document.querySelector('.error-graph-container h2');
+  if (graphHeading) {
+    graphHeading.textContent = `Error Trends: ~${formatNumber(totalCount)} errors in the last ${period}`;
+  }
+
   updateChart(data.filtered, state.dateRange);
-  errorList.querySelectorAll('.url-filter-link').forEach((link) => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      state.urlFilter = link.getAttribute('data-url');
+
+  // Handle open URL buttons
+  errorList.querySelectorAll('.open-url-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.getAttribute('data-url');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+  });
+
+  // Handle filter URL buttons
+  errorList.querySelectorAll('.filter-url-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.getAttribute('data-url');
+      state.urlFilter = url;
+      updateState();
+      // eslint-disable-next-line no-use-before-define
+      refreshResults(false);
+
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    });
+  });
+
+  // Handle copy buttons
+  errorList.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const value = btn.getAttribute('data-value');
+      try {
+        await navigator.clipboard.writeText(value);
+        btn.classList.add('copied');
+        showToast('Copied to clipboard!');
+        setTimeout(() => {
+          btn.classList.remove('copied');
+        }, 1500);
+      } catch (err) {
+        showToast('Failed to copy', 'error');
+        // eslint-disable-next-line no-console
+        console.error('Failed to copy:', err);
+      }
+    });
+  });
+
+  // Handle filter buttons
+  errorList.querySelectorAll('.filter-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const value = btn.getAttribute('data-value');
+      const type = btn.getAttribute('data-type');
+
+      if (type === 'source') {
+        state.sourceFilter = value;
+      } else if (type === 'target') {
+        state.targetFilter = value;
+      }
+
       updateState();
       // eslint-disable-next-line no-use-before-define
       refreshResults(false);
@@ -184,11 +410,14 @@ function renderFilteredData() {
 
 async function refreshResults(refreshCached = true) {
   const {
-    domain, domainKey, dateRange, urlFilter,
+    domain, domainKey, dateRange, urlFilter, sourceFilter, targetFilter,
   } = state;
   if (!domain || !domainKey) {
     return;
   }
+
+  // Reset show all state when refreshing
+  state.showAllErrors = false;
 
   setLoading(true);
 
@@ -273,7 +502,23 @@ async function refreshResults(refreshCached = true) {
       data.cached.sort((a, b) => b.weight - a.weight);
     }
 
-    data.filtered = data.cached.filter((item) => (urlFilter ? urlFilter in item.urls : true));
+    data.filtered = data.cached.filter((item) => {
+      let matches = true;
+
+      if (urlFilter) {
+        matches = matches && (urlFilter in item.urls);
+      }
+
+      if (sourceFilter) {
+        matches = matches && (item.source.toLowerCase() === sourceFilter.toLowerCase());
+      }
+
+      if (targetFilter) {
+        matches = matches && (item.target.toLowerCase() === targetFilter.toLowerCase());
+      }
+
+      return matches;
+    });
 
     renderFilteredData();
   } finally {
@@ -304,15 +549,6 @@ async function init() {
 
   const filterIndicator = document.createElement('div');
   filterIndicator.classList.add('filter-indicator');
-  filterIndicator.innerHTML = `
-    <span>Filtered by URL: <a href="${state.urlFilter}" target="_blank" rel="noopener noreferrer"><strong>${state.urlFilter}</strong></a></span>
-    <button class="clear-filter">Clear Filter</button>
-  `;
-  filterIndicator.querySelector('.clear-filter').addEventListener('click', () => {
-    state.urlFilter = null;
-    updateState();
-    refreshResults(false);
-  });
   document.getElementById('error-list').before(filterIndicator);
 
   const modal = document.getElementById('domain-modal');
@@ -328,6 +564,8 @@ async function init() {
     state.domain = domain;
     state.domainKey = domainKey;
     state.urlFilter = null;
+    state.sourceFilter = null;
+    state.targetFilter = null;
     updateState();
     refreshResults();
 
@@ -351,13 +589,15 @@ async function init() {
   });
 
   const {
-    domain, domainKey, dateRange, urlFilter,
+    domain, domainKey, dateRange, urlFilter, sourceFilter, targetFilter,
   } = getStateFromURL();
 
   state.domain = domain;
   state.domainKey = domainKey;
   state.dateRange = dateRange;
   state.urlFilter = urlFilter;
+  state.sourceFilter = sourceFilter;
+  state.targetFilter = targetFilter;
   updateState();
 
   if (domain && domainKey) {
