@@ -3,11 +3,9 @@
  * offline, so it should be a service worker. We will migrate code from the main
  * file to here.
  *
- * This file was pulled from https://www.aem.live/tools/rum/loader.js on Nov 8, 2024
+ * This file was pulled from https://www.aem.live/tools/rum/loader.js on Oct 8, 2025
  * TODO: It should be replaced with an import once it's placed in a distribution point.
  */
-
-// eslint-disable-next-line import/no-unresolved
 import { utils } from '@adobe/rum-distiller';
 
 const { addCalculatedProps } = utils;
@@ -15,7 +13,7 @@ const { addCalculatedProps } = utils;
 export default class DataLoader {
   constructor() {
     this.cache = new Map();
-    this.API_ENDPOINT = 'https://rum.fastly-aem.page';
+    this.API_ENDPOINT = 'https://bundles.aem.page';
     this.DOMAIN = 'www.thinktanked.org';
     this.DOMAIN_KEY = '';
     this.ORG = undefined;
@@ -148,7 +146,10 @@ export default class DataLoader {
   async fetchPeriod(startDate, endDate) {
     const start = new Date(startDate);
     const originalStart = new Date(start);
-    const end = endDate ? new Date(endDate) : new Date();
+    let end = endDate ? new Date(endDate) : new Date();
+    if (end > Date.now()) {
+      end = new Date();
+    }
 
     const diff = end.getTime() - start.getTime();
     if (diff < 0) {
@@ -159,11 +160,16 @@ export default class DataLoader {
 
     if (diff <= (1000 * 60 * 60 * 24 * 7)) {
       // less than a week
-      const days = Math.round((diff / (1000 * 60 * 60 * 24))) + 1;
+      const hours = Math.round((diff / (1000 * 60 * 60))) + 1;
 
-      for (let i = 0; i < days; i += 1) {
-        promises.push(this.fetchUTCDay(start.toISOString(), originalStart, end));
-        start.setDate(start.getDate() + 1);
+      for (let i = 0; i < hours; i += 1) {
+        promises.push(this.fetchUTCHour(start.toISOString(), originalStart, end));
+        if (start.getHours() >= 23) {
+          start.setDate(start.getDate() + 1);
+          start.setHours(0);
+        } else {
+          start.setHours(start.getHours() + 1);
+        }
       }
     } else if (diff <= (1000 * 60 * 60 * 24 * 31)) {
       // less than a month
