@@ -183,11 +183,12 @@ async function* fetchSitemap(sitemapPath, liveHost) {
   let res;
   try {
     res = await fetch(`https://${liveHost}${sitemapPath}`);
-    if (!res.ok) {
-      throw new Error(`Not found: ${sitemapPath}`);
-    }
   } catch (err) {
     throw new Error('Failed on initial fetch of sitemap.', err);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Not found: ${sitemapPath}`);
   }
 
   const xml = await res.text();
