@@ -63,6 +63,12 @@ function clearResults(table) {
 
   const caption = table.querySelector('caption');
   caption.setAttribute('aria-hidden', true);
+
+  // Reset error count display
+  const errorCountWrapper = caption.querySelector('.error-count-wrapper');
+  if (errorCountWrapper) {
+    errorCountWrapper.setAttribute('aria-hidden', 'true');
+  }
 }
 
 function updateTableError(table, errCode, org, site) {
@@ -306,6 +312,7 @@ async function init(doc) {
       const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
 
       let searched = 0;
+      let errorCount = 0;
 
       const caption = table.querySelector('caption');
       caption.setAttribute('aria-hidden', false);
@@ -314,11 +321,19 @@ async function init(doc) {
       resultsFoundElement.textContent = 0;
       const resultsOfElement = caption.querySelector('.results-of');
       resultsOfElement.textContent = 0;
+      const errorCountElement = caption.querySelector('.error-count');
+      const errorCountWrapper = caption.querySelector('.error-count-wrapper');
 
       const processingTasks = [];
       const updateSearched = () => {
         searched += 1;
         resultsOfElement.textContent = searched;
+      };
+
+      const updateErrorCount = () => {
+        errorCount += 1;
+        errorCountElement.textContent = errorCount;
+        errorCountWrapper.setAttribute('aria-hidden', 'false');
       };
 
       // eslint-disable-next-line no-restricted-syntax
@@ -331,18 +346,24 @@ async function init(doc) {
                 results.append(tr);
                 resultsFoundElement.textContent = results.children.length;
               }
+            })
+            .catch((err) => {
+              updateSearched();
+              updateErrorCount();
+              // eslint-disable-next-line no-console
+              console.error(`Error fetching page ${sitemapUrl.href}:`, err);
             });
           processingTasks.push(promise);
         }
 
         // max 50 inflight at a time
         if (processingTasks.length >= 50) {
-          await Promise.all(processingTasks);
+          await Promise.allSettled(processingTasks);
           processingTasks.splice(0, processingTasks.length);
         }
       }
       resultsOfElement.textContent = searched;
-      await Promise.all(processingTasks);
+      await Promise.allSettled(processingTasks);
 
       if (results.children.length === 0) {
         noResults.setAttribute('aria-hidden', 'false');
