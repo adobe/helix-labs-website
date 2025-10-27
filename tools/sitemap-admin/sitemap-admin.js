@@ -11,10 +11,7 @@ let loadedSitemaps;
 let YAML;
 
 function isMultiLanguageSitemap(sitemapDef) {
-  return sitemapDef
-    && typeof sitemapDef.languages === 'object'
-    && sitemapDef.languages !== null
-    && Object.keys(sitemapDef.languages).length > 0;
+  return sitemapDef?.languages !== undefined;
 }
 
 function logResponse(cols) {
@@ -41,6 +38,50 @@ function logResponse(cols) {
   }
 }
 
+function showTypeSelectionDialog() {
+  document.body.append(document.querySelector('#sitemap-type-dialog-template').content.cloneNode(true));
+  const typeDialog = document.querySelector('dialog.sitemap-type-dialog');
+  typeDialog.showModal();
+
+  typeDialog.querySelector('#simple-sitemap-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+    displaySitemapDetails('', {
+      source: '/query-index.json',
+      destination: '/sitemap.xml',
+      lastmod: 'YYYY-MM-DD',
+    }, true);
+  });
+
+  typeDialog.querySelector('#multilang-sitemap-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+    displaySitemapDetails('', {
+      lastmod: 'YYYY-MM-DD',
+      languages: {},
+    }, true);
+  });
+
+  typeDialog.querySelector('#cancel-type-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+  });
+
+  typeDialog.addEventListener('click', (e) => {
+    const {
+      left, right, top, bottom,
+    } = typeDialog.getBoundingClientRect();
+    const { clientX, clientY } = e;
+    if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
+      typeDialog.close();
+      typeDialog.remove();
+    }
+  });
+}
+
 function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
   const isMultiLang = isMultiLanguageSitemap(sitemapDef);
   const templateId = isMultiLang ? '#sitemap-multilang-dialog-template' : '#sitemap-details-dialog-template';
@@ -64,6 +105,18 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
   }
 
   sitemapDetails.showModal();
+
+  // Show back button only for new sitemaps
+  const backButton = sitemapDetails.querySelector('#back-sitemap');
+  if (newSitemap && backButton) {
+    backButton.style.display = '';
+    backButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      sitemapDetails.close();
+      sitemapDetails.remove();
+      showTypeSelectionDialog();
+    });
+  }
 
   const cancel = sitemapDetails.querySelector('#cancel-sitemap');
   sitemapDetails.querySelector('form').addEventListener('submit', async (e) => {
@@ -422,48 +475,7 @@ async function init() {
   await initConfigField();
 
   addSitemapButton.addEventListener('click', () => {
-    // Show type selection dialog
-    document.body.append(document.querySelector('#sitemap-type-dialog-template').content.cloneNode(true));
-    const typeDialog = document.querySelector('dialog.sitemap-type-dialog');
-    typeDialog.showModal();
-
-    typeDialog.querySelector('#simple-sitemap-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      typeDialog.close();
-      typeDialog.remove();
-      displaySitemapDetails('', {
-        source: '/query-index.json',
-        destination: '/sitemap.xml',
-        lastmod: 'YYYY-MM-DD',
-      }, true);
-    });
-
-    typeDialog.querySelector('#multilang-sitemap-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      typeDialog.close();
-      typeDialog.remove();
-      displaySitemapDetails('', {
-        lastmod: 'YYYY-MM-DD',
-        languages: {},
-      }, true);
-    });
-
-    typeDialog.querySelector('#cancel-type-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      typeDialog.close();
-      typeDialog.remove();
-    });
-
-    typeDialog.addEventListener('click', (e) => {
-      const {
-        left, right, top, bottom,
-      } = typeDialog.getBoundingClientRect();
-      const { clientX, clientY } = e;
-      if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
-        typeDialog.close();
-        typeDialog.remove();
-      }
-    });
+    showTypeSelectionDialog();
   });
 
   adminForm.addEventListener('submit', async (e) => {
