@@ -63,9 +63,10 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
   sitemapDetails.showModal();
 
   // Show back button only for new sitemaps
-  const backButton = sitemapDetails.querySelector('#back-sitemap');
-  if (newSitemap && backButton) {
-    backButton.style.display = '';
+  const backButtonWrapper = sitemapDetails.querySelector('.button-wrapper:has(#back-sitemap)');
+  if (newSitemap && backButtonWrapper) {
+    backButtonWrapper.style.display = '';
+    const backButton = backButtonWrapper.querySelector('#back-sitemap');
     backButton.addEventListener('click', (e) => {
       e.preventDefault();
       sitemapDetails.close();
