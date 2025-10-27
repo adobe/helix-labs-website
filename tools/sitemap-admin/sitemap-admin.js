@@ -38,50 +38,6 @@ function logResponse(cols) {
   }
 }
 
-function showTypeSelectionDialog() {
-  document.body.append(document.querySelector('#sitemap-type-dialog-template').content.cloneNode(true));
-  const typeDialog = document.querySelector('dialog.sitemap-type-dialog');
-  typeDialog.showModal();
-
-  typeDialog.querySelector('#simple-sitemap-btn').addEventListener('click', (e) => {
-    e.preventDefault();
-    typeDialog.close();
-    typeDialog.remove();
-    displaySitemapDetails('', {
-      source: '/query-index.json',
-      destination: '/sitemap.xml',
-      lastmod: 'YYYY-MM-DD',
-    }, true);
-  });
-
-  typeDialog.querySelector('#multilang-sitemap-btn').addEventListener('click', (e) => {
-    e.preventDefault();
-    typeDialog.close();
-    typeDialog.remove();
-    displaySitemapDetails('', {
-      lastmod: 'YYYY-MM-DD',
-      languages: {},
-    }, true);
-  });
-
-  typeDialog.querySelector('#cancel-type-btn').addEventListener('click', (e) => {
-    e.preventDefault();
-    typeDialog.close();
-    typeDialog.remove();
-  });
-
-  typeDialog.addEventListener('click', (e) => {
-    const {
-      left, right, top, bottom,
-    } = typeDialog.getBoundingClientRect();
-    const { clientX, clientY } = e;
-    if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
-      typeDialog.close();
-      typeDialog.remove();
-    }
-  });
-}
-
 function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
   const isMultiLang = isMultiLanguageSitemap(sitemapDef);
   const templateId = isMultiLang ? '#sitemap-multilang-dialog-template' : '#sitemap-details-dialog-template';
@@ -114,6 +70,7 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
       e.preventDefault();
       sitemapDetails.close();
       sitemapDetails.remove();
+      // eslint-disable-next-line no-use-before-define
       showTypeSelectionDialog();
     });
   }
@@ -197,6 +154,50 @@ function displaySitemapDetails(sitemapName, sitemapDef, newSitemap = false) {
     if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
       sitemapDetails.close();
       sitemapDetails.remove();
+    }
+  });
+}
+
+function showTypeSelectionDialog() {
+  document.body.append(document.querySelector('#sitemap-type-dialog-template').content.cloneNode(true));
+  const typeDialog = document.querySelector('dialog.sitemap-type-dialog');
+  typeDialog.showModal();
+
+  typeDialog.querySelector('#simple-sitemap-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+    displaySitemapDetails('', {
+      source: '/query-index.json',
+      destination: '/sitemap.xml',
+      lastmod: 'YYYY-MM-DD',
+    }, true);
+  });
+
+  typeDialog.querySelector('#multilang-sitemap-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+    displaySitemapDetails('', {
+      lastmod: 'YYYY-MM-DD',
+      languages: {},
+    }, true);
+  });
+
+  typeDialog.querySelector('#cancel-type-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    typeDialog.close();
+    typeDialog.remove();
+  });
+
+  typeDialog.addEventListener('click', (e) => {
+    const {
+      left, right, top, bottom,
+    } = typeDialog.getBoundingClientRect();
+    const { clientX, clientY } = e;
+    if (clientX < left || clientX > right || clientY < top || clientY > bottom) {
+      typeDialog.close();
+      typeDialog.remove();
     }
   });
 }
