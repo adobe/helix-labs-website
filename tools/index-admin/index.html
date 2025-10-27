@@ -79,7 +79,10 @@
           <div class="index-attribute-value index-attribute-value-exclude"></div>
         </div>
       </div>
-      <button type="button" class="button outline edit-index-btn">Edit</button>
+      <div class="index-card-buttons">
+        <button type="button" class="button outline edit-index-btn">Edit</button>
+        <button type="button" class="button reindex-btn">Reindex</button>
+      </div>
     </li>
   </template>
   <template id="index-details-dialog-template">
@@ -164,6 +167,19 @@
         <button type="button" class="remove-property-btn" title="Remove Property"></button>
       </div>
     </div>
+  </template>
+  <template id="reindex-status-dialog-template">
+    <dialog class="reindex-status-dialog">
+      <div class="reindex-status-content">
+        <div class="reindex-status-header">
+          <h3>Reindex Job Status</h3>
+          <button type="button" class="close-status-btn" title="Close">&times;</button>
+        </div>
+        <div class="reindex-status-body">
+          <pre class="job-details"></pre>
+        </div>
+      </div>
+    </dialog>
   </template>
 </body>
 
