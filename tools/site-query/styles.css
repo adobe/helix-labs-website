@@ -14,6 +14,15 @@
   visibility: visible;
 }
 
+.site-query .table caption .error-count-wrapper {
+  color: var(--red-900);
+  font-weight: var(--weight-bold);
+}
+
+.site-query .table caption .error-count-wrapper[aria-hidden='true'] {
+  display: none;
+}
+
 .site-query table tbody[aria-hidden='true'],
 .site-query table tbody.results tr[aria-hidden='true'] {
   display: none;

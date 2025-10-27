@@ -1,4 +1,5 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { ensureLogin } from '../../blocks/profile/profile.js';
 
 function getFormData(form) {
   const data = {};
@@ -63,12 +64,19 @@ function clearResults(table) {
 
   const caption = table.querySelector('caption');
   caption.setAttribute('aria-hidden', true);
+
+  // Reset error count display
+  const errorCountWrapper = caption.querySelector('.error-count-wrapper');
+  if (errorCountWrapper) {
+    errorCountWrapper.setAttribute('aria-hidden', 'true');
+  }
 }
 
 function updateTableError(table, errCode, org, site) {
   const { title, msg } = (() => {
     switch (errCode) {
       case 401:
+        ensureLogin(org, site);
         return {
           title: '401 Unauthorized Error',
           msg: `Unable to display results. <a target="_blank" href="https://main--${site}--${org}.aem.page">Sign in to the ${site} project sidekick</a> to view the results.`,
@@ -123,7 +131,22 @@ function displayResult(url, matches, org, site) {
     try {
       const statusRes = await fetch(`https://admin.hlx.page/status/${org}/${site}/main${url.pathname}?editUrl=auto`);
       const status = await statusRes.json();
-      const editUrl = status.edit && status.edit.url;
+      let editUrl = status.edit && status.edit.url;
+      if (editUrl) {
+        editLink.href = editUrl;
+        window.open(editUrl);
+        return;
+      }
+
+      const sidekickRes = await fetch(`https://admin.hlx.page/sidekick/${org}/${site}/main/config.json`);
+      const skConfig = await sidekickRes.json();
+
+      editUrl = skConfig.editUrlPattern ? skConfig.editUrlPattern
+        .replace('{{contentSourceUrl}}', skConfig?.contentSourceUrl || '')
+        .replace('{{org}}', org)
+        .replace('{{site}}', site)
+        .replace('{{pathname}}', url.pathname) : '';
+
       if (editUrl) {
         editLink.href = editUrl;
         window.open(editUrl);
@@ -175,11 +198,12 @@ async function* fetchSitemap(sitemapPath, liveHost) {
   let res;
   try {
     res = await fetch(`https://${liveHost}${sitemapPath}`);
-    if (!res.ok) {
-      throw new Error(`Not found: ${sitemapPath}`);
-    }
   } catch (err) {
     throw new Error('Failed on initial fetch of sitemap.', err);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Not found: ${sitemapPath}`);
   }
 
   const xml = await res.text();
@@ -306,6 +330,7 @@ async function init(doc) {
       const sitemapUrls = sitemap.endsWith('.json') ? fetchQueryIndex(sitemap, live) : fetchSitemap(sitemap, live);
 
       let searched = 0;
+      let errorCount = 0;
 
       const caption = table.querySelector('caption');
       caption.setAttribute('aria-hidden', false);
@@ -314,11 +339,19 @@ async function init(doc) {
       resultsFoundElement.textContent = 0;
       const resultsOfElement = caption.querySelector('.results-of');
       resultsOfElement.textContent = 0;
+      const errorCountElement = caption.querySelector('.error-count');
+      const errorCountWrapper = caption.querySelector('.error-count-wrapper');
 
       const processingTasks = [];
       const updateSearched = () => {
         searched += 1;
         resultsOfElement.textContent = searched;
+      };
+
+      const updateErrorCount = () => {
+        errorCount += 1;
+        errorCountElement.textContent = errorCount;
+        errorCountWrapper.setAttribute('aria-hidden', 'false');
       };
 
       // eslint-disable-next-line no-restricted-syntax
@@ -331,18 +364,24 @@ async function init(doc) {
                 results.append(tr);
                 resultsFoundElement.textContent = results.children.length;
               }
+            })
+            .catch((err) => {
+              updateSearched();
+              updateErrorCount();
+              // eslint-disable-next-line no-console
+              console.error(`Error fetching page ${sitemapUrl.href}:`, err);
             });
           processingTasks.push(promise);
         }
 
         // max 50 inflight at a time
         if (processingTasks.length >= 50) {
-          await Promise.all(processingTasks);
+          await Promise.allSettled(processingTasks);
           processingTasks.splice(0, processingTasks.length);
         }
       }
       resultsOfElement.textContent = searched;
-      await Promise.all(processingTasks);
+      await Promise.allSettled(processingTasks);
 
       if (results.children.length === 0) {
         noResults.setAttribute('aria-hidden', 'false');
