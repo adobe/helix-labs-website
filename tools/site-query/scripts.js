@@ -131,7 +131,22 @@ function displayResult(url, matches, org, site) {
     try {
       const statusRes = await fetch(`https://admin.hlx.page/status/${org}/${site}/main${url.pathname}?editUrl=auto`);
       const status = await statusRes.json();
-      const editUrl = status.edit && status.edit.url;
+      let editUrl = status.edit && status.edit.url;
+      if (editUrl) {
+        editLink.href = editUrl;
+        window.open(editUrl);
+        return;
+      }
+
+      const sidekickRes = await fetch(`https://admin.hlx.page/sidekick/${org}/${site}/main/config.json`);
+      const skConfig = await sidekickRes.json();
+
+      editUrl = skConfig.editUrlPattern ? skConfig.editUrlPattern
+        .replace('{{contentSourceUrl}}', skConfig?.contentSourceUrl || '')
+        .replace('{{org}}', org)
+        .replace('{{site}}', site)
+        .replace('{{pathname}}', url.pathname) : '';
+
       if (editUrl) {
         editLink.href = editUrl;
         window.open(editUrl);
