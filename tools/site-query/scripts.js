@@ -1,4 +1,5 @@
 import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { ensureLogin } from '../../blocks/profile/profile.js';
 
 function getFormData(form) {
   const data = {};
@@ -75,6 +76,7 @@ function updateTableError(table, errCode, org, site) {
   const { title, msg } = (() => {
     switch (errCode) {
       case 401:
+        ensureLogin(org, site);
         return {
           title: '401 Unauthorized Error',
           msg: `Unable to display results. <a target="_blank" href="https://main--${site}--${org}.aem.page">Sign in to the ${site} project sidekick</a> to view the results.`,
