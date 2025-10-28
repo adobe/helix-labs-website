@@ -565,8 +565,19 @@ async function init() {
 
   modal.querySelector('form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const domain = e.target.domain.value;
+    const domainInput = e.target.domain.value.trim();
     const domainKey = e.target.domainKey.value;
+
+    // Extract just the domain, removing protocol and path
+    let domain = domainInput;
+    try {
+      // Try to parse as URL
+      const url = new URL(domainInput.includes('://') ? domainInput : `https://${domainInput}`);
+      domain = url.hostname;
+    } catch {
+      // If URL parsing fails, use the input as-is
+      domain = domainInput;
+    }
 
     state.domain = domain;
     state.domainKey = domainKey;
