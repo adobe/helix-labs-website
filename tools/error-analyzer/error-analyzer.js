@@ -172,18 +172,19 @@ function formatUrls(urlsObject, activeFilter = null) {
 
   let result = '<ul class="url-list">';
   urlsToShow.forEach(([url, count]) => {
+    const isUrlFiltered = activeFilter === url;
     result += `<li>
       <div class="url-row">
         <span class="url-text" tabindex="0">${url}</span>
         <span class="url-count">(${formatNumber(count)})</span>
       </div>
-      <div class="url-actions">
-        <button class="filter-url-btn" data-url="${url.replace(/"/g, '&quot;')}" title="Filter by this URL" aria-label="Filter by URL">
-          <span class="icon icon-search"></span>
+      <div class="action-buttons">
+        <button class="filter-url-btn" data-url="${url.replace(/"/g, '&quot;')}" title="Filter by this URL" ${isUrlFiltered ? 'disabled' : ''}>
+          <span class="icon icon-filter"></span>
         </button>
-        <button class="open-url-btn" data-url="${url.replace(/"/g, '&quot;')}" title="Open in new tab" aria-label="Open URL in new tab">
-          <span class="icon icon-redirect"></span>
-        </button>
+        <a href="${url}" class="open-url-btn" target="_blank" rel="noopener noreferrer" title="Open in new tab">
+          <span class="icon icon-external"></span>
+        </a>
       </div>
     </li>`;
   });
@@ -255,25 +256,40 @@ function renderFilteredData() {
 
     li.setAttribute('data-severity', severity);
 
+    const isSourceFiltered = state.sourceFilter
+      && item.source.toLowerCase() === state.sourceFilter.toLowerCase();
+    const isTargetFiltered = state.targetFilter
+      && item.target.toLowerCase() === state.targetFilter.toLowerCase();
+
+    // Extract URL from source if it exists
+    // Handles two formats:
+    // 1. @https://url:line:column
+    // 2. @text (https://url:line:column)
+    const sourceUrlMatch = item.source.match(/\(?(https?:\/\/[^\s)]+?)(?::\d+:\d+)?\)?$/);
+    const sourceUrl = sourceUrlMatch ? sourceUrlMatch[1] : null;
+
     li.innerHTML = `
       <div class="error-source">
         <code tabindex="0" data-value="${item.source.replace(/"/g, '&quot;')}">${item.source}</code>
-        <div class="code-actions">
-          <button class="filter-btn" data-value="${item.source.replace(/"/g, '&quot;')}" data-type="source" title="Filter by this source" aria-label="Filter by source">
-            <span class="icon icon-search"></span>
+        <div class="action-buttons">
+          <button class="filter-btn" data-value="${item.source.replace(/"/g, '&quot;')}" data-type="source" title="Filter by this source" ${isSourceFiltered ? 'disabled' : ''}>
+            <span class="icon icon-filter"></span>
           </button>
-          <button class="copy-btn" data-value="${item.source.replace(/"/g, '&quot;')}" title="Copy to clipboard" aria-label="Copy source">
+          <button class="copy-btn" data-value="${item.source.replace(/"/g, '&quot;')}" title="Copy to clipboard">
             <span class="icon icon-copy"></span>
           </button>
+          ${sourceUrl ? `<a href="${sourceUrl}" class="view-source-btn" target="_blank" rel="noopener noreferrer" title="Open source URL">
+            <span class="icon icon-code"></span>
+          </a>` : ''}
         </div>
       </div>
       <div class="error-target">
         <code tabindex="0" data-value="${item.target.replace(/"/g, '&quot;')}">${item.target}</code>
-        <div class="code-actions">
-          <button class="filter-btn" data-value="${item.target.replace(/"/g, '&quot;')}" data-type="target" title="Filter by this target" aria-label="Filter by target">
-            <span class="icon icon-search"></span>
+        <div class="action-buttons">
+          <button class="filter-btn" data-value="${item.target.replace(/"/g, '&quot;')}" data-type="target" title="Filter by this target" ${isTargetFiltered ? 'disabled' : ''}>
+            <span class="icon icon-filter"></span>
           </button>
-          <button class="copy-btn" data-value="${item.target.replace(/"/g, '&quot;')}" title="Copy to clipboard" aria-label="Copy target">
+          <button class="copy-btn" data-value="${item.target.replace(/"/g, '&quot;')}" title="Copy to clipboard">
             <span class="icon icon-copy"></span>
           </button>
         </div>
@@ -336,15 +352,6 @@ function renderFilteredData() {
   }
 
   updateChart(data.filtered, state.dateRange);
-
-  // Handle open URL buttons
-  errorList.querySelectorAll('.open-url-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const url = btn.getAttribute('data-url');
-      window.open(url, '_blank', 'noopener,noreferrer');
-    });
-  });
 
   // Handle filter URL buttons
   errorList.querySelectorAll('.filter-url-btn').forEach((btn) => {
