@@ -62,6 +62,7 @@ function updateState() {
     const favicon = document.querySelector('.favicon img');
     favicon.src = `https://www.google.com/s2/favicons?domain=${state.domain}&sz=64`;
     favicon.alt = `favicon for ${state.domain}`;
+    favicon.style.display = null;
 
     document.getElementById('modal-domain').value = state.domain;
   }
