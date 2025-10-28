@@ -24,7 +24,7 @@ header.header-wrapper {
       text-align: center;
       text-transform: uppercase;
       box-shadow: var(--shadow-default);
-      z-index: 1;
+      z-index: 2;
 
       @media (width >= 1200px) {
         top: 30px;
@@ -107,7 +107,7 @@ header.header-wrapper {
         background: var(--color-background);
         padding: var(--spacing-l);
         box-shadow: var(--shadow-default);
-        z-index: 1;
+        z-index: 2;
         border-radius: var(--rounding-l);
         transition-property: all;
         transition-duration: .5s;
