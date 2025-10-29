@@ -3,6 +3,7 @@ import { ensureLogin } from '../../blocks/profile/profile.js';
 
 const adminForm = document.getElementById('admin-form');
 const adminURL = document.getElementById('admin-url');
+const adminURLList = document.getElementById('admin-url-list');
 const bodyForm = document.getElementById('body-form');
 const bodyWrapper = document.querySelector('.body-wrapper');
 const body = document.getElementById('body');
@@ -176,8 +177,66 @@ function logResponse(cols) {
   logTable.prepend(row);
 }
 
+/**
+ * Extracts the organization from an admin URL.
+ * @param {string} url - URL to extract org from
+ * @returns {string|null} The organization name or null if not found
+ */
+function extractOrgFromURL(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter((part) => part);
+    if (pathParts[0] === 'config' && pathParts.length > 1) {
+      // config URL: /config/org.json or /config/org/...
+      let org = pathParts[1];
+      if (org.endsWith('.json')) {
+        org = org.slice(0, -5);
+      }
+      return org;
+    }
+    if (pathParts.length > 1) {
+      // admin API URL: /status/org/site/ref or similar
+      return pathParts[1];
+    }
+  } catch (e) {
+    // invalid URL
+  }
+  return null;
+}
+
+/**
+ * Updates the admin URL datalist with well-known config locations.
+ * @param {string} org - Organization name to use in the suggestions
+ */
+function updateAdminURLSuggestions(org) {
+  if (!org) {
+    adminURLList.innerHTML = '';
+    return;
+  }
+
+  const suggestions = [
+    { url: `https://admin.hlx.page/config/${org}.json`, label: 'Org Config' },
+    { url: `https://admin.hlx.page/config/${org}/profiles.json`, label: 'Profiles' },
+    { url: `https://admin.hlx.page/config/${org}/sites.json`, label: 'Sites' },
+  ];
+
+  adminURLList.innerHTML = suggestions
+    .map(({ url, label }) => `<option value="${url}" label="${label}"></option>`)
+    .join('');
+}
+
 async function init() {
   adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
+
+  // populate datalist with well-known config locations on load
+  const initialOrg = extractOrgFromURL(adminURL.value);
+  updateAdminURLSuggestions(initialOrg);
+
+  // update datalist when admin URL changes
+  adminURL.addEventListener('input', () => {
+    const org = extractOrgFromURL(adminURL.value);
+    updateAdminURLSuggestions(org);
+  });
 
   /**
    * Handles body form submission.
