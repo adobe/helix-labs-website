@@ -1,8 +1,10 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable class-methods-use-this */
 import { buildModal } from '../../scripts/scripts.js';
-import { decorateIcons } from '../../scripts/aem.js';
+import { decorateIcons, loadScript } from '../../scripts/aem.js';
 import { initConfigField } from '../../utils/config/config.js';
+import { getImageFingerprint, stringToFloat64Array } from '../../utils/identity.js';
+
 /* reporting utilities */
 /**
  * Generates sorted array of audit report rows.
@@ -147,6 +149,310 @@ function displayModal(figure) {
   }
   modal.showModal();
 }
+
+function renderImageClusterChart(canvas, chartData) {
+  canvas.classList.remove('loading-spinner');
+
+  // render cluster using chart.js
+
+  /* global Chart */
+  canvas.chart = new Chart(canvas, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        data: chartData.data,
+        radius: chartData.radius,
+        pointStyle: chartData.pointStyle,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          grid: {
+            display: false,
+          },
+          display: false,
+        },
+        y: {
+          grid: {
+            display: false,
+          },
+          display: false,
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'xy',
+            modifierKey: 'alt',
+            threshold: 0.01,
+          },
+          zoom: {
+            wheel: {
+              enabled: true,
+              speed: 0.05,
+            },
+            pinch: {
+              enabled: true,
+            },
+          },
+        },
+        tooltip: {
+          enabled: false,
+          external(context) {
+            // custom tooltip that shows the image in full size
+            const { chart, tooltip } = context;
+            let tooltipEl = chart.canvas.parentNode.querySelector('.image-cluster-tooltip');
+
+            // create tooltip container element initially
+            if (!tooltipEl) {
+              tooltipEl = document.createElement('div');
+              tooltipEl.classList.add('image-cluster-tooltip');
+              chart.canvas.parentNode.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            if (tooltip.opacity === 0) {
+              tooltipEl.style.opacity = 0;
+              return;
+            }
+
+            // Set tooltip content
+            if (tooltip.body) {
+              // replace tooltip content with image
+              tooltipEl.innerHTML = '';
+
+              const dataIndex = tooltip.dataPoints[0]?.dataIndex;
+              if (dataIndex !== undefined) {
+                let img = chartData.clonedImages[dataIndex];
+                if (!img) {
+                  img = chartData.images[dataIndex];
+                  if (img) {
+                    img = img.cloneNode(true);
+                    chartData.clonedImages[dataIndex] = img;
+                  } else {
+                    chartData.clonedImages[dataIndex] = null;
+                  }
+                }
+                if (img) {
+                  tooltipEl.appendChild(img);
+                }
+              }
+            }
+
+            // Display, position, and set styles for font
+            const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.left = `${positionX + tooltip.caretX}px`;
+            tooltipEl.style.top = `${positionY + tooltip.caretY}px`;
+            tooltipEl.style.padding = `${tooltip.options.padding}px ${tooltip.options.padding}px`;
+          },
+        },
+      },
+      onClick: (event, elements) => {
+        if (event.type === 'click' && elements[0]) {
+          const dataIndex = elements[0].index;
+          const currentFigures = document.querySelectorAll('#canvas .gallery figure');
+          if (currentFigures[dataIndex]) {
+            displayModal(currentFigures[dataIndex]);
+          }
+        }
+      },
+      onHover: (event, chartElement) => {
+        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+      },
+    },
+    plugins: [{
+      beforeDatasetsUpdate(chart) {
+        // some transparency so that multiple images on top of each are visible
+        chart.ctx.globalAlpha = 0.8;
+      },
+    }],
+  });
+}
+
+async function renderImageCluster(canvas, gallery) {
+  if (!window.Chart) {
+    await loadScript('https://cdn.jsdelivr.net/npm/chart.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom');
+  }
+  if (!window.druid) {
+    await loadScript('https://cdn.jsdelivr.net/npm/@saehrimnir/druidjs');
+  }
+
+  // collect all fingerprints
+  const fingerprints = [];
+
+  const figures = [...gallery.querySelectorAll('figure')];
+  for (const figure of figures) {
+    if (figure.dataset.fingerprint) {
+      fingerprints.push(stringToFloat64Array(figure.dataset.fingerprint));
+    } else {
+      // using NaN will give only NaN results for many DruidJS algorithms
+      // using 0 is a simple stopgap. ideally we should skip them but then
+      // we'd also need to make sure the data, images and pointStyle arrays
+      // below are in sync
+      fingerprints.push(new Float64Array(256).fill(0));
+    }
+  }
+
+  // reduce dimensionality to 2D
+
+  /* global druid */
+  // prep data
+  const matrix = druid.Matrix.from(fingerprints, 'col');
+
+  // set algorithm
+  const algorithm = document.getElementById('dr-image-cluster').value;
+  const parameters = {};
+  if (algorithm === 'UMAP' && fingerprints.length <= 15) {
+    parameters.n_neighbors = fingerprints.length - 1;
+  }
+  const dimReduction = new druid[algorithm](matrix, parameters);
+
+  // reduce dimensionality (can take some time)
+  const fingerprints2D = dimReduction.transform().to2dArray;
+
+  // prepare data and images for chart
+  const chartData = {
+    // chartjs data
+    data: [],
+    // store original images for tooltips
+    images: [],
+    clonedImages: [],
+    // images to be rendered as points
+    pointStyle: [],
+    radius: 32,
+  };
+
+  for (let i = 0; i < fingerprints2D.length; i += 1) {
+    const fingerprint = fingerprints2D[i];
+    if (fingerprint) {
+      chartData.data.push({ x: fingerprint[0], y: fingerprint[1] });
+
+      const img = figures[i].querySelector('img');
+      if (img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        chartData.images.push(img);
+
+        const ratio = img.width / img.height;
+        if (ratio > 1) {
+        // set custom draw size - see below
+          img.chartDrawWidth = chartData.radius;
+          img.chartDrawHeight = chartData.radius / ratio;
+        } else {
+          img.chartDrawHeight = chartData.radius;
+          img.chartDrawWidth = chartData.radius * ratio;
+        }
+        chartData.pointStyle.push(img);
+      } else {
+        // fingerprint but no image
+        chartData.images.push(null);
+        chartData.pointStyle.push('rect');
+      }
+    } else {
+      // no fingerprint, no image
+      chartData.data.push({});
+      chartData.images.push(null);
+    }
+  }
+
+  // HACK to change chart.js code that is hardcoded to the original image width and height
+  // but we want to reuse the original html image but draw it at a smaller size
+  // https://github.com/chartjs/Chart.js/blob/b5ee134effb0d1b28d48bf8c0146eff13f2fa3e5/src/helpers/helpers.canvas.ts#L186
+  const ctx = canvas.getContext('2d');
+  if (!ctx.originalDrawImage) {
+    ctx.originalDrawImage = ctx.drawImage;
+    ctx.drawImage = (img, x, y, width, height, dx, dy, dWidth, dHeight) => {
+      if (img instanceof HTMLImageElement && img.chartDrawWidth && img.chartDrawHeight) {
+        const w = img.chartDrawWidth;
+        const h = img.chartDrawHeight;
+        ctx.originalDrawImage(img, -w / 2, -h / 2, w, h);
+      } else {
+        ctx.originalDrawImage(img, x, y, width, height, dx, dy, dWidth, dHeight);
+      }
+    };
+  }
+
+  // wait for cloned point images (in pointStyle[]) to be resized
+  setTimeout(() => {
+    renderImageClusterChart(canvas, chartData);
+  }, 0);
+}
+
+async function updateImageCluster(canvas, gallery) {
+  if (canvas.chart) {
+    canvas.chart.destroy();
+  }
+
+  // show loading animation while clusters are being calculated
+  canvas.classList.add('loading-spinner');
+
+  setTimeout(() => {
+    renderImageCluster(canvas, gallery);
+  }, 0);
+}
+
+function showImageClusterModal(gallery) {
+  const id = 'image-cluster';
+
+  // check if a modal with this ID already exists
+  let modal = document.getElementById(id);
+  if (!modal) {
+    // build new modal
+    const [newModal, body] = buildModal();
+    newModal.id = id;
+    newModal.classList.add('fullsize');
+    modal = newModal;
+    // define and populate modal content
+    const h4 = document.createElement('h4');
+    h4.classList.add('title');
+    h4.innerText = 'Image Clusters';
+    // insert h4 before the first child of modal
+    modal.insertBefore(h4, modal.firstChild);
+
+    const drSelectWrapper = document.createElement('div');
+    drSelectWrapper.classList.add('dr-dropdown-wrapper');
+    drSelectWrapper.innerHTML = `
+      <label>Clustering Method:&nbsp;
+        <select id="dr-image-cluster">
+          <option selected>UMAP</option>
+          <option>TSNE</option>
+          <option>PCA</option>
+          <option>FASTMAP</option>
+          <option>ISOMAP</option>
+          <option>LTSA</option>
+          <option>MDS</option>
+          <option>TriMap</option>
+          <option>TopoMap</option>
+        </select>
+      </label>
+    `;
+
+    const canvas = document.createElement('canvas');
+
+    const drDropdown = drSelectWrapper.querySelector('select');
+    drDropdown.addEventListener('change', () => {
+      updateImageCluster(canvas, gallery);
+    });
+
+    body.append(canvas);
+    body.append(drSelectWrapper);
+    document.body.append(modal);
+  }
+
+  modal.showModal();
+
+  // render fresh each time the modal is shown
+  const canvas = modal.querySelector('canvas');
+  updateImageCluster(canvas, gallery);
+}
+
 /* image processing and display */
 /**
  * Validates that every image in an array has alt text.
@@ -199,8 +505,9 @@ function findUniqueImages(data) {
 /**
  * Displays a collection of images in the gallery.
  * @param {Object[]} images - Array of image data objects to be displayed.
+ * @param {boolean} [identity=false] - Enable advanced image identity features.
  */
-function displayImages(images) {
+function displayImages(images, identity = false) {
   const gallery = document.getElementById('image-gallery');
   images.forEach((data) => {
     // create a new figure to hold the image and its metadata
@@ -214,25 +521,40 @@ function displayImages(images) {
     const { href } = new URL(data.src, data.origin);
     const img = document.createElement('img');
     img.dataset.src = href;
+
+    if (identity) {
+      // load immediately so identity can run in the background
+      // need to proxy so we can access image data from HTMLImageElement for fingerprinting
+      img.crossOrigin = 'Anonymous';
+      img.src = `https://little-forest-58aa.david8603.workers.dev/?url=${encodeURIComponent(href)}`;
+      img.onload = async () => {
+        // load from HTMLImageElement so that we get support for SVG
+        const fingerprint = await getImageFingerprint(img, img.dataset.src);
+
+        // adding to dataset turns it into a string, comma-separated floating point decimals
+        figure.dataset.fingerprint = fingerprint;
+      };
+    } else {
+      // load the image when it comes into view
+      img.loading = 'lazy';
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.timeoutId = setTimeout(() => {
+              img.src = img.dataset.src;
+              observer.disconnect();
+            }, 500); // delay image loading
+          } else {
+            // cancel loading delay if image is scrolled out of view
+            clearTimeout(entry.target.timeoutId);
+          }
+        });
+      }, { threshold: 0 });
+      observer.observe(figure);
+    }
     img.width = data.width;
     img.height = data.height;
-    img.loading = 'lazy';
     figure.append(img);
-    // load the image when it comes into view
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.timeoutId = setTimeout(() => {
-            img.src = img.dataset.src;
-            observer.disconnect();
-          }, 500); // delay image loading
-        } else {
-          // cancel loading delay if image is scrolled out of view
-          clearTimeout(entry.target.timeoutId);
-        }
-      });
-    }, { threshold: 0 });
-    observer.observe(figure);
     // build info button
     const info = document.createElement('button');
     info.setAttribute('aria-label', 'More information');
@@ -317,12 +639,14 @@ function updateCounter(counter, increment, float = false) {
   const targetValue = increment ? value + increment : 0;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
 }
-async function fetchAndDisplayImages(url) {
+async function fetchAndDisplayImages(url, identity = false) {
   const data = [];
   const main = document.querySelector('main');
   const results = document.getElementById('audit-results');
-  const download = results.querySelector('button');
+  const download = results.querySelector('#download-report');
   download.disabled = true;
+  const visualizeClusters = results.querySelector('#visualize-image-clusters');
+  visualizeClusters.parentElement.hidden = !identity;
   const gallery = document.getElementById('image-gallery');
 
   // reset counters
@@ -341,7 +665,7 @@ async function fetchAndDisplayImages(url) {
   window.audit.push(...uniqueBatchData);
   const imagesCounter = document.getElementById('images-counter');
   imagesCounter.textContent = parseInt(imagesCounter.textContent, 10) + uniqueBatchData.length;
-  displayImages(uniqueBatchData);
+  displayImages(uniqueBatchData, identity);
   decorateIcons(gallery);
   data.length = 0;
   download.disabled = false;
@@ -554,6 +878,7 @@ function registerListeners(doc) {
   const canvas = doc.getElementById('canvas');
   const gallery = canvas.querySelector('.gallery');
   const downloadReport = doc.getElementById('download-report');
+  const visualizeClusters = doc.getElementById('visualize-image-clusters');
   const actionbar = canvas.querySelector('.action-bar');
   const sortActions = actionbar.querySelectorAll('input[name="sort"]');
   const filterActions = actionbar.querySelectorAll('input[name="filter"]');
@@ -580,10 +905,14 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...sortActions, ...filterActions].forEach((action) => action.checked = false);
     const {
-      url, path,
+      url, path, identity,
     } = getFormData(form);
 
-    window.history.pushState({}, '', `${window.location.pathname}?url=${encodeURIComponent(url)}&path=${encodeURIComponent(path)}`);
+    const urlParams = new URLSearchParams();
+    urlParams.set('url', url);
+    urlParams.set('path', path);
+    if (identity) urlParams.set('identity', '1');
+    window.history.pushState({}, '', `${window.location.pathname}?${urlParams.toString()}`);
 
     try {
       let sitemapUrls;
@@ -596,7 +925,7 @@ function registerListeners(doc) {
       window.audit = [];
       for await (const sitemapUrl of sitemapUrls) {
         if (sitemapUrl.pathname.startsWith(path)) {
-          await fetchAndDisplayImages(sitemapUrl);
+          await fetchAndDisplayImages(sitemapUrl, identity);
         }
       }
       clearInterval(timer);
@@ -619,6 +948,7 @@ function registerListeners(doc) {
 
   form.addEventListener('reset', () => {
     errorWrapper.setAttribute('aria-hidden', 'true');
+    visualizeClusters.parentElement.hidden = true;
   });
   // handle gallery clicks to display modals
   gallery.addEventListener('click', (e) => {
@@ -642,6 +972,10 @@ function registerListeners(doc) {
       link.click();
       link.remove();
     }
+  });
+
+  visualizeClusters.addEventListener('click', () => {
+    showImageClusterModal(gallery);
   });
 
   sortActions.forEach((action) => {
@@ -715,7 +1049,12 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('url')) document.getElementById('url').value = decodeURIComponent(params.get('url'));
   if (params.has('path')) document.getElementById('path').value = decodeURIComponent(params.get('path'));
+  if (params.has('identity')) document.getElementById('identity').checked = ['1', 'true'].includes(params.get('identity'));
   registerListeners(document);
+
+  const visualizeClusters = document.getElementById('visualize-image-clusters');
+  const identity = params.has('identity') && ['1', 'true'].includes(params.get('identity'));
+  visualizeClusters.parentElement.hidden = !identity;
 }
 
 init();

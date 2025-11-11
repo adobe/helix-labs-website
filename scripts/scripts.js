@@ -126,6 +126,7 @@ export function buildModal() {
   close.innerHTML = '<i class="symbol symbol-close"></i>';
   close.addEventListener('click', closeModal);
   const body = document.createElement('div');
+  body.classList.add('modal-body');
   dialog.append(close, body);
   return [dialog, body];
 }
