@@ -72,3 +72,42 @@
   display: grid;
   gap: var(--spacing-m);
 }
+
+.user-admin .roles-checkbox-group {
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--radius-s);
+  padding: var(--spacing-m);
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.user-admin .roles-checkbox-group legend {
+  padding: 0 var(--spacing-xs);
+  font-weight: 600;
+}
+
+.user-admin .roles-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-xs);
+  transition: background-color 0.2s;
+}
+
+.user-admin .roles-checkbox-group label:hover {
+  background-color: var(--gray-100);
+}
+
+.user-admin .roles-checkbox-group input[type="checkbox"] {
+  cursor: pointer;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.user-admin .field-help-text {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-s);
+  color: var(--gray-600);
+}
