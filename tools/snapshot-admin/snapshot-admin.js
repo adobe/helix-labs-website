@@ -2,6 +2,8 @@ import {
   fetchSnapshots,
   saveManifest,
   setOrgSite,
+  deleteSnapshotUrls,
+  deleteSnapshot,
 } from './utils.js';
 
 // DOM Elements
@@ -162,6 +164,41 @@ function parseSnapshotUrl(snapshotUrl) {
 }
 
 /**
+ * Delete a snapshot
+ */
+async function deleteSnapshotAction(snapshotName) {
+  const confirmed = await showModal('Confirm Delete', `Are you sure you want to delete the snapshot "${snapshotName}"? This action cannot be undone.`, true);
+  if (!confirmed) return;
+
+  try {
+    const result = await deleteSnapshotUrls(snapshotName);
+
+    if (result.error) {
+      logResponse([result.status, 'DELETE', `snapshot/${snapshotName}`, result.error]);
+      await showModal('Error', `Error deleting snapshot: ${result.error}`);
+      return;
+    }
+
+    logResponse([200, 'DELETE', `snapshot/${snapshotName}/*`, 'Snapshot URLs deleted successfully']);
+
+    // Now delete the snapshot
+    const deleteResult = await deleteSnapshot(snapshotName);
+    if (deleteResult.error) {
+      logResponse([deleteResult.status, 'DELETE', `snapshot/${snapshotName}`, deleteResult.error]);
+      await showModal('Error', `Error deleting snapshot: ${deleteResult.error}`);
+      return;
+    }
+    logResponse([deleteResult.status, 'DELETE', `snapshot/${snapshotName}`, 'Snapshot deleted successfully']);
+    await showModal('Success', 'Snapshot deleted successfully!');
+    // Redirect back to the main snapshot admin page
+    window.location.href = 'index.html';
+  } catch (error) {
+    logResponse([500, 'DELETE', `snapshot/${snapshotName}`, error.message]);
+    await showModal('Error', `Error deleting snapshot: ${error.message}`);
+  }
+}
+
+/**
  * Display snapshots in the UI
  */
 function displaySnapshots() {
@@ -191,7 +228,15 @@ function displaySnapshots() {
     }
   }
 
+  // Add event listeners to the delete snapshot buttons
   snapshotsList.innerHTML = snapshotsToDisplay.map(createSnapshotCard).join('');
+  const deleteSnapshotButtons = snapshotsList.querySelectorAll('.delete-snapshot');
+  deleteSnapshotButtons.forEach((button) => {
+    button.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await deleteSnapshotAction(button.dataset.snapshot);
+    });
+  });
 }
 
 /**
