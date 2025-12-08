@@ -58,7 +58,8 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
     return null;
   }
 
-  #getAdjustedEDSOptimizedImageUrl(img, origin, width, height, maxLongestEdge) {
+  // eslint-disable-next-line class-methods-use-this
+  #getAdjustedEDSOptimizedImageUrl(src, origin, width, height, maxLongestEdge) {
     let adjustedWidth = width;
     let adjustedHeight = height;
 
@@ -74,7 +75,6 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       adjustedHeight = Math.round(adjustedHeight * scalingFactor);
     }
 
-    const src = img?.getAttribute('crawledsrc')?.split('?')[0];
     const url = this.#getEDSOptimizedImageUrl(src, origin, adjustedWidth);
     if (!CrawlerUtil.isUrlValid(url)) {
       return null;
@@ -165,84 +165,83 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       return [];
     }
 
-    const html = document.createElement('div');
-
     try {
-      // this counts on url.plain, which wont work for non eds sites.
-      // console.log('Crawling page: ', url.plain);
-      const rawHtml = await CrawlerUtil.fetchPageHtml(url.plain);
-      if (!rawHtml) {
+      // Fetch and parse the page using DOMParser (no live DOM insertion)
+      // This counts on url.plain, which only works for EDS sites.
+      const doc = await CrawlerUtil.fetchPageDocument(url.plain);
+      if (!doc) {
         return [];
       }
-      // everything from here to the end needs to be synchronous or the document will load.
-      // TODO: innerhtml here isn't great. Because it's using plain.html it's somewhat manageable.
-      html.innerHTML = rawHtml;
-      if (html) {
-        const seenMap = new Map();
-        const images = html.querySelectorAll('img[crawledsrc]');
-        const imgData = [...images].map((img) => {
-          let width = img.getAttribute('width') || img.naturalWidth;
-          let height = img.getAttribute('height') || img.naturalHeight;
-          const invalidDimensions = width === 0 || height === 0;
-          if (!width) width = MIN_DIMENSION;
-          if (!height) height = MIN_DIMENSION;
 
-          const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
+      // Query images directly from the DOMParser document
+      // Reading getAttribute('src') is safe - it won't trigger resource loads
+      // since the document is not inserted into the live DOM
+      const seenMap = new Map();
+      const images = doc.querySelectorAll('img[src]');
+      const { origin } = new URL(url.href);
 
-          const { origin } = new URL(url.href);
-          const src = img?.getAttribute('crawledsrc')?.split('?')[0];
-          const originalUrl = new URL(src, origin);
+      const imgData = [...images].map((img) => {
+        let width = img.getAttribute('width') || 0;
+        let height = img.getAttribute('height') || 0;
+        const invalidDimensions = width === 0 || height === 0;
+        if (!width) width = MIN_DIMENSION;
+        if (!height) height = MIN_DIMENSION;
 
-          if (!CrawlerUtil.isUrlValid(originalUrl)) {
-            return null;
-          }
+        const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
 
-          const original = { href: originalUrl.href, height, width };
-          const detail = this
-            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_DETAIL_DIMENSION);
-          const medium = this
-            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_MEDIUM_DIMENSION);
-          const card = this
-            .#getAdjustedEDSOptimizedImageUrl(img, origin, width, height, MAX_CARD_DIMENSION);
+        // Read src directly - safe because doc is from DOMParser, not live DOM
+        const src = img.getAttribute('src')?.split('?')[0];
+        if (!src) return null;
 
-          const imageOptions = {};
-          imageOptions.original = original;
-          imageOptions.detail = detail || original;
-          imageOptions.medium = medium || original;
-          imageOptions.card = card || original;
+        const originalUrl = new URL(src, origin);
 
-          let instance = 1;
-          if (seenMap.has(src)) {
-            instance = seenMap.get(src) + 1;
-          }
-          seenMap.set(src, instance);
+        if (!CrawlerUtil.isUrlValid(originalUrl)) {
+          return null;
+        }
 
-          const alt = img.getAttribute('alt') || '';
-          const fileType = ImageAudutUtil.getFileType(src);
+        const original = { href: originalUrl.href, height, width };
+        const detail = this
+          .#getAdjustedEDSOptimizedImageUrl(src, origin, width, height, MAX_DETAIL_DIMENSION);
+        const medium = this
+          .#getAdjustedEDSOptimizedImageUrl(src, origin, width, height, MAX_MEDIUM_DIMENSION);
+        const card = this
+          .#getAdjustedEDSOptimizedImageUrl(src, origin, width, height, MAX_CARD_DIMENSION);
 
-          return new CrawlerImageValues({
-            site: url.href,
-            origin,
-            src,
-            imageOptions,
-            alt,
-            width,
-            height,
-            invalidDimensions,
-            aspectRatio,
-            instance,
-            fileType,
-          });
-        }).filter((item) => item !== null);
-        return imgData;
-      }
-      return [];
+        const imageOptions = {};
+        imageOptions.original = original;
+        imageOptions.detail = detail || original;
+        imageOptions.medium = medium || original;
+        imageOptions.card = card || original;
+
+        let instance = 1;
+        if (seenMap.has(src)) {
+          instance = seenMap.get(src) + 1;
+        }
+        seenMap.set(src, instance);
+
+        const alt = img.getAttribute('alt') || '';
+        const fileType = ImageAudutUtil.getFileType(src);
+
+        return new CrawlerImageValues({
+          site: url.href,
+          origin,
+          src,
+          imageOptions,
+          alt,
+          width,
+          height,
+          invalidDimensions,
+          aspectRatio,
+          instance,
+          fileType,
+        });
+      }).filter((item) => item !== null);
+
+      return imgData;
     } catch (error) {
-    // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console
       console.error(`unable to fetch ${url.href}:`, error);
       return [];
-    } finally {
-      html.innerHTML = '';
     }
   }
 

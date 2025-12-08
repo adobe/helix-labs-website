@@ -60,35 +60,17 @@ class CrawlerUtil {
     return urls.filter((url) => this.isUrlValid(url));
   }
 
-  /**
-     * Removes JavaScript-related attributes from an element.
-     * @param {HTMLElement} element - The element to clean.
-     * @private
-     */
-  static #removeJsAttributes(element) {
-    Array.from(element.attributes).forEach((attr) => {
-      if (attr.name.startsWith('on')) {
-        element.removeAttribute(attr.name);
-      }
-    });
-  }
-
-  /**
-     * Renames the `src` attribute to `crawledsrc` for an element.
-     * @param {HTMLElement} element - The element to modify.
-     * @private
-     */
-  static #renameSrcToCrawledSrc(element) {
-    const src = element.getAttribute('src');
-    if (src) {
-      element.setAttribute('crawledsrc', src);
-      element.removeAttribute('src');
-    }
-  }
-
   static #requestPool = new PromisePool(MAX_SIMULTANEOUS_REQUESTS, 'Crawler request pool');
 
-  static async fetchPageHtml(url) {
+  /**
+   * Fetches page HTML and returns a DOMParser document.
+   * The returned document is safe to query - reading attributes won't trigger resource loads
+   * since it's not inserted into the live DOM.
+   *
+   * @param {string} url - The URL to fetch
+   * @returns {Promise<Document|null>} The parsed document or null if fetch failed
+   */
+  static async fetchPageDocument(url) {
     try {
       const req = await this.#requestPool.run(async () => UrlResourceHandler.fetch(url));
       if (!req.ok) {
@@ -106,44 +88,7 @@ class CrawlerUtil {
 
       const html = await req.text();
       const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-
-      // Create a container to store the filtered elements
-      const container = document.createElement('div');
-
-      // Process <picture> elements
-      const pictureElements = doc.querySelectorAll('picture');
-      pictureElements.forEach((picture) => {
-        const clonedPicture = picture.cloneNode(true);
-
-        // Process children of the <picture> element
-        Array.from(clonedPicture.children).forEach((child) => {
-          if (child.tagName === 'IMG' || child.tagName === 'PICTURE') {
-            this.#removeJsAttributes(child); // Remove JavaScript attributes
-
-            if (child.tagName === 'IMG') {
-              this.#renameSrcToCrawledSrc(child); // Rename `src` to `crawledsrc`
-            }
-          } else {
-            clonedPicture.removeChild(child); // Remove unwanted elements
-          }
-        });
-
-        this.#removeJsAttributes(clonedPicture); // Remove JS attributes from <picture> itself
-        container.appendChild(clonedPicture);
-      });
-
-      // Process standalone <img> elements
-      const imgElements = doc.querySelectorAll('img:not(picture img)');
-      imgElements.forEach((img) => {
-        const clonedImg = img.cloneNode(true);
-        this.#renameSrcToCrawledSrc(clonedImg); // Rename `src` to `crawledsrc`
-        this.#removeJsAttributes(clonedImg); // Remove JavaScript attributes
-        container.appendChild(clonedImg);
-      });
-
-      // Return the container's inner HTML as a string
-      return container.innerHTML;
+      return parser.parseFromString(html, 'text/html');
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(`Error fetching page at ${url}:`, error);
