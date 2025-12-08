@@ -1363,10 +1363,6 @@ function registerListeners(doc) {
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
     const data = getFormData(e.srcElement);
 
-    // Enable/disable CORS proxy based on checkbox
-    const useProxy = data['use-proxy'] && data['use-proxy'].includes('true');
-    UrlResourceHandler.setProxyEnabled(useProxy);
-
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
 

@@ -3,6 +3,9 @@ import PromisePool from './promisepool.js';
 const LOAD_URLS_CONCURRENCY = 50;
 const CORS_PROXY_URL = 'https://little-forest-58aa.david8603.workers.dev/?url=';
 
+// Set to false for debugging direct requests (requires CORS browser extension)
+const USE_CORS_PROXY = true;
+
 /**
  * Class which maintains that we dont load too many image
  * URLs and also that we dont fetch too many URLs similtaneously.
@@ -13,7 +16,7 @@ const CORS_PROXY_URL = 'https://little-forest-58aa.david8603.workers.dev/?url=';
 class UrlResourceHandler {
   static #promisePool;
 
-  static #useProxy = false;
+  static #useProxy = USE_CORS_PROXY;
 
   static initialize() {
     this.#promisePool = new PromisePool(LOAD_URLS_CONCURRENCY, 'URL Loading Pool');

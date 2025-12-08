@@ -182,12 +182,13 @@ Reports are generated via `AbstractReport.generateReport(clusterManager)` and ex
 | **Site URL** | Target site URL (supports sitemap.xml, EDS/AEM hlx/aem URLs, GitHub) |
 | **Sitemap Replacement** | Use alternate sitemap (file or URL) |
 | **RUM Domain Key** | Enable RUM data collection for performance metrics |
-| **Use CORS Proxy** | Enable to bypass CORS restrictions without a browser extension |
 | **Identity Methods** | Select which identification methods to use |
 
 ### CORS Proxy
 
-When enabled, all HTTP requests (sitemaps, pages, and images) are routed through a Cloudflare Worker proxy (`little-forest-58aa.david8603.workers.dev`). This eliminates the need for a CORS-disabling browser extension when auditing third-party sites.
+All HTTP requests (sitemaps, pages, and images) are routed through a Cloudflare Worker proxy (`little-forest-58aa.david8603.workers.dev`). This eliminates the need for a CORS-disabling browser extension when auditing third-party sites.
+
+To disable the proxy for debugging, set `USE_CORS_PROXY = false` in `util/urlresourcehandler.js`.
 
 ---
 
