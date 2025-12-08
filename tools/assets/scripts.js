@@ -19,6 +19,7 @@ import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
 import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './reports/util/namingutil.js';
+import PerformanceUtil from './reports/util/performanceutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
@@ -387,12 +388,13 @@ function displayModal(figure) {
       const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
       const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
 
-      rows.performanceScore = 'Performance Score';
+      rows.performanceScore = 'Asset Performance';
       rows.pageViews = 'Page Views';
       rows.conversions = 'Conversions';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
       rows.lighthouse = 'Asset Success Score';
+      data.performanceScore = PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, bounces, true);
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
