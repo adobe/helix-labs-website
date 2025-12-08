@@ -1,3 +1,5 @@
+import { ensureLogin } from '../../blocks/profile/profile.js';
+
 const adminForm = document.getElementById('admin-form');
 const site = document.getElementById('site');
 const org = document.getElementById('org');
@@ -262,6 +264,18 @@ function isValidNewUser(email, roles) {
  */
 adminForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!await ensureLogin(org.value, site.value)) {
+    // not logged in yet, listen for profile-update event
+    window.addEventListener('profile-update', ({ detail: loginInfo }) => {
+      // check if user is logged in now
+      if (loginInfo.includes(org.value)) {
+        // logged in, restart action (e.g. resubmit form)
+        e.target.querySelector('button[type="submit"]').click();
+      }
+    }, { once: true });
+    // abort action
+    return;
+  }
   users.textContent = '';
   window.history.pushState(null, '', `?org=${org.value}&site=${site.value}`);
   if (site.value) {

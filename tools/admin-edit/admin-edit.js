@@ -1,8 +1,9 @@
 import { loadScript } from '../../scripts/aem.js';
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { ensureLogin } from '../../blocks/profile/profile.js';
 
 const adminForm = document.getElementById('admin-form');
 const adminURL = document.getElementById('admin-url');
+const adminURLList = document.getElementById('admin-url-list');
 const bodyForm = document.getElementById('body-form');
 const bodyWrapper = document.querySelector('.body-wrapper');
 const body = document.getElementById('body');
@@ -12,8 +13,6 @@ const reqMethod = document.getElementById('method');
 const methodDropdown = document.querySelector('.picker-field ul');
 const methodOptions = methodDropdown.querySelectorAll('li');
 const logTable = document.querySelector('table tbody');
-const site = document.getElementById('site');
-const org = document.getElementById('org');
 
 // load Prism.js libraries (and remove event listeners to prevent reloading)
 async function loadPrism() {
@@ -62,9 +61,11 @@ async function loadPrism() {
  */
 function validateJSON(code) {
   try {
-    // json IS valid
-    // eslint-disable-next-line no-unused-vars
-    const json = JSON.parse(code);
+    const isYamlEndpoint = adminURL && adminURL.value && adminURL.value.endsWith('.yaml');
+    if (!isYamlEndpoint) {
+      // eslint-disable-next-line no-unused-vars
+      const json = JSON.parse(code);
+    }
     previewWrapper.removeAttribute('data-line');
     previewWrapper.removeAttribute('data-error');
     document.getElementById('save').disabled = false;
@@ -176,59 +177,66 @@ function logResponse(cols) {
   logTable.prepend(row);
 }
 
-function updateAdminUrl() {
-  const url = new URL(adminURL.value);
-  const orgVal = org.value;
-  const siteVal = site.value;
-
-  url.pathname = url.pathname.split('/').reduce((acc, part, i) => {
-    const resolvedPart = (() => {
-      if (orgVal && i === 2) {
-        return part.endsWith('.json') ? `${orgVal}.json` : orgVal;
+/**
+ * Extracts the organization from an admin URL.
+ * @param {string} url - URL to extract org from
+ * @returns {string|null} The organization name or null if not found
+ */
+function extractOrgFromURL(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter((part) => part);
+    if (pathParts[0] === 'config' && pathParts.length > 1) {
+      // config URL: /config/org.json or /config/org/...
+      let org = pathParts[1];
+      if (org.endsWith('.json')) {
+        org = org.slice(0, -5);
       }
-
-      if (acc.startsWith('/config/') && acc.endsWith('/sites') && siteVal && i === 4) {
-        return part.endsWith('.json') ? `${siteVal}.json` : siteVal;
-      }
-
-      if (!acc.startsWith('/config/') && siteVal && i === 3) {
-        return siteVal;
-      }
-
-      return part;
-    })();
-    return `${acc}/${resolvedPart}`;
-  });
-  adminURL.value = url.toString();
+      return org;
+    }
+    if (pathParts.length > 1) {
+      // admin API URL: /status/org/site/ref or similar
+      return pathParts[1];
+    }
+  } catch (e) {
+    // invalid URL
+  }
+  return null;
 }
 
-function updateConfigFields() {
-  const url = new URL(adminURL.value);
+/**
+ * Updates the admin URL datalist with well-known config locations.
+ * @param {string} org - Organization name to use in the suggestions
+ */
+function updateAdminURLSuggestions(org) {
+  if (!org) {
+    adminURLList.innerHTML = '';
+    return;
+  }
 
-  const pathParts = url.pathname.split('/');
-  pathParts.forEach((part, i) => {
-    if (i === 2) {
-      org.value = part.endsWith('.json') ? part.slice(0, -5) : part;
-    }
+  const suggestions = [
+    { url: `https://admin.hlx.page/config/${org}.json`, label: 'Org Config' },
+    { url: `https://admin.hlx.page/config/${org}/profiles.json`, label: 'Profiles' },
+    { url: `https://admin.hlx.page/config/${org}/sites.json`, label: 'Sites' },
+  ];
 
-    if (i === 4 && pathParts[1] === 'config' && pathParts[3] === 'sites') {
-      site.value = part.endsWith('.json') ? part.slice(0, -5) : part;
-    }
-
-    if (i === 3 && pathParts[1] !== 'config') {
-      site.value = part;
-    }
-  });
-
-  updateConfig();
+  adminURLList.innerHTML = suggestions
+    .map(({ url, label }) => `<option value="${url}" label="${label}"></option>`)
+    .join('');
 }
 
 async function init() {
   adminURL.value = localStorage.getItem('admin-url') || 'https://admin.hlx.page/status/adobe/aem-boilerplate/main/';
-  await initConfigField();
-  site.addEventListener('input', updateAdminUrl, { once: true });
-  site.addEventListener('change', updateAdminUrl);
-  org.addEventListener('change', updateAdminUrl);
+
+  // populate datalist with well-known config locations on load
+  const initialOrg = extractOrgFromURL(adminURL.value);
+  updateAdminURLSuggestions(initialOrg);
+
+  // update datalist when admin URL changes
+  adminURL.addEventListener('input', () => {
+    const org = extractOrgFromURL(adminURL.value);
+    updateAdminURLSuggestions(org);
+  });
 
   /**
    * Handles body form submission.
@@ -237,7 +245,6 @@ async function init() {
   bodyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     localStorage.setItem('admin-url', adminURL.value);
-    updateConfigFields();
 
     const headers = {};
     if (body.value) {
@@ -311,8 +318,40 @@ async function init() {
    */
   adminForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const extractOrgAndSite = (url) => {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      if (pathParts[1] === 'config') {
+        let org = pathParts[2];
+        if (org.endsWith('.json')) {
+          org = org.slice(0, -5);
+        }
+        let site = pathParts[4] ? pathParts[4] : null;
+        if (site && site.endsWith('.json')) {
+          site = site.slice(0, -5);
+        }
+        return { org, site };
+      }
+      const org = pathParts[2];
+      const site = pathParts[3];
+      return { org, site };
+    };
+
+    const { org, site } = extractOrgAndSite(adminURL.value);
+    if (!await ensureLogin(org, site)) {
+      // not logged in yet, listen for profile-update event
+      window.addEventListener('profile-update', ({ detail: loginInfo }) => {
+        // check if user is logged in now
+        if (loginInfo.includes(org)) {
+          // logged in, restart action (e.g. resubmit form)
+          e.target.querySelector('button[type="submit"]').click();
+        }
+      }, { once: true });
+      // abort action
+      return;
+    }
+
     localStorage.setItem('admin-url', adminURL.value);
-    updateConfigFields();
 
     const resp = await fetch(adminURL.value);
     const text = await resp.text();

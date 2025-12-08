@@ -223,6 +223,10 @@ async function queryPage(url, query, queryType) {
     const elements = doc.querySelectorAll(query);
     return elements.length;
   }
+  if (queryType === 'media') {
+    const media = doc.querySelectorAll(`img[src*="${query}"]`);
+    return media.length;
+  }
 
   const body = doc.querySelector('body');
   const text = body.textContent;

@@ -480,12 +480,6 @@ a:focus {
   outline-offset: var(--border-m);
 }
 
-a:any-link:not(a.button) {
-  color: var(--color-link);
-  text-decoration: underline;
-  transition: color 0.2s;
-}
-
 /* buttons */
 .button-wrapper {
   display: flex;
