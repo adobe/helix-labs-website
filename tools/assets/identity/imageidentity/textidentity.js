@@ -4,6 +4,7 @@ import IdentityRegistry from '../identityregistry.js';
 import SizeIdentity from './sizeidentity.js';
 import TextUtility from '../util/textutility.js';
 import TextRecognizerPool from '../util/textrecognizerpool.js';
+import UrlResourceHandler from '../../util/urlresourcehandler.js';
 
 const wordConfidenceThreshold = 85;
 const exactTextMatchThresholdPercent = 0.2;
@@ -95,7 +96,8 @@ class TextIdentity extends AbstractIdentity {
           newImgElement.onerror = (error) => reject(new Error(`Detailed image failed to load: ${error.message}`));
         });
 
-        newImgElement.src = href;
+        // Use proxy URL if proxy mode is enabled
+        newImgElement.src = UrlResourceHandler.getImageUrl(href);
 
         await loaded;
 

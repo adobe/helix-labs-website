@@ -734,7 +734,8 @@ async function loadImage(
       });
 
       // dont start loading the image until here.
-      loadedImg.src = href;
+      // Use proxy URL if proxy mode is enabled
+      loadedImg.src = UrlResourceHandler.getImageUrl(href);
       return imageLoaded;
     });
 
@@ -1359,6 +1360,10 @@ function registerListeners(doc) {
     // eslint-disable-next-line no-return-assign
     [...SORT_ACTIONS, ...FILTER_ACTIONS].forEach((action) => action.checked = false);
     const data = getFormData(e.srcElement);
+
+    // Enable/disable CORS proxy based on checkbox
+    const useProxy = data['use-proxy'] && data['use-proxy'].includes('true');
+    UrlResourceHandler.setProxyEnabled(useProxy);
 
     const sitemapForm = doc.getElementById('identity-selectors');
     const identificationActions = sitemapForm.querySelectorAll('input[type="checkbox"]');
