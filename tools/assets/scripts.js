@@ -2046,12 +2046,12 @@ class AEMApi {
   }
 
   /**
-   * Create a folder if it doesn't exist.
-   * @param {string} folderPath - Full path to the folder
+   * Create a folder if it doesn't exist, recursively creating parent folders as needed.
+   * @param {string} folderPath - Full path to the folder (e.g., /content/dam/project/subfolder)
    * @returns {Promise<boolean>} True if folder was created or already exists
    */
   async ensureFolder(folderPath) {
-    // Check if folder exists
+    // Check if folder already exists
     try {
       const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}.json`, {
         method: 'HEAD',
@@ -2059,29 +2059,59 @@ class AEMApi {
       });
       if (response.ok) return true;
     } catch {
-      // Folder doesn't exist, create it
+      // Folder doesn't exist, need to create it
     }
 
-    // Create folder
-    const parentPath = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/content/dam';
-    const folderName = folderPath.substring(folderPath.lastIndexOf('/') + 1);
+    // Split path into segments and build up the hierarchy
+    // e.g., /content/dam/project/en/volvo -> ['content', 'dam', 'project', 'en', 'volvo']
+    const segments = folderPath.split('/').filter((s) => s);
 
-    try {
-      const response = await fetch(`${this.#baseUrl}/api/assets${parentPath}/*`, {
-        method: 'POST',
-        headers: this.#getHeaders(),
-        body: JSON.stringify({
-          class: 'folder',
-          properties: {
-            name: folderName,
-            'dc:title': folderName,
-          },
-        }),
-      });
-      return response.ok;
-    } catch {
-      return false;
+    // Start from /content/dam (assumed to exist) and create each subsequent folder
+    let currentPath = '/content/dam';
+    const startIndex = segments.indexOf('dam') + 1;
+
+    for (let i = startIndex; i < segments.length; i += 1) {
+      const folderName = segments[i];
+      const targetPath = `${currentPath}/${folderName}`;
+
+      // Check if this folder exists
+      let exists = false;
+      try {
+        const response = await fetch(`${this.#baseUrl}/api/assets${targetPath}.json`, {
+          method: 'HEAD',
+          headers: this.#getHeaders(),
+        });
+        exists = response.ok;
+      } catch {
+        exists = false;
+      }
+
+      // Create if it doesn't exist
+      if (!exists) {
+        try {
+          const response = await fetch(`${this.#baseUrl}/api/assets${currentPath}/*`, {
+            method: 'POST',
+            headers: this.#getHeaders(),
+            body: JSON.stringify({
+              class: 'folder',
+              properties: {
+                name: folderName,
+                'dc:title': folderName,
+              },
+            }),
+          });
+          if (!response.ok) {
+            return false;
+          }
+        } catch {
+          return false;
+        }
+      }
+
+      currentPath = targetPath;
     }
+
+    return true;
   }
 }
 
