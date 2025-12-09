@@ -2258,6 +2258,16 @@ function getFilenameFromUrl(url) {
   }
 }
 
+/**
+ * Sanitizes a folder path for AEM DAM by replacing dots with dashes.
+ * @param {string} path - The folder path
+ * @returns {string} Sanitized path
+ */
+function sanitizeFolderPath(path) {
+  // Split path into segments, sanitize each segment (replace dots with dashes), rejoin
+  return path.split('/').map((segment) => segment.replace(/\./g, '-')).join('/');
+}
+
 // Concurrency limit for parallel API requests
 const AEM_API_CONCURRENCY = 5;
 
@@ -2335,10 +2345,12 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
       const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
 
       const shortestPath = getShortestPagePath(sites);
-      const folderPath = shortestPath
+      const rawFolderPath = shortestPath
         ? `${config.rootPath}/${shortestPath}`
         : config.rootPath;
 
+      // Sanitize folder path (replace dots with dashes)
+      const folderPath = sanitizeFolderPath(rawFolderPath);
       const assetPath = `${folderPath}/${filename}`;
 
       assetInfos.push({
