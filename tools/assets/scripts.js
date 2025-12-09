@@ -2001,7 +2001,7 @@ class AEMApi {
    * @param {string} folderPath - Folder path (e.g., /content/dam/project)
    * @param {string} sourceUrl - URL to import the asset from
    * @param {string} fileName - Name for the asset
-   * @returns {Promise<Object|null>} API response or null if no content
+   * @returns {Promise<Object>} Object with { status, jobUrl, body, headers }
    */
   async createAssetFromUrl(folderPath, sourceUrl, fileName) {
     const url = `${this.#baseUrl}/api/assets${folderPath}/*`;
@@ -2026,29 +2026,86 @@ class AEMApi {
       throw new Error(`Network error creating asset at ${folderPath}/${fileName}: ${err.message}`);
     }
 
-    if (!response.ok) {
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-      } catch {
-        errorBody = '(could not read response body)';
-      }
-      throw new Error(`POST ${url} returned ${response.status}: ${errorBody}`);
-    }
+    // Capture all response info for debugging and job tracking
+    const responseHeaders = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
 
-    // Handle empty responses (201 Created might have no body)
-    const contentLength = response.headers.get('content-length');
-    if (response.status === 204 || contentLength === '0') {
-      return null;
-    }
-
-    // Try to parse JSON, but don't fail if empty
+    let responseBody = null;
     try {
       const text = await response.text();
-      return text ? JSON.parse(text) : null;
+      responseBody = text ? JSON.parse(text) : null;
     } catch {
-      return null;
+      // Body might not be JSON
+      responseBody = null;
     }
+
+    if (!response.ok && response.status !== 202) {
+      throw new Error(`POST ${url} returned ${response.status}: ${JSON.stringify(responseBody) || '(no body)'}`);
+    }
+
+    // Return full response info including job URL if present
+    return {
+      status: response.status,
+      jobUrl: responseHeaders.location || responseHeaders['content-location'] || null,
+      headers: responseHeaders,
+      body: responseBody,
+    };
+  }
+
+  /**
+   * Poll a job URL until it completes.
+   * @param {string} jobUrl - The job status URL to poll
+   * @param {number} maxWaitMs - Maximum time to wait (default 60 seconds)
+   * @param {number} intervalMs - Polling interval (default 2 seconds)
+   * @returns {Promise<Object>} Final job status
+   */
+  async pollJobStatus(jobUrl, maxWaitMs = 60000, intervalMs = 2000) {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const response = await fetch(jobUrl, {
+          method: 'GET',
+          headers: this.#getHeaders(),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Job status check failed: ${response.status}`);
+        }
+
+        let body = null;
+        try {
+          body = await response.json();
+        } catch {
+          body = null;
+        }
+
+        // Check for completion - adjust based on actual API response format
+        const status = body?.status || body?.state || 'unknown';
+        if (status === 'complete' || status === 'completed' || status === 'success' || status === 'SUCCESS') {
+          return { complete: true, status, body };
+        }
+        if (status === 'failed' || status === 'error' || status === 'FAILED' || status === 'ERROR') {
+          return { complete: true, status, body, error: true };
+        }
+
+        // If response is 200 and no status field, might be complete
+        if (response.status === 200 && !body?.status && !body?.state) {
+          return { complete: true, status: 'assumed-complete', body };
+        }
+      } catch (err) {
+        // Log but continue polling
+        // eslint-disable-next-line no-console
+        console.warn('Poll error:', err.message);
+      }
+
+      // Wait before next poll
+      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+    }
+
+    return { complete: false, status: 'timeout', error: true };
   }
 
   /**
@@ -2346,12 +2403,26 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
       progress.log('═══ Phase 4: Uploading assets ═══', 'info');
 
       const assetsToUpload = assetInfos.filter((i) => !i.exists);
+      const jobsToTrack = [];
 
       const uploadTasks = assetsToUpload.map((info) => async () => {
         try {
           progress.log(`Uploading: ${info.filename}`, 'info');
-          await aemApi.createAssetFromUrl(info.folderPath, info.sourceUrl, info.filename);
+          const result = await aemApi.createAssetFromUrl(info.folderPath, info.sourceUrl, info.filename);
           info.uploaded = true;
+          info.uploadResult = result;
+
+          // Log response details for debugging
+          progress.log(`  Response: ${result.status}, jobUrl: ${result.jobUrl || 'none'}`, 'info');
+          if (result.body) {
+            progress.log(`  Body: ${JSON.stringify(result.body).substring(0, 200)}`, 'info');
+          }
+
+          // Track job if we got a job URL
+          if (result.jobUrl) {
+            jobsToTrack.push({ info, jobUrl: result.jobUrl });
+          }
+
           progress.log(`  ✓ Upload initiated for ${info.filename}`, 'success');
         } catch (err) {
           info.error = err.message;
@@ -2366,12 +2437,32 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
       const uploadedCount = assetsToUpload.filter((i) => i.uploaded).length;
       progress.log(`Uploaded ${uploadedCount} of ${assetsToUpload.length} assets`);
 
-      // Wait for AEM to process the uploads
-      if (uploadedCount > 0) {
+      // Poll for job completion if we have job URLs
+      if (jobsToTrack.length > 0) {
         progress.log('');
-        progress.log('Waiting for AEM to process uploads (10 seconds)...', 'info');
-        await new Promise((resolve) => { setTimeout(resolve, 10000); });
-        progress.log('Proceeding with metadata updates', 'info');
+        progress.log(`Waiting for ${jobsToTrack.length} upload jobs to complete...`, 'info');
+
+        const pollTasks = jobsToTrack.map((job) => async () => {
+          progress.log(`  Polling job for ${job.info.filename}...`, 'info');
+          const result = await aemApi.pollJobStatus(job.jobUrl);
+          if (result.error) {
+            progress.log(`  ✗ Job failed for ${job.info.filename}: ${result.status}`, 'error');
+            job.info.error = `Job failed: ${result.status}`;
+          } else if (result.complete) {
+            progress.log(`  ✓ Job complete for ${job.info.filename}`, 'success');
+          } else {
+            progress.log(`  ⚠ Job timeout for ${job.info.filename}`, 'warning');
+          }
+          return result;
+        });
+
+        await runWithConcurrency(pollTasks, AEM_API_CONCURRENCY);
+        progress.log('All upload jobs processed', 'info');
+      } else if (uploadedCount > 0) {
+        // No job URLs returned - wait a bit for processing
+        progress.log('');
+        progress.log('No job URLs returned, waiting 5 seconds for processing...', 'info');
+        await new Promise((resolve) => { setTimeout(resolve, 5000); });
       }
     } else {
       // Skip increment for upload phase
