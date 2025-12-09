@@ -1975,17 +1975,24 @@ class AEMApi {
   /**
    * Check if an asset exists at the given path.
    * @param {string} assetPath - Full path to the asset (e.g., /content/dam/project/image.jpg)
-   * @returns {Promise<boolean>} True if asset exists
+   * @returns {Promise<{exists: boolean, error?: string}>} Result with exists flag and optional error
    */
   async assetExists(assetPath) {
     try {
-      const response = await fetch(`${this.#baseUrl}/api/assets${assetPath}.json`, {
+      const url = `${this.#baseUrl}/api/assets${assetPath}.json`;
+      const response = await fetch(url, {
         method: 'HEAD',
         headers: this.#getHeaders(),
       });
-      return response.ok;
-    } catch {
-      return false;
+      if (response.status === 404) {
+        return { exists: false };
+      }
+      if (!response.ok) {
+        return { exists: false, error: `HEAD ${assetPath} returned ${response.status}` };
+      }
+      return { exists: true };
+    } catch (err) {
+      return { exists: false, error: `HEAD ${assetPath} failed: ${err.message}` };
     }
   }
 
@@ -1997,25 +2004,36 @@ class AEMApi {
    * @returns {Promise<Object>} API response
    */
   async createAssetFromUrl(folderPath, sourceUrl, fileName) {
-    const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}/*`, {
-      method: 'POST',
-      headers: this.#getHeaders(),
-      body: JSON.stringify({
-        class: 'asset',
-        properties: {
-          name: fileName,
-          'dc:title': fileName,
-        },
-        links: [{
-          rel: ['content'],
-          href: sourceUrl,
-        }],
-      }),
-    });
+    const url = `${this.#baseUrl}/api/assets${folderPath}/*`;
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: this.#getHeaders(),
+        body: JSON.stringify({
+          class: 'asset',
+          properties: {
+            name: fileName,
+            'dc:title': fileName,
+          },
+          links: [{
+            rel: ['content'],
+            href: sourceUrl,
+          }],
+        }),
+      });
+    } catch (err) {
+      throw new Error(`Network error creating asset at ${folderPath}/${fileName}: ${err.message}`);
+    }
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to create asset: ${response.status} - ${error}`);
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        errorBody = '(could not read response body)';
+      }
+      throw new Error(`POST ${url} returned ${response.status}: ${errorBody}`);
     }
 
     return response.json();
@@ -2028,18 +2046,29 @@ class AEMApi {
    * @returns {Promise<Object>} API response
    */
   async updateMetadata(assetPath, metadata) {
-    const response = await fetch(`${this.#baseUrl}/api/assets${assetPath}`, {
-      method: 'PUT',
-      headers: this.#getHeaders(),
-      body: JSON.stringify({
-        class: 'asset',
-        properties: metadata,
-      }),
-    });
+    const url = `${this.#baseUrl}/api/assets${assetPath}`;
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'PUT',
+        headers: this.#getHeaders(),
+        body: JSON.stringify({
+          class: 'asset',
+          properties: metadata,
+        }),
+      });
+    } catch (err) {
+      throw new Error(`Network error updating metadata on ${assetPath}: ${err.message}`);
+    }
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to update metadata: ${response.status} - ${error}`);
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        errorBody = '(could not read response body)';
+      }
+      throw new Error(`PUT ${url} returned ${response.status}: ${errorBody}`);
     }
 
     return response.json();
@@ -2048,16 +2077,17 @@ class AEMApi {
   /**
    * Create a folder if it doesn't exist, recursively creating parent folders as needed.
    * @param {string} folderPath - Full path to the folder (e.g., /content/dam/project/subfolder)
-   * @returns {Promise<boolean>} True if folder was created or already exists
+   * @param {Function} logFn - Optional logging function for progress/errors
+   * @returns {Promise<{success: boolean, error?: string}>} Result with success flag and optional error
    */
-  async ensureFolder(folderPath) {
+  async ensureFolder(folderPath, logFn = () => {}) {
     // Check if folder already exists
     try {
       const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}.json`, {
         method: 'HEAD',
         headers: this.#getHeaders(),
       });
-      if (response.ok) return true;
+      if (response.ok) return { success: true };
     } catch {
       // Folder doesn't exist, need to create it
     }
@@ -2088,8 +2118,10 @@ class AEMApi {
 
       // Create if it doesn't exist
       if (!exists) {
+        const createUrl = `${this.#baseUrl}/api/assets${currentPath}/*`;
+        logFn(`Creating folder: ${targetPath}`);
         try {
-          const response = await fetch(`${this.#baseUrl}/api/assets${currentPath}/*`, {
+          const response = await fetch(createUrl, {
             method: 'POST',
             headers: this.#getHeaders(),
             body: JSON.stringify({
@@ -2101,17 +2133,29 @@ class AEMApi {
             }),
           });
           if (!response.ok) {
-            return false;
+            let errorBody = '';
+            try {
+              errorBody = await response.text();
+            } catch {
+              errorBody = '(could not read response body)';
+            }
+            return {
+              success: false,
+              error: `POST ${createUrl} returned ${response.status}: ${errorBody}`,
+            };
           }
-        } catch {
-          return false;
+        } catch (err) {
+          return {
+            success: false,
+            error: `Network error creating folder ${targetPath}: ${err.message}`,
+          };
         }
       }
 
       currentPath = targetPath;
     }
 
-    return true;
+    return { success: true };
   }
 }
 
@@ -2169,7 +2213,7 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
         // Get the image source URL
         const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
         if (!identity) {
-          progress.log(`Skipping cluster - no identity found`, 'warning');
+          progress.log(`Skipping cluster - no URL/page identity found`, 'warning');
           progress.increment();
           skipCount += 1;
           continue;
@@ -2179,6 +2223,8 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
         const filename = getFilenameFromUrl(sourceUrl);
         const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
 
+        progress.log(`Processing: ${filename}`, 'info');
+
         // Calculate the folder path based on shortest page path
         const shortestPath = getShortestPagePath(sites);
         const folderPath = shortestPath
@@ -2186,48 +2232,65 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
           : config.rootPath;
 
         const assetPath = `${folderPath}/${filename}`;
+        progress.log(`  Target path: ${assetPath}`, 'info');
 
         // Ensure folder exists
         if (!createdFolders.has(folderPath)) {
-          progress.log(`Ensuring folder exists: ${folderPath}`);
-          await aemApi.ensureFolder(folderPath);
+          progress.log(`  Ensuring folder exists: ${folderPath}`, 'info');
+          const folderResult = await aemApi.ensureFolder(folderPath, (msg) => progress.log(`    ${msg}`, 'info'));
+          if (!folderResult.success) {
+            progress.log(`  Failed to create folder: ${folderResult.error}`, 'error');
+            errorCount += 1;
+            progress.increment();
+            continue;
+          }
           createdFolders.add(folderPath);
         }
 
         // Check if asset already exists
-        const exists = await aemApi.assetExists(assetPath);
+        const existsResult = await aemApi.assetExists(assetPath);
+        if (existsResult.error) {
+          progress.log(`  Warning checking existence: ${existsResult.error}`, 'warning');
+        }
 
-        if (exists) {
+        if (existsResult.exists) {
           // Asset exists - only update metadata if requested
           if (exportMetadata) {
-            progress.log(`Updating metadata on ${filename}...`);
+            progress.log(`  Asset exists, updating metadata...`, 'info');
             const metadata = buildAEMMetadata(cluster);
+            progress.log(`  Metadata: impressions=${metadata['xdm:impressions']}, conversions=${metadata['xdm:conversions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']}`, 'info');
             await aemApi.updateMetadata(assetPath, metadata);
-            progress.log(`Updated metadata on ${filename}`, 'success');
+            progress.log(`  ✓ Updated metadata on ${filename}`, 'success');
+            successCount += 1;
           } else {
-            progress.log(`Skipping ${filename} - already exists`, 'info');
+            progress.log(`  Skipping ${filename} - already exists`, 'info');
+            skipCount += 1;
           }
         } else if (exportAssets) {
           // Asset doesn't exist - create it
-          progress.log(`Uploading ${filename} from ${sourceUrl}...`);
+          progress.log(`  Uploading from: ${sourceUrl}`, 'info');
           await aemApi.createAssetFromUrl(folderPath, sourceUrl, filename);
+          progress.log(`  ✓ Asset created`, 'success');
 
           // Update metadata if requested
           if (exportMetadata) {
-            progress.log(`Setting metadata on ${filename}...`);
+            progress.log(`  Setting metadata...`, 'info');
             const metadata = buildAEMMetadata(cluster);
+            progress.log(`  Metadata: impressions=${metadata['xdm:impressions']}, conversions=${metadata['xdm:conversions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']}`, 'info');
             await aemApi.updateMetadata(assetPath, metadata);
+            progress.log(`  ✓ Metadata set`, 'success');
           }
 
-          progress.log(`Created ${filename}`, 'success');
+          progress.log(`✓ Created ${filename}`, 'success');
+          successCount += 1;
         } else {
-          progress.log(`Skipping ${filename} - doesn't exist and asset export disabled`, 'info');
+          progress.log(`  Skipping ${filename} - doesn't exist and asset export disabled`, 'info');
           skipCount += 1;
         }
-
-        successCount += 1;
       } catch (error) {
-        progress.log(`Error: ${error.message}`, 'error');
+        progress.log(`✗ Error: ${error.message}`, 'error');
+        // eslint-disable-next-line no-console
+        console.error('Export error details:', error);
         errorCount += 1;
       }
 
