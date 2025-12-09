@@ -1594,6 +1594,7 @@ async function saveAEMConfig(config) {
     const configToSave = {
       repositoryId: config.repositoryId,
       rootPath: config.rootPath,
+      apiKey: config.apiKey,
       accessToken: config.accessToken,
     };
 
@@ -1614,7 +1615,7 @@ async function saveAEMConfig(config) {
  * @param {Object} options - Options to display in the modal
  * @param {boolean} options.exportAssets - Whether assets will be exported
  * @param {boolean} options.exportMetadata - Whether metadata will be exported
- * @returns {Promise<Object>} Resolves with { repositoryId, rootPath, accessToken } or rejects if cancelled
+ * @returns {Promise<Object>} Resolves with { repositoryId, rootPath, apiKey, accessToken } or rejects if cancelled
  */
 async function showAEMConfigModal({ exportAssets, exportMetadata }) {
   // Load previously saved config
@@ -1690,12 +1691,29 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
     pathGroup.appendChild(pathInput);
     form.appendChild(pathGroup);
 
+    // API Key field (x-api-key header)
+    const apiKeyGroup = document.createElement('div');
+    apiKeyGroup.className = 'form-group';
+    const apiKeyLabel = document.createElement('label');
+    apiKeyLabel.htmlFor = 'aem-api-key';
+    apiKeyLabel.textContent = 'API Key';
+    const apiKeyInput = document.createElement('input');
+    apiKeyInput.type = 'text';
+    apiKeyInput.id = 'aem-api-key';
+    apiKeyInput.name = 'apiKey';
+    apiKeyInput.value = savedConfig?.apiKey || 'aem-assets-frontend-1_assetsui';
+    apiKeyInput.placeholder = 'e.g., aem-assets-frontend-1_assetsui';
+    apiKeyInput.required = true;
+    apiKeyGroup.appendChild(apiKeyLabel);
+    apiKeyGroup.appendChild(apiKeyInput);
+    form.appendChild(apiKeyGroup);
+
     // Access Token field (password style)
     const tokenGroup = document.createElement('div');
     tokenGroup.className = 'form-group';
     const tokenLabel = document.createElement('label');
     tokenLabel.htmlFor = 'aem-access-token';
-    tokenLabel.textContent = 'AEM Access Token';
+    tokenLabel.textContent = 'Access Token';
     const tokenInput = document.createElement('input');
     tokenInput.type = 'password';
     tokenInput.id = 'aem-access-token';
@@ -1748,6 +1766,7 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
       const config = {
         repositoryId: formData.get('repositoryId'),
         rootPath: formData.get('rootPath'),
+        apiKey: formData.get('apiKey'),
         accessToken: formData.get('accessToken'),
       };
 
