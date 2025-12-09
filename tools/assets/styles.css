@@ -416,3 +416,89 @@
   background-color: var(--color-link-hover);
   border-color: var(--color-link-hover);
 }
+
+/* AEM Progress Modal Styles */
+.assets .aem-progress-modal {
+  max-width: 600px;
+  width: 90vw;
+}
+
+.assets .progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.assets .progress-container h2 {
+  margin: 0;
+  font-size: var(--heading-size-m);
+  color: var(--color-text);
+}
+
+.assets .progress-log {
+  height: 300px;
+  overflow-y: auto;
+  background-color: var(--gray-50);
+  border: var(--border-s) solid var(--gray-200);
+  border-radius: var(--rounding-s);
+  padding: 0.75rem;
+  font-family: var(--code-font-family);
+  font-size: var(--body-size-xs);
+}
+
+.assets .progress-log .log-entry {
+  padding: 0.25rem 0;
+  border-bottom: var(--border-s) solid var(--gray-100);
+  word-break: break-word;
+}
+
+.assets .progress-log .log-entry:last-child {
+  border-bottom: none;
+}
+
+.assets .progress-log .log-info {
+  color: var(--gray-600);
+}
+
+.assets .progress-log .log-success {
+  color: var(--green-900);
+}
+
+.assets .progress-log .log-warning {
+  color: var(--orange-900);
+}
+
+.assets .progress-log .log-error {
+  color: var(--red-900);
+}
+
+.assets .progress-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: var(--border-s) solid var(--gray-200);
+  font-size: var(--body-size-s);
+  color: var(--gray-600);
+}
+
+.assets .progress-status .progress-count {
+  font-weight: 600;
+}
+
+.assets .progress-status button {
+  padding: 0.5rem 1rem;
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  border-radius: var(--rounding-s);
+  cursor: pointer;
+  background-color: var(--color-link);
+  border: var(--border-s) solid var(--color-link);
+  color: white;
+}
+
+.assets .progress-status button:hover {
+  background-color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
+}

@@ -1793,6 +1793,317 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
 }
 
 /**
+ * Creates and shows a progress modal for long-running operations.
+ * @returns {Object} Object with { modal, log, close } functions
+ */
+function createProgressModal() {
+  const modalId = 'aem-progress-modal';
+
+  // Remove existing modal if present
+  const existingModal = document.getElementById(modalId);
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const [modal, body] = buildModal();
+  modal.id = modalId;
+  modal.classList.add('aem-progress-modal');
+
+  // Build progress content
+  const container = document.createElement('div');
+  container.className = 'progress-container';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Exporting to AEM';
+  container.appendChild(title);
+
+  const logContainer = document.createElement('div');
+  logContainer.className = 'progress-log';
+  container.appendChild(logContainer);
+
+  const statusBar = document.createElement('div');
+  statusBar.className = 'progress-status';
+  statusBar.innerHTML = '<span class="progress-count">0 / 0</span>';
+  container.appendChild(statusBar);
+
+  body.appendChild(container);
+  document.body.appendChild(modal);
+  modal.showModal();
+
+  let totalCount = 0;
+  let currentCount = 0;
+
+  return {
+    modal,
+    setTotal: (total) => {
+      totalCount = total;
+      statusBar.querySelector('.progress-count').textContent = `${currentCount} / ${totalCount}`;
+    },
+    log: (message, type = 'info') => {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = message;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    },
+    increment: () => {
+      currentCount += 1;
+      statusBar.querySelector('.progress-count').textContent = `${currentCount} / ${totalCount}`;
+    },
+    complete: (message) => {
+      title.textContent = 'Export Complete';
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'button primary';
+      closeBtn.textContent = 'Close';
+      closeBtn.addEventListener('click', () => {
+        modal.close();
+        modal.remove();
+      });
+      statusBar.innerHTML = '';
+      statusBar.appendChild(document.createTextNode(message || 'Export finished'));
+      statusBar.appendChild(closeBtn);
+    },
+    error: (message) => {
+      title.textContent = 'Export Error';
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'button primary';
+      closeBtn.textContent = 'Close';
+      closeBtn.addEventListener('click', () => {
+        modal.close();
+        modal.remove();
+      });
+      statusBar.innerHTML = '';
+      statusBar.appendChild(document.createTextNode(message));
+      statusBar.appendChild(closeBtn);
+    },
+    close: () => {
+      modal.close();
+      modal.remove();
+    },
+  };
+}
+
+/**
+ * Gets the shortest page path from all sites where an asset appears.
+ * @param {Array<string>} sites - Array of site URLs
+ * @returns {string} The shortest pathname (without leading slash for folder naming)
+ */
+function getShortestPagePath(sites) {
+  if (!sites || sites.length === 0) return '';
+
+  const paths = sites.map((site) => {
+    try {
+      const url = new URL(site);
+      return url.pathname;
+    } catch {
+      return '/';
+    }
+  });
+
+  // Find the shortest path
+  const shortestPath = paths.reduce((shortest, current) => {
+    // Prefer non-root paths, but if all are root, return root
+    if (current === '/') return shortest;
+    if (shortest === '/') return current;
+    return current.length < shortest.length ? current : shortest;
+  }, '/');
+
+  // Remove leading slash and trailing slash, handle root case
+  if (shortestPath === '/') return '';
+  return shortestPath.replace(/^\//, '').replace(/\/$/, '');
+}
+
+/**
+ * Builds AEM metadata object from cluster data.
+ * @param {Object} cluster - The cluster object
+ * @returns {Object} Metadata object for AEM
+ */
+function buildAEMMetadata(cluster) {
+  const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
+  const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
+  const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
+  const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+  const altTexts = cluster.getAll(UrlAndPageIdentity.type, 'alt').filter((a) => a && a.trim());
+
+  // Calculate click-through rate (conversions/views) and bounce rate (bounces/views)
+  const clickThroughRate = pageViews > 0 ? Math.min(conversions / pageViews, 1) : 0;
+  const bounceRate = pageViews > 0 ? Math.min(bounces / pageViews, 1) : 0;
+
+  const metadata = {
+    'xdm:impressions': pageViews,
+    'xdm:conversions': conversions,
+    'xdm:bounces': bounces,
+    'xdm:assetExperienceClickThroughRate': parseFloat(clickThroughRate.toFixed(4)),
+    'xdm:assetExperienceBounceRate': parseFloat(bounceRate.toFixed(4)),
+    'xdm:assetSeenInURLs': sites,
+  };
+
+  // Add alt text if available (use first non-empty alt text)
+  if (altTexts.length > 0) {
+    metadata['Iptc4xmpExt:ExtDescrAccessibility'] = altTexts[0];
+  }
+
+  return metadata;
+}
+
+/**
+ * AEM API helper class for making authenticated requests.
+ */
+class AEMApi {
+  #baseUrl;
+
+  #apiKey;
+
+  #accessToken;
+
+  constructor(repositoryId, apiKey, accessToken) {
+    this.#baseUrl = `https://${repositoryId}.adobeaemcloud.com`;
+    this.#apiKey = apiKey;
+    this.#accessToken = accessToken;
+  }
+
+  #getHeaders() {
+    return {
+      Authorization: `Bearer ${this.#accessToken}`,
+      'x-api-key': this.#apiKey,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  /**
+   * Check if an asset exists at the given path.
+   * @param {string} assetPath - Full path to the asset (e.g., /content/dam/project/image.jpg)
+   * @returns {Promise<boolean>} True if asset exists
+   */
+  async assetExists(assetPath) {
+    try {
+      const response = await fetch(`${this.#baseUrl}/api/assets${assetPath}.json`, {
+        method: 'HEAD',
+        headers: this.#getHeaders(),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Create an asset from a URL.
+   * @param {string} folderPath - Folder path (e.g., /content/dam/project)
+   * @param {string} sourceUrl - URL to import the asset from
+   * @param {string} fileName - Name for the asset
+   * @returns {Promise<Object>} API response
+   */
+  async createAssetFromUrl(folderPath, sourceUrl, fileName) {
+    const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}/*`, {
+      method: 'POST',
+      headers: this.#getHeaders(),
+      body: JSON.stringify({
+        class: 'asset',
+        properties: {
+          name: fileName,
+          'dc:title': fileName,
+        },
+        links: [{
+          rel: ['content'],
+          href: sourceUrl,
+        }],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to create asset: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update metadata on an existing asset.
+   * @param {string} assetPath - Full path to the asset
+   * @param {Object} metadata - Metadata properties to update
+   * @returns {Promise<Object>} API response
+   */
+  async updateMetadata(assetPath, metadata) {
+    const response = await fetch(`${this.#baseUrl}/api/assets${assetPath}`, {
+      method: 'PUT',
+      headers: this.#getHeaders(),
+      body: JSON.stringify({
+        class: 'asset',
+        properties: metadata,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to update metadata: ${response.status} - ${error}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Create a folder if it doesn't exist.
+   * @param {string} folderPath - Full path to the folder
+   * @returns {Promise<boolean>} True if folder was created or already exists
+   */
+  async ensureFolder(folderPath) {
+    // Check if folder exists
+    try {
+      const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}.json`, {
+        method: 'HEAD',
+        headers: this.#getHeaders(),
+      });
+      if (response.ok) return true;
+    } catch {
+      // Folder doesn't exist, create it
+    }
+
+    // Create folder
+    const parentPath = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/content/dam';
+    const folderName = folderPath.substring(folderPath.lastIndexOf('/') + 1);
+
+    try {
+      const response = await fetch(`${this.#baseUrl}/api/assets${parentPath}/*`, {
+        method: 'POST',
+        headers: this.#getHeaders(),
+        body: JSON.stringify({
+          class: 'folder',
+          properties: {
+            name: folderName,
+            'dc:title': folderName,
+          },
+        }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Gets the filename from an image URL.
+ * @param {string} url - The image URL
+ * @returns {string} The filename
+ */
+function getFilenameFromUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    // Get the last segment of the path
+    const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+    // Remove any query string remnants and decode
+    return decodeURIComponent(filename.split('?')[0]) || 'asset';
+  } catch {
+    return 'asset';
+  }
+}
+
+/**
  * Exports assets and/or metadata to AEM.
  * @param {ClusterManager} clusterManager - The cluster manager instance
  * @param {Object} options - Export options
@@ -1800,22 +2111,106 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
  * @param {boolean} options.exportMetadata - Whether to export metadata
  */
 async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
+  let progress = null;
+
   try {
     // Show config modal and get user input
     const config = await showAEMConfigModal({ exportAssets, exportMetadata });
 
-    // eslint-disable-next-line no-console
-    console.log('Export to AEM:', { exportAssets, exportMetadata, config });
-    // eslint-disable-next-line no-console
-    console.log('Clusters to export:', clusterManager.getAllClusters().length);
+    // Create progress modal
+    progress = createProgressModal();
 
-    // TODO: Implement actual AEM export functionality using config
-    // eslint-disable-next-line no-alert
-    alert(`Export to AEM\n\nRepository: ${config.repositoryId}\nRoot Path: ${config.rootPath}\nExport Assets: ${exportAssets}\nExport Metadata: ${exportMetadata}\nTotal clusters: ${clusterManager.getAllClusters().length}`);
+    const clusters = clusterManager.getAllClusters();
+    progress.setTotal(clusters.length);
+    progress.log(`Starting export of ${clusters.length} assets...`);
+
+    // Initialize AEM API
+    const aemApi = new AEMApi(config.repositoryId, config.apiKey, config.accessToken);
+
+    // Track created folders to avoid duplicate creation attempts
+    const createdFolders = new Set();
+
+    let successCount = 0;
+    let skipCount = 0;
+    let errorCount = 0;
+
+    for (const cluster of clusters) {
+      try {
+        // Get the image source URL
+        const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
+        if (!identity) {
+          progress.log(`Skipping cluster - no identity found`, 'warning');
+          progress.increment();
+          skipCount += 1;
+          continue;
+        }
+
+        const sourceUrl = identity.src;
+        const filename = getFilenameFromUrl(sourceUrl);
+        const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+
+        // Calculate the folder path based on shortest page path
+        const shortestPath = getShortestPagePath(sites);
+        const folderPath = shortestPath
+          ? `${config.rootPath}/${shortestPath}`
+          : config.rootPath;
+
+        const assetPath = `${folderPath}/${filename}`;
+
+        // Ensure folder exists
+        if (!createdFolders.has(folderPath)) {
+          progress.log(`Ensuring folder exists: ${folderPath}`);
+          await aemApi.ensureFolder(folderPath);
+          createdFolders.add(folderPath);
+        }
+
+        // Check if asset already exists
+        const exists = await aemApi.assetExists(assetPath);
+
+        if (exists) {
+          // Asset exists - only update metadata if requested
+          if (exportMetadata) {
+            progress.log(`Updating metadata on ${filename}...`);
+            const metadata = buildAEMMetadata(cluster);
+            await aemApi.updateMetadata(assetPath, metadata);
+            progress.log(`Updated metadata on ${filename}`, 'success');
+          } else {
+            progress.log(`Skipping ${filename} - already exists`, 'info');
+          }
+        } else if (exportAssets) {
+          // Asset doesn't exist - create it
+          progress.log(`Uploading ${filename} from ${sourceUrl}...`);
+          await aemApi.createAssetFromUrl(folderPath, sourceUrl, filename);
+
+          // Update metadata if requested
+          if (exportMetadata) {
+            progress.log(`Setting metadata on ${filename}...`);
+            const metadata = buildAEMMetadata(cluster);
+            await aemApi.updateMetadata(assetPath, metadata);
+          }
+
+          progress.log(`Created ${filename}`, 'success');
+        } else {
+          progress.log(`Skipping ${filename} - doesn't exist and asset export disabled`, 'info');
+          skipCount += 1;
+        }
+
+        successCount += 1;
+      } catch (error) {
+        progress.log(`Error: ${error.message}`, 'error');
+        errorCount += 1;
+      }
+
+      progress.increment();
+    }
+
+    progress.complete(`Completed: ${successCount} processed, ${skipCount} skipped, ${errorCount} errors`);
   } catch (error) {
-    // User cancelled - silently ignore
+    if (progress) {
+      progress.error(`Export failed: ${error.message}`);
+    }
     // eslint-disable-next-line no-console
-    console.log('Export cancelled:', error.message);
+    console.error('Export to AEM failed:', error);
   }
 }
 
