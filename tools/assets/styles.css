@@ -319,3 +319,100 @@
 .assets .download-pulse {
   animation: pulse 1s ease-in-out 2; /* Pulses 2 times */
 }
+
+/* AEM Config Modal Styles */
+.assets .aem-config-modal {
+  max-width: 480px;
+  width: 90vw;
+}
+
+.assets .aem-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.assets .aem-config-form h2 {
+  margin: 0 0 0.25rem;
+  font-size: var(--heading-size-m);
+  color: var(--color-text);
+}
+
+.assets .aem-config-form .aem-config-desc {
+  margin: 0;
+  font-size: var(--body-size-s);
+  color: var(--gray-500);
+}
+
+.assets .aem-config-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.assets .aem-config-form label {
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.assets .aem-config-form input[type="text"],
+.assets .aem-config-form input[type="password"] {
+  padding: 0.75rem 1rem;
+  font-size: var(--body-size-m);
+  font-family: inherit;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--rounding-s);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.assets .aem-config-form input[type="text"]:focus,
+.assets .aem-config-form input[type="password"]:focus {
+  outline: none;
+  border-color: var(--link-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+}
+
+.assets .aem-config-form input::placeholder {
+  color: var(--gray-400);
+}
+
+.assets .aem-config-form .form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.assets .aem-config-form .form-buttons button {
+  padding: 0.625rem 1.25rem;
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  border-radius: var(--rounding-s);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.assets .aem-config-form .form-buttons button.secondary {
+  background-color: transparent;
+  border: var(--border-s) solid var(--gray-300);
+  color: var(--color-text);
+}
+
+.assets .aem-config-form .form-buttons button.secondary:hover {
+  background-color: var(--gray-100);
+  border-color: var(--gray-400);
+}
+
+.assets .aem-config-form .form-buttons button.primary {
+  background-color: var(--link-color);
+  border: var(--border-s) solid var(--link-color);
+  color: white;
+}
+
+.assets .aem-config-form .form-buttons button.primary:hover {
+  background-color: var(--link-hover-color);
+  border-color: var(--link-hover-color);
+}

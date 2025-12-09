@@ -1550,6 +1550,149 @@ const AEM_ACTIONS = {
 };
 
 /**
+ * Shows a configuration modal for AEM export and returns the entered values.
+ * @param {Object} options - Options to display in the modal
+ * @param {boolean} options.exportAssets - Whether assets will be exported
+ * @param {boolean} options.exportMetadata - Whether metadata will be exported
+ * @returns {Promise<Object>} Resolves with { repositoryId, rootPath, accessToken } or rejects if cancelled
+ */
+function showAEMConfigModal({ exportAssets, exportMetadata }) {
+  return new Promise((resolve, reject) => {
+    const modalId = 'aem-config-modal';
+    let modal = document.getElementById(modalId);
+
+    // Remove existing modal if present
+    if (modal) {
+      modal.remove();
+    }
+
+    // Build new modal
+    const [newModal, body] = buildModal();
+    newModal.id = modalId;
+    newModal.classList.add('aem-config-modal');
+    modal = newModal;
+
+    // Build the form content
+    const form = document.createElement('form');
+    form.className = 'aem-config-form';
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'Export to AEM';
+    form.appendChild(title);
+
+    // Description
+    const desc = document.createElement('p');
+    desc.className = 'aem-config-desc';
+    const exportItems = [];
+    if (exportAssets) exportItems.push('assets');
+    if (exportMetadata) exportItems.push('metadata');
+    desc.textContent = `Configure the AEM target to export ${exportItems.join(' and ')}.`;
+    form.appendChild(desc);
+
+    // Repository ID field
+    const repoGroup = document.createElement('div');
+    repoGroup.className = 'form-group';
+    const repoLabel = document.createElement('label');
+    repoLabel.htmlFor = 'aem-repository-id';
+    repoLabel.textContent = 'AEMaaCS Repository ID';
+    const repoInput = document.createElement('input');
+    repoInput.type = 'text';
+    repoInput.id = 'aem-repository-id';
+    repoInput.name = 'repositoryId';
+    repoInput.placeholder = 'e.g., author-p12345-e67890';
+    repoInput.required = true;
+    repoGroup.appendChild(repoLabel);
+    repoGroup.appendChild(repoInput);
+    form.appendChild(repoGroup);
+
+    // Root Path field
+    const pathGroup = document.createElement('div');
+    pathGroup.className = 'form-group';
+    const pathLabel = document.createElement('label');
+    pathLabel.htmlFor = 'aem-root-path';
+    pathLabel.textContent = 'Root Path';
+    const pathInput = document.createElement('input');
+    pathInput.type = 'text';
+    pathInput.id = 'aem-root-path';
+    pathInput.name = 'rootPath';
+    pathInput.placeholder = 'e.g., /content/dam/my-project';
+    pathInput.required = true;
+    pathGroup.appendChild(pathLabel);
+    pathGroup.appendChild(pathInput);
+    form.appendChild(pathGroup);
+
+    // Access Token field (password style)
+    const tokenGroup = document.createElement('div');
+    tokenGroup.className = 'form-group';
+    const tokenLabel = document.createElement('label');
+    tokenLabel.htmlFor = 'aem-access-token';
+    tokenLabel.textContent = 'AEM Access Token';
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'password';
+    tokenInput.id = 'aem-access-token';
+    tokenInput.name = 'accessToken';
+    tokenInput.placeholder = 'Enter your access token';
+    tokenInput.required = true;
+    tokenGroup.appendChild(tokenLabel);
+    tokenGroup.appendChild(tokenInput);
+    form.appendChild(tokenGroup);
+
+    // Buttons container
+    const buttons = document.createElement('div');
+    buttons.className = 'form-buttons';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'button secondary';
+    cancelBtn.textContent = 'Cancel';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'button primary';
+    submitBtn.textContent = 'Export';
+
+    buttons.appendChild(cancelBtn);
+    buttons.appendChild(submitBtn);
+    form.appendChild(buttons);
+
+    body.appendChild(form);
+
+    // Handle cancel
+    const handleCancel = () => {
+      modal.close();
+      modal.remove();
+      reject(new Error('Export cancelled by user'));
+    };
+
+    cancelBtn.addEventListener('click', handleCancel);
+
+    // Override the modal's close behavior
+    modal.addEventListener('close', () => {
+      reject(new Error('Export cancelled by user'));
+    });
+
+    // Handle form submission
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const config = {
+        repositoryId: formData.get('repositoryId'),
+        rootPath: formData.get('rootPath'),
+        accessToken: formData.get('accessToken'),
+      };
+      modal.close();
+      modal.remove();
+      resolve(config);
+    });
+
+    document.body.appendChild(modal);
+    modal.showModal();
+    repoInput.focus();
+  });
+}
+
+/**
  * Exports assets and/or metadata to AEM.
  * @param {ClusterManager} clusterManager - The cluster manager instance
  * @param {Object} options - Export options
@@ -1557,15 +1700,23 @@ const AEM_ACTIONS = {
  * @param {boolean} options.exportMetadata - Whether to export metadata
  */
 async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
-  // TODO: Implement AEM export functionality
-  // eslint-disable-next-line no-console
-  console.log('Export to AEM:', { exportAssets, exportMetadata });
-  // eslint-disable-next-line no-console
-  console.log('Clusters to export:', clusterManager.getAllClusters().length);
+  try {
+    // Show config modal and get user input
+    const config = await showAEMConfigModal({ exportAssets, exportMetadata });
 
-  // Stub implementation - show alert for now
-  // eslint-disable-next-line no-alert
-  alert(`Export to AEM (stub)\n\nExport Assets: ${exportAssets}\nExport Metadata: ${exportMetadata}\nTotal clusters: ${clusterManager.getAllClusters().length}`);
+    // eslint-disable-next-line no-console
+    console.log('Export to AEM:', { exportAssets, exportMetadata, config });
+    // eslint-disable-next-line no-console
+    console.log('Clusters to export:', clusterManager.getAllClusters().length);
+
+    // TODO: Implement actual AEM export functionality using config
+    // eslint-disable-next-line no-alert
+    alert(`Export to AEM\n\nRepository: ${config.repositoryId}\nRoot Path: ${config.rootPath}\nExport Assets: ${exportAssets}\nExport Metadata: ${exportMetadata}\nTotal clusters: ${clusterManager.getAllClusters().length}`);
+  } catch (error) {
+    // User cancelled - silently ignore
+    // eslint-disable-next-line no-console
+    console.log('Export cancelled:', error.message);
+  }
 }
 
 function addActionsToDropdown(doc) {
