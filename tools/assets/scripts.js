@@ -1606,7 +1606,10 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     repoGroup.appendChild(repoInput);
     form.appendChild(repoGroup);
 
-    // Root Path field
+    // Root Path field - prepopulate with RUM production domain if available
+    const rumDomain = document.getElementById('replacement-domain')?.value?.trim();
+    const defaultRootPath = rumDomain ? `/content/dam/${rumDomain}` : '';
+
     const pathGroup = document.createElement('div');
     pathGroup.className = 'form-group';
     const pathLabel = document.createElement('label');
@@ -1616,6 +1619,7 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     pathInput.type = 'text';
     pathInput.id = 'aem-root-path';
     pathInput.name = 'rootPath';
+    pathInput.value = defaultRootPath;
     pathInput.placeholder = 'e.g., /content/dam/my-project';
     pathInput.required = true;
     pathGroup.appendChild(pathLabel);
