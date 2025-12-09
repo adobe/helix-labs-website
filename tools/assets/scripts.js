@@ -2001,7 +2001,7 @@ class AEMApi {
    * @param {string} folderPath - Folder path (e.g., /content/dam/project)
    * @param {string} sourceUrl - URL to import the asset from
    * @param {string} fileName - Name for the asset
-   * @returns {Promise<Object>} API response
+   * @returns {Promise<Object|null>} API response or null if no content
    */
   async createAssetFromUrl(folderPath, sourceUrl, fileName) {
     const url = `${this.#baseUrl}/api/assets${folderPath}/*`;
@@ -2036,14 +2036,26 @@ class AEMApi {
       throw new Error(`POST ${url} returned ${response.status}: ${errorBody}`);
     }
 
-    return response.json();
+    // Handle empty responses (201 Created might have no body)
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
+      return null;
+    }
+
+    // Try to parse JSON, but don't fail if empty
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
    * Update metadata on an existing asset.
    * @param {string} assetPath - Full path to the asset
    * @param {Object} metadata - Metadata properties to update
-   * @returns {Promise<Object>} API response
+   * @returns {Promise<Object|null>} API response or null if no content
    */
   async updateMetadata(assetPath, metadata) {
     const url = `${this.#baseUrl}/api/assets${assetPath}`;
@@ -2071,7 +2083,19 @@ class AEMApi {
       throw new Error(`PUT ${url} returned ${response.status}: ${errorBody}`);
     }
 
-    return response.json();
+    // Handle empty responses (204 No Content or empty body)
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
+      return null;
+    }
+
+    // Try to parse JSON, but don't fail if empty
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
