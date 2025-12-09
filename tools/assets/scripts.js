@@ -1273,7 +1273,7 @@ function registerListeners(doc) {
   const URL_FORM = doc.getElementById('site-form');
   const CANVAS = doc.getElementById('canvas');
   const GALLERY = CANVAS.querySelector('.gallery');
-  const DOWNLOAD = doc.getElementById('download-report');
+  const ACTION_SELECT = doc.getElementById('action-select');
   const ACTION_BAR = CANVAS.querySelector('.action-bar');
   const SORT_ACTIONS = ACTION_BAR.querySelectorAll('input[name="sort"]');
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
@@ -1403,42 +1403,70 @@ function registerListeners(doc) {
     if (figure && window.enableModals) displayModal(figure);
   });
 
-  // handle csv report download
-  DOWNLOAD.addEventListener('change', async () => {
-    const selectedReport = DOWNLOAD.value;
-    if (!selectedReport) return;
+  // handle action selection (reports and AEM exports)
+  ACTION_SELECT.addEventListener('change', async () => {
+    const selectedValue = ACTION_SELECT.value;
+    if (!selectedValue) return;
 
-    // eslint-disable-next-line new-cap
-    const report = ReportRegistry.getReport(selectedReport);
-    if (!report) return;
+    const [type, id] = selectedValue.split(':');
 
-    // Start the pulse animation before running the report
-    DOWNLOAD.classList.add('download-pulse');
+    // Start the pulse animation
+    ACTION_SELECT.classList.add('download-pulse');
 
-    // Generate the report asynchronously
-    const reportData = await report.generateReport(window.clusterManager);
+    if (type === 'report') {
+      // Handle report export
+      const report = ReportRegistry.getReport(id);
+      if (!report) {
+        ACTION_SELECT.classList.remove('download-pulse');
+        ACTION_SELECT.value = '';
+        return;
+      }
 
-    if (reportData.size > 0) {
-      // Get site from the sitemap.
-      const csv = reportData.blob;
-      const link = document.createElement('a');
-      const data = getFormData(URL_FORM);
-      const site = data['site-url']?.hostname;
-      const url = URL.createObjectURL(csv);
+      const reportData = await report.generateReport(window.clusterManager);
 
-      // Insert the link to enable the download
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
-      link.style.display = 'none';
-      DOWNLOAD.insertAdjacentElement('afterend', link);
+      if (reportData.size > 0) {
+        const csv = reportData.blob;
+        const link = document.createElement('a');
+        const data = getFormData(URL_FORM);
+        const site = data['site-url']?.hostname;
+        const url = URL.createObjectURL(csv);
 
-      // Trigger the download and remove pulse class once download starts
-      setTimeout(() => {
-        link.click(); // Start the download
-        link.remove(); // Clean up the link after download starts
-        DOWNLOAD.classList.remove('download-pulse'); // Stop the pulsing effect
-        DOWNLOAD.value = ''; // Reset the dropdown value
-      }, 2000); // Wait for 2 seconds before starting the download (pulse duration)
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
+        link.style.display = 'none';
+        ACTION_SELECT.insertAdjacentElement('afterend', link);
+
+        setTimeout(() => {
+          link.click();
+          link.remove();
+          ACTION_SELECT.classList.remove('download-pulse');
+          ACTION_SELECT.value = '';
+        }, 2000);
+      } else {
+        ACTION_SELECT.classList.remove('download-pulse');
+        ACTION_SELECT.value = '';
+      }
+    } else if (type === 'action') {
+      // Handle AEM export actions
+      try {
+        switch (id) {
+          case AEM_ACTIONS.EXPORT_ASSETS:
+            await exportToAEM(window.clusterManager, { exportAssets: true, exportMetadata: false });
+            break;
+          case AEM_ACTIONS.EXPORT_METADATA:
+            await exportToAEM(window.clusterManager, { exportAssets: false, exportMetadata: true });
+            break;
+          case AEM_ACTIONS.EXPORT_BOTH:
+            await exportToAEM(window.clusterManager, { exportAssets: true, exportMetadata: true });
+            break;
+          default:
+            // eslint-disable-next-line no-console
+            console.warn('Unknown action:', id);
+        }
+      } finally {
+        ACTION_SELECT.classList.remove('download-pulse');
+        ACTION_SELECT.value = '';
+      }
     }
   });
 
@@ -1514,8 +1542,34 @@ function registerListeners(doc) {
   });
 }
 
-function addReportsToDropdown(doc) {
-  const dropdown = doc.getElementById('download-report');
+// AEM Export Actions
+const AEM_ACTIONS = {
+  EXPORT_ASSETS: 'export-assets-to-aem',
+  EXPORT_METADATA: 'export-metadata-to-aem',
+  EXPORT_BOTH: 'export-assets-and-metadata-to-aem',
+};
+
+/**
+ * Exports assets and/or metadata to AEM.
+ * @param {ClusterManager} clusterManager - The cluster manager instance
+ * @param {Object} options - Export options
+ * @param {boolean} options.exportAssets - Whether to export assets
+ * @param {boolean} options.exportMetadata - Whether to export metadata
+ */
+async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
+  // TODO: Implement AEM export functionality
+  // eslint-disable-next-line no-console
+  console.log('Export to AEM:', { exportAssets, exportMetadata });
+  // eslint-disable-next-line no-console
+  console.log('Clusters to export:', clusterManager.getAllClusters().length);
+
+  // Stub implementation - show alert for now
+  // eslint-disable-next-line no-alert
+  alert(`Export to AEM (stub)\n\nExport Assets: ${exportAssets}\nExport Metadata: ${exportMetadata}\nTotal clusters: ${clusterManager.getAllClusters().length}`);
+}
+
+function addActionsToDropdown(doc) {
+  const dropdown = doc.getElementById('action-select');
 
   // Clear any existing options
   dropdown.innerHTML = '';
@@ -1525,19 +1579,39 @@ function addReportsToDropdown(doc) {
   defaultOption.value = '';
   defaultOption.disabled = true;
   defaultOption.selected = true;
-  defaultOption.textContent = 'Select a report to download';
+  defaultOption.textContent = 'Select an action to perform';
   dropdown.appendChild(defaultOption);
 
-  // Get the reports (assuming ReportRegistry.getReports() returns an array of report classes)
-  const reports = ReportRegistry.getReports();
+  // Group 1: Export Reports
+  const reportsGroup = doc.createElement('optgroup');
+  reportsGroup.label = 'Export Report';
 
-  // Add the report options
+  const reports = ReportRegistry.getReports();
   reports.forEach((report) => {
     const option = doc.createElement('option');
-    option.value = report.id;
+    option.value = `report:${report.id}`;
     option.textContent = report.uiName;
-    dropdown.appendChild(option);
+    reportsGroup.appendChild(option);
   });
+  dropdown.appendChild(reportsGroup);
+
+  // Group 2: Actions
+  const actionsGroup = doc.createElement('optgroup');
+  actionsGroup.label = 'Actions';
+
+  const actions = [
+    { id: AEM_ACTIONS.EXPORT_ASSETS, name: 'Export Assets to AEM' },
+    { id: AEM_ACTIONS.EXPORT_METADATA, name: 'Export Metadata to AEM' },
+    { id: AEM_ACTIONS.EXPORT_BOTH, name: 'Export Assets and Metadata to AEM' },
+  ];
+
+  actions.forEach((action) => {
+    const option = doc.createElement('option');
+    option.value = `action:${action.id}`;
+    option.textContent = action.name;
+    actionsGroup.appendChild(option);
+  });
+  dropdown.appendChild(actionsGroup);
 }
 
 function addIdentitySelectorsToForm(doc) {
@@ -1581,7 +1655,7 @@ setupWindowVariables();
 registerListeners(document);
 overrideCreateCanvas(document);
 addIdentitySelectorsToForm(document);
-addReportsToDropdown(document);
+addActionsToDropdown(document);
 
 window.addEventListener('unhandledrejection', (event) => {
   // eslint-disable-next-line no-console
