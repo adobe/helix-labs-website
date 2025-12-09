@@ -2201,8 +2201,43 @@ function getFilenameFromUrl(url) {
   }
 }
 
+// Concurrency limit for parallel API requests
+const AEM_API_CONCURRENCY = 5;
+
 /**
- * Exports assets and/or metadata to AEM.
+ * Runs promises in parallel with a concurrency limit.
+ * @param {Array<Function>} tasks - Array of functions that return promises
+ * @param {number} concurrency - Max concurrent tasks
+ * @returns {Promise<Array>} Results array
+ */
+async function runWithConcurrency(tasks, concurrency) {
+  const results = [];
+  const executing = new Set();
+
+  for (const task of tasks) {
+    const promise = Promise.resolve().then(() => task());
+    results.push(promise);
+    executing.add(promise);
+
+    const cleanup = () => executing.delete(promise);
+    promise.then(cleanup, cleanup);
+
+    if (executing.size >= concurrency) {
+      await Promise.race(executing);
+    }
+  }
+
+  return Promise.all(results);
+}
+
+/**
+ * Exports assets and/or metadata to AEM using phased approach.
+ * Phase 1: Create all folders
+ * Phase 2: Check which assets exist
+ * Phase 3: Upload all missing assets
+ * Phase 4: Wait for uploads to complete
+ * Phase 5: Update metadata for all assets
+ *
  * @param {ClusterManager} clusterManager - The cluster manager instance
  * @param {Object} options - Export options
  * @param {boolean} options.exportAssets - Whether to export assets
@@ -2219,107 +2254,175 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
     progress = createProgressModal();
 
     const clusters = clusterManager.getAllClusters();
-    progress.setTotal(clusters.length);
     progress.log(`Starting export of ${clusters.length} assets...`);
 
     // Initialize AEM API
     const aemApi = new AEMApi(config.repositoryId, config.apiKey, config.accessToken);
 
-    // Track created folders to avoid duplicate creation attempts
-    const createdFolders = new Set();
+    // ========== PHASE 1: Prepare asset info and collect folders ==========
+    progress.log('');
+    progress.log('═══ Phase 1: Preparing asset information ═══', 'info');
 
-    let successCount = 0;
-    let skipCount = 0;
-    let errorCount = 0;
+    const assetInfos = [];
+    const foldersToCreate = new Set();
 
     for (const cluster of clusters) {
-      try {
-        // Get the image source URL
-        const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
-        if (!identity) {
-          progress.log(`Skipping cluster - no URL/page identity found`, 'warning');
-          progress.increment();
-          skipCount += 1;
-          continue;
-        }
-
-        const sourceUrl = identity.src;
-        const filename = getFilenameFromUrl(sourceUrl);
-        const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
-
-        progress.log(`Processing: ${filename}`, 'info');
-
-        // Calculate the folder path based on shortest page path
-        const shortestPath = getShortestPagePath(sites);
-        const folderPath = shortestPath
-          ? `${config.rootPath}/${shortestPath}`
-          : config.rootPath;
-
-        const assetPath = `${folderPath}/${filename}`;
-        progress.log(`  Target path: ${assetPath}`, 'info');
-
-        // Ensure folder exists
-        if (!createdFolders.has(folderPath)) {
-          progress.log(`  Ensuring folder exists: ${folderPath}`, 'info');
-          const folderResult = await aemApi.ensureFolder(folderPath, (msg) => progress.log(`    ${msg}`, 'info'));
-          if (!folderResult.success) {
-            progress.log(`  Failed to create folder: ${folderResult.error}`, 'error');
-            errorCount += 1;
-            progress.increment();
-            continue;
-          }
-          createdFolders.add(folderPath);
-        }
-
-        // Check if asset already exists
-        const existsResult = await aemApi.assetExists(assetPath);
-        if (existsResult.error) {
-          progress.log(`  Warning checking existence: ${existsResult.error}`, 'warning');
-        }
-
-        if (existsResult.exists) {
-          // Asset exists - only update metadata if requested
-          if (exportMetadata) {
-            progress.log(`  Asset exists, updating metadata...`, 'info');
-            const metadata = buildAEMMetadata(cluster);
-            progress.log(`  Metadata: impressions=${metadata['xdm:impressions']}, conversions=${metadata['xdm:conversions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']}`, 'info');
-            await aemApi.updateMetadata(assetPath, metadata);
-            progress.log(`  ✓ Updated metadata on ${filename}`, 'success');
-            successCount += 1;
-          } else {
-            progress.log(`  Skipping ${filename} - already exists`, 'info');
-            skipCount += 1;
-          }
-        } else if (exportAssets) {
-          // Asset doesn't exist - create it
-          progress.log(`  Uploading from: ${sourceUrl}`, 'info');
-          await aemApi.createAssetFromUrl(folderPath, sourceUrl, filename);
-          progress.log(`  ✓ Asset created`, 'success');
-
-          // Update metadata if requested
-          if (exportMetadata) {
-            progress.log(`  Setting metadata...`, 'info');
-            const metadata = buildAEMMetadata(cluster);
-            progress.log(`  Metadata: impressions=${metadata['xdm:impressions']}, conversions=${metadata['xdm:conversions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']}`, 'info');
-            await aemApi.updateMetadata(assetPath, metadata);
-            progress.log(`  ✓ Metadata set`, 'success');
-          }
-
-          progress.log(`✓ Created ${filename}`, 'success');
-          successCount += 1;
-        } else {
-          progress.log(`  Skipping ${filename} - doesn't exist and asset export disabled`, 'info');
-          skipCount += 1;
-        }
-      } catch (error) {
-        progress.log(`✗ Error: ${error.message}`, 'error');
-        // eslint-disable-next-line no-console
-        console.error('Export error details:', error);
-        errorCount += 1;
+      const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
+      if (!identity) {
+        progress.log(`Skipping cluster - no URL/page identity found`, 'warning');
+        continue;
       }
 
-      progress.increment();
+      const sourceUrl = identity.src;
+      const filename = getFilenameFromUrl(sourceUrl);
+      const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+
+      const shortestPath = getShortestPagePath(sites);
+      const folderPath = shortestPath
+        ? `${config.rootPath}/${shortestPath}`
+        : config.rootPath;
+
+      const assetPath = `${folderPath}/${filename}`;
+
+      assetInfos.push({
+        cluster,
+        sourceUrl,
+        filename,
+        folderPath,
+        assetPath,
+        exists: false,
+        uploaded: false,
+        metadataUpdated: false,
+        error: null,
+      });
+
+      foldersToCreate.add(folderPath);
     }
+
+    progress.log(`Prepared ${assetInfos.length} assets in ${foldersToCreate.size} folders`);
+    progress.setTotal(assetInfos.length * 3); // 3 phases per asset: check, upload, metadata
+
+    // ========== PHASE 2: Create all folders ==========
+    progress.log('');
+    progress.log('═══ Phase 2: Creating folder structure ═══', 'info');
+
+    const createdFolders = new Set();
+    for (const folderPath of foldersToCreate) {
+      if (!createdFolders.has(folderPath)) {
+        progress.log(`Creating folder: ${folderPath}`, 'info');
+        const folderResult = await aemApi.ensureFolder(folderPath, (msg) => progress.log(`  ${msg}`, 'info'));
+        if (!folderResult.success) {
+          progress.log(`  ✗ Failed: ${folderResult.error}`, 'error');
+        } else {
+          progress.log(`  ✓ Folder ready`, 'success');
+        }
+        createdFolders.add(folderPath);
+      }
+    }
+
+    // ========== PHASE 3: Check which assets exist ==========
+    progress.log('');
+    progress.log('═══ Phase 3: Checking existing assets ═══', 'info');
+
+    const existsTasks = assetInfos.map((info) => async () => {
+      const result = await aemApi.assetExists(info.assetPath);
+      info.exists = result.exists;
+      if (result.error) {
+        progress.log(`  Warning checking ${info.filename}: ${result.error}`, 'warning');
+      }
+      progress.increment();
+      return info;
+    });
+
+    await runWithConcurrency(existsTasks, AEM_API_CONCURRENCY);
+
+    const existingCount = assetInfos.filter((i) => i.exists).length;
+    const missingCount = assetInfos.filter((i) => !i.exists).length;
+    progress.log(`Found ${existingCount} existing, ${missingCount} to upload`);
+
+    // ========== PHASE 4: Upload missing assets ==========
+    if (exportAssets && missingCount > 0) {
+      progress.log('');
+      progress.log('═══ Phase 4: Uploading assets ═══', 'info');
+
+      const assetsToUpload = assetInfos.filter((i) => !i.exists);
+
+      const uploadTasks = assetsToUpload.map((info) => async () => {
+        try {
+          progress.log(`Uploading: ${info.filename}`, 'info');
+          await aemApi.createAssetFromUrl(info.folderPath, info.sourceUrl, info.filename);
+          info.uploaded = true;
+          progress.log(`  ✓ Upload initiated for ${info.filename}`, 'success');
+        } catch (err) {
+          info.error = err.message;
+          progress.log(`  ✗ Upload failed: ${err.message}`, 'error');
+        }
+        progress.increment();
+        return info;
+      });
+
+      await runWithConcurrency(uploadTasks, AEM_API_CONCURRENCY);
+
+      const uploadedCount = assetsToUpload.filter((i) => i.uploaded).length;
+      progress.log(`Uploaded ${uploadedCount} of ${assetsToUpload.length} assets`);
+
+      // Wait for AEM to process the uploads
+      if (uploadedCount > 0) {
+        progress.log('');
+        progress.log('Waiting for AEM to process uploads (10 seconds)...', 'info');
+        await new Promise((resolve) => { setTimeout(resolve, 10000); });
+        progress.log('Proceeding with metadata updates', 'info');
+      }
+    } else {
+      // Skip increment for upload phase
+      assetInfos.forEach(() => progress.increment());
+      if (!exportAssets) {
+        progress.log('');
+        progress.log('═══ Phase 4: Skipping uploads (disabled) ═══', 'info');
+      } else {
+        progress.log('');
+        progress.log('═══ Phase 4: No uploads needed ═══', 'info');
+      }
+    }
+
+    // ========== PHASE 5: Update metadata ==========
+    if (exportMetadata) {
+      progress.log('');
+      progress.log('═══ Phase 5: Updating metadata ═══', 'info');
+
+      // Update metadata for both existing and newly uploaded assets
+      const assetsForMetadata = assetInfos.filter((i) => i.exists || i.uploaded);
+
+      const metadataTasks = assetsForMetadata.map((info) => async () => {
+        try {
+          const metadata = buildAEMMetadata(info.cluster);
+          progress.log(`Updating metadata: ${info.filename} (impressions=${metadata['xdm:impressions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']})`, 'info');
+          await aemApi.updateMetadata(info.assetPath, metadata);
+          info.metadataUpdated = true;
+          progress.log(`  ✓ Metadata updated for ${info.filename}`, 'success');
+        } catch (err) {
+          info.error = err.message;
+          progress.log(`  ✗ Metadata failed: ${err.message}`, 'error');
+        }
+        progress.increment();
+        return info;
+      });
+
+      await runWithConcurrency(metadataTasks, AEM_API_CONCURRENCY);
+
+      const metadataCount = assetsForMetadata.filter((i) => i.metadataUpdated).length;
+      progress.log(`Updated metadata for ${metadataCount} of ${assetsForMetadata.length} assets`);
+    } else {
+      // Skip increment for metadata phase
+      assetInfos.forEach(() => progress.increment());
+      progress.log('');
+      progress.log('═══ Phase 5: Skipping metadata (disabled) ═══', 'info');
+    }
+
+    // ========== SUMMARY ==========
+    const successCount = assetInfos.filter((i) => !i.error && (i.exists || i.uploaded)).length;
+    const errorCount = assetInfos.filter((i) => i.error).length;
+    const skipCount = assetInfos.length - successCount - errorCount;
 
     progress.complete(`Completed: ${successCount} processed, ${skipCount} skipped, ${errorCount} errors`);
   } catch (error) {
