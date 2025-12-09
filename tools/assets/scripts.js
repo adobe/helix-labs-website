@@ -1583,7 +1583,7 @@ async function loadAEMConfig() {
 
 /**
  * Saves AEM config to IndexedDB.
- * @param {Object} config - The config to save (without accessToken for security)
+ * @param {Object} config - The config to save
  */
 async function saveAEMConfig(config) {
   try {
@@ -1591,10 +1591,10 @@ async function saveAEMConfig(config) {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
 
-    // Don't save the access token for security
     const configToSave = {
       repositoryId: config.repositoryId,
       rootPath: config.rootPath,
+      accessToken: config.accessToken,
     };
 
     const request = store.put(JSON.stringify(configToSave), AEM_CONFIG_STORAGE_KEY);
@@ -1690,7 +1690,7 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
     pathGroup.appendChild(pathInput);
     form.appendChild(pathGroup);
 
-    // Access Token field (password style) - never pre-filled for security
+    // Access Token field (password style)
     const tokenGroup = document.createElement('div');
     tokenGroup.className = 'form-group';
     const tokenLabel = document.createElement('label');
@@ -1700,6 +1700,7 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
     tokenInput.type = 'password';
     tokenInput.id = 'aem-access-token';
     tokenInput.name = 'accessToken';
+    tokenInput.value = savedConfig?.accessToken || '';
     tokenInput.placeholder = 'Enter your access token';
     tokenInput.required = true;
     tokenGroup.appendChild(tokenLabel);
@@ -1718,7 +1719,7 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
     const submitBtn = document.createElement('button');
     submitBtn.type = 'submit';
     submitBtn.className = 'button primary';
-    submitBtn.textContent = 'Export';
+    submitBtn.textContent = 'Run';
 
     buttons.appendChild(cancelBtn);
     buttons.appendChild(submitBtn);

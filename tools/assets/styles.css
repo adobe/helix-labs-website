@@ -371,7 +371,7 @@
 .assets .aem-config-form input[type="text"]:focus,
 .assets .aem-config-form input[type="password"]:focus {
   outline: none;
-  border-color: var(--link-color);
+  border-color: var(--color-link);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
 }
 
@@ -407,12 +407,12 @@
 }
 
 .assets .aem-config-form .form-buttons button.primary {
-  background-color: var(--link-color);
-  border: var(--border-s) solid var(--link-color);
+  background-color: var(--color-link);
+  border: var(--border-s) solid var(--color-link);
   color: white;
 }
 
 .assets .aem-config-form .form-buttons button.primary:hover {
-  background-color: var(--link-hover-color);
-  border-color: var(--link-hover-color);
+  background-color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
 }
