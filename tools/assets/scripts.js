@@ -1979,7 +1979,8 @@ class AEMApi {
    */
   async assetExists(assetPath) {
     try {
-      const url = `${this.#baseUrl}/api/assets${assetPath}.json`;
+      const apiPath = damPathToApiPath(assetPath);
+      const url = `${this.#baseUrl}/api/assets${apiPath}.json`;
       const response = await fetch(url, {
         method: 'HEAD',
         headers: this.#getHeaders(),
@@ -2004,7 +2005,8 @@ class AEMApi {
    * @returns {Promise<Object>} Object with { status, jobUrl, body, headers }
    */
   async createAssetFromUrl(folderPath, sourceUrl, fileName) {
-    const url = `${this.#baseUrl}/api/assets${folderPath}/*`;
+    const apiPath = damPathToApiPath(folderPath);
+    const url = `${this.#baseUrl}/api/assets${apiPath}/*`;
     let response;
     try {
       response = await fetch(url, {
@@ -2115,7 +2117,8 @@ class AEMApi {
    * @returns {Promise<Object|null>} API response or null if no content
    */
   async updateMetadata(assetPath, metadata) {
-    const url = `${this.#baseUrl}/api/assets${assetPath}`;
+    const apiPath = damPathToApiPath(assetPath);
+    const url = `${this.#baseUrl}/api/assets${apiPath}`;
     let response;
     try {
       response = await fetch(url, {
@@ -2162,33 +2165,41 @@ class AEMApi {
    * @returns {Promise<{success: boolean, error?: string}>} Result with success flag and optional error
    */
   async ensureFolder(folderPath, logFn = () => {}) {
+    // Convert DAM path to API path
+    const apiPath = damPathToApiPath(folderPath);
+
     // Check if folder already exists
     try {
-      const response = await fetch(`${this.#baseUrl}/api/assets${folderPath}.json`, {
+      const checkUrl = `${this.#baseUrl}/api/assets${apiPath}.json`;
+      logFn(`Checking if folder exists: ${folderPath} (API: ${apiPath})`);
+      const response = await fetch(checkUrl, {
         method: 'HEAD',
         headers: this.#getHeaders(),
       });
-      if (response.ok) return { success: true };
-    } catch {
-      // Folder doesn't exist, need to create it
+      if (response.ok) {
+        logFn(`Folder already exists: ${folderPath}`);
+        return { success: true };
+      }
+      logFn(`Folder check returned ${response.status}, will create`);
+    } catch (err) {
+      logFn(`Folder check failed (${err.message}), will try to create`);
     }
 
-    // Split path into segments and build up the hierarchy
-    // e.g., /content/dam/project/en/volvo -> ['content', 'dam', 'project', 'en', 'volvo']
-    const segments = folderPath.split('/').filter((s) => s);
+    // Split API path into segments and build up the hierarchy
+    // e.g., /frescopa-coffee/en/volvo -> ['frescopa-coffee', 'en', 'volvo']
+    const segments = apiPath.split('/').filter((s) => s);
 
-    // Start from /content/dam (assumed to exist) and create each subsequent folder
-    let currentPath = '/content/dam';
-    const startIndex = segments.indexOf('dam') + 1;
+    // Start from root (empty string = /api/assets root)
+    let currentApiPath = '';
 
-    for (let i = startIndex; i < segments.length; i += 1) {
+    for (let i = 0; i < segments.length; i += 1) {
       const folderName = segments[i];
-      const targetPath = `${currentPath}/${folderName}`;
+      const targetApiPath = `${currentApiPath}/${folderName}`;
 
       // Check if this folder exists
       let exists = false;
       try {
-        const response = await fetch(`${this.#baseUrl}/api/assets${targetPath}.json`, {
+        const response = await fetch(`${this.#baseUrl}/api/assets${targetApiPath}.json`, {
           method: 'HEAD',
           headers: this.#getHeaders(),
         });
@@ -2199,8 +2210,8 @@ class AEMApi {
 
       // Create if it doesn't exist
       if (!exists) {
-        const createUrl = `${this.#baseUrl}/api/assets${currentPath}/*`;
-        logFn(`Creating folder: ${targetPath}`);
+        const createUrl = `${this.#baseUrl}/api/assets${currentApiPath}/*`;
+        logFn(`Creating folder: ${targetApiPath}`);
         try {
           const response = await fetch(createUrl, {
             method: 'POST',
@@ -2228,12 +2239,12 @@ class AEMApi {
         } catch (err) {
           return {
             success: false,
-            error: `Network error creating folder ${targetPath}: ${err.message}`,
+            error: `Network error creating folder ${targetApiPath}: ${err.message}`,
           };
         }
       }
 
-      currentPath = targetPath;
+      currentApiPath = targetApiPath;
     }
 
     return { success: true };
@@ -2266,6 +2277,18 @@ function getFilenameFromUrl(url) {
 function sanitizeFolderPath(path) {
   // Split path into segments, sanitize each segment (replace dots with dashes), rejoin
   return path.split('/').map((segment) => segment.replace(/\./g, '-')).join('/');
+}
+
+/**
+ * Converts a DAM path to an API path by stripping /content/dam prefix.
+ * @param {string} damPath - The full DAM path (e.g., /content/dam/project/image.jpg)
+ * @returns {string} API path (e.g., /project/image.jpg)
+ */
+function damPathToApiPath(damPath) {
+  if (damPath.startsWith('/content/dam')) {
+    return damPath.substring('/content/dam'.length) || '/';
+  }
+  return damPath;
 }
 
 // Concurrency limit for parallel API requests
@@ -2376,17 +2399,37 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
     progress.log('═══ Phase 2: Creating folder structure ═══', 'info');
 
     const createdFolders = new Set();
+    const failedFolders = new Set();
+    let folderSuccessCount = 0;
+    let folderFailCount = 0;
+
     for (const folderPath of foldersToCreate) {
       if (!createdFolders.has(folderPath)) {
         progress.log(`Creating folder: ${folderPath}`, 'info');
         const folderResult = await aemApi.ensureFolder(folderPath, (msg) => progress.log(`  ${msg}`, 'info'));
         if (!folderResult.success) {
           progress.log(`  ✗ Failed: ${folderResult.error}`, 'error');
+          failedFolders.add(folderPath);
+          folderFailCount += 1;
+          // Mark assets in this folder as having errors
+          assetInfos.forEach((info) => {
+            if (info.folderPath === folderPath) {
+              info.error = `Folder creation failed: ${folderResult.error}`;
+            }
+          });
         } else {
           progress.log(`  ✓ Folder ready`, 'success');
+          createdFolders.add(folderPath);
+          folderSuccessCount += 1;
         }
-        createdFolders.add(folderPath);
       }
+    }
+
+    progress.log(`Folder creation: ${folderSuccessCount} succeeded, ${folderFailCount} failed`, folderFailCount > 0 ? 'warning' : 'success');
+
+    if (folderFailCount > 0 && folderSuccessCount === 0) {
+      progress.error(`All folder creations failed. Check AEM permissions and configuration.`);
+      return;
     }
 
     // ========== PHASE 3: Check which assets exist ==========
@@ -2414,7 +2457,12 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
       progress.log('');
       progress.log('═══ Phase 4: Uploading assets ═══', 'info');
 
-      const assetsToUpload = assetInfos.filter((i) => !i.exists);
+      // Only upload assets that don't exist AND don't have folder errors
+      const assetsToUpload = assetInfos.filter((i) => !i.exists && !i.error);
+      const skippedDueToFolderError = assetInfos.filter((i) => !i.exists && i.error).length;
+      if (skippedDueToFolderError > 0) {
+        progress.log(`Skipping ${skippedDueToFolderError} assets due to folder creation errors`, 'warning');
+      }
       const jobsToTrack = [];
 
       const uploadTasks = assetsToUpload.map((info) => async () => {
