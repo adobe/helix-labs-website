@@ -1549,6 +1549,66 @@ const AEM_ACTIONS = {
   EXPORT_BOTH: 'export-assets-and-metadata-to-aem',
 };
 
+// Storage key for AEM config
+const AEM_CONFIG_STORAGE_KEY = 'aem-export-config';
+
+/**
+ * Loads saved AEM config from IndexedDB.
+ * @returns {Promise<Object|null>} The saved config or null if not found
+ */
+async function loadAEMConfig() {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(AEM_CONFIG_STORAGE_KEY);
+
+    return new Promise((resolve) => {
+      request.onsuccess = (e) => {
+        const data = e.target.result;
+        if (data) {
+          resolve(JSON.parse(data));
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error loading AEM config:', error);
+    return null;
+  }
+}
+
+/**
+ * Saves AEM config to IndexedDB.
+ * @param {Object} config - The config to save (without accessToken for security)
+ */
+async function saveAEMConfig(config) {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+
+    // Don't save the access token for security
+    const configToSave = {
+      repositoryId: config.repositoryId,
+      rootPath: config.rootPath,
+    };
+
+    const request = store.put(JSON.stringify(configToSave), AEM_CONFIG_STORAGE_KEY);
+
+    return new Promise((resolve) => {
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error saving AEM config:', error);
+  }
+}
+
 /**
  * Shows a configuration modal for AEM export and returns the entered values.
  * @param {Object} options - Options to display in the modal
@@ -1556,7 +1616,10 @@ const AEM_ACTIONS = {
  * @param {boolean} options.exportMetadata - Whether metadata will be exported
  * @returns {Promise<Object>} Resolves with { repositoryId, rootPath, accessToken } or rejects if cancelled
  */
-function showAEMConfigModal({ exportAssets, exportMetadata }) {
+async function showAEMConfigModal({ exportAssets, exportMetadata }) {
+  // Load previously saved config
+  const savedConfig = await loadAEMConfig();
+
   return new Promise((resolve, reject) => {
     const modalId = 'aem-config-modal';
     let modal = document.getElementById(modalId);
@@ -1590,7 +1653,7 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     desc.textContent = `Configure the AEM target to export ${exportItems.join(' and ')}.`;
     form.appendChild(desc);
 
-    // Repository ID field
+    // Repository ID field - use saved value if available
     const repoGroup = document.createElement('div');
     repoGroup.className = 'form-group';
     const repoLabel = document.createElement('label');
@@ -1600,13 +1663,14 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     repoInput.type = 'text';
     repoInput.id = 'aem-repository-id';
     repoInput.name = 'repositoryId';
+    repoInput.value = savedConfig?.repositoryId || '';
     repoInput.placeholder = 'e.g., author-p12345-e67890';
     repoInput.required = true;
     repoGroup.appendChild(repoLabel);
     repoGroup.appendChild(repoInput);
     form.appendChild(repoGroup);
 
-    // Root Path field - prepopulate with RUM production domain if available
+    // Root Path field - use saved value, or prepopulate with RUM domain if no saved value
     const rumDomain = document.getElementById('replacement-domain')?.value?.trim();
     const defaultRootPath = rumDomain ? `/content/dam/${rumDomain}` : '';
 
@@ -1619,14 +1683,14 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     pathInput.type = 'text';
     pathInput.id = 'aem-root-path';
     pathInput.name = 'rootPath';
-    pathInput.value = defaultRootPath;
+    pathInput.value = savedConfig?.rootPath || defaultRootPath;
     pathInput.placeholder = 'e.g., /content/dam/my-project';
     pathInput.required = true;
     pathGroup.appendChild(pathLabel);
     pathGroup.appendChild(pathInput);
     form.appendChild(pathGroup);
 
-    // Access Token field (password style)
+    // Access Token field (password style) - never pre-filled for security
     const tokenGroup = document.createElement('div');
     tokenGroup.className = 'form-group';
     const tokenLabel = document.createElement('label');
@@ -1677,7 +1741,7 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
     });
 
     // Handle form submission
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
       const config = {
@@ -1685,6 +1749,10 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
         rootPath: formData.get('rootPath'),
         accessToken: formData.get('accessToken'),
       };
+
+      // Save config for next time (without access token)
+      await saveAEMConfig(config);
+
       modal.close();
       modal.remove();
       resolve(config);
@@ -1692,7 +1760,15 @@ function showAEMConfigModal({ exportAssets, exportMetadata }) {
 
     document.body.appendChild(modal);
     modal.showModal();
-    repoInput.focus();
+
+    // Focus on the first empty required field
+    if (!repoInput.value) {
+      repoInput.focus();
+    } else if (!pathInput.value) {
+      pathInput.focus();
+    } else {
+      tokenInput.focus();
+    }
   });
 }
 
