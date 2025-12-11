@@ -1241,12 +1241,133 @@ async function handleSiteUrlFocus() {
   }
 }
 
+/**
+ * Populate the crawler type dropdown with options from CrawlerRegistry
+ */
+function populateCrawlerTypeDropdown() {
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (!crawlerTypeSelect) return;
+
+  // Clear existing options
+  crawlerTypeSelect.innerHTML = '';
+
+  // Get all crawlers from registry
+  const crawlerOptions = CrawlerRegistry.getCrawlerOptions();
+
+  // Add options for each crawler
+  crawlerOptions.forEach((option, index) => {
+    const optionEl = document.createElement('option');
+    optionEl.value = option.type;
+    optionEl.textContent = option.displayName;
+    if (index === 0) optionEl.selected = true;
+    crawlerTypeSelect.appendChild(optionEl);
+  });
+}
+
+/**
+ * Apply form configuration from the selected crawler.
+ * Shows/hides fields and updates help text based on crawler's getFormConfig().
+ * @param {string} crawlerType - The crawler type to apply config for
+ */
+function applyCrawlerFormConfig(crawlerType) {
+  const crawler = CrawlerRegistry.getCrawlerByType(crawlerType);
+  if (!crawler) {
+    // eslint-disable-next-line no-console
+    console.warn('No crawler found for type:', crawlerType);
+    return;
+  }
+
+  const config = crawler.getFormConfig();
+  const {
+    visibleFields, requiredFields, helpText, placeholders,
+  } = config;
+
+  // Update crawler description
+  const descriptionEl = document.getElementById('crawler-description');
+  if (descriptionEl) {
+    descriptionEl.textContent = crawler.description;
+  }
+
+  // Show/hide fields and update required attributes based on visibleFields
+  const allFields = document.querySelectorAll('.crawler-field');
+  allFields.forEach((fieldEl) => {
+    const fieldId = fieldEl.dataset.field;
+    const input = document.getElementById(fieldId);
+
+    if (visibleFields.includes(fieldId)) {
+      // Show the field
+      fieldEl.style.display = '';
+      fieldEl.removeAttribute('aria-hidden');
+
+      // Set required attribute if needed
+      if (input) {
+        if (requiredFields.includes(fieldId)) {
+          input.setAttribute('required', 'required');
+        } else {
+          input.removeAttribute('required');
+        }
+      }
+    } else {
+      // Hide the field
+      fieldEl.style.display = 'none';
+      fieldEl.setAttribute('aria-hidden', 'true');
+
+      // Remove required attribute from hidden fields to prevent form validation errors
+      if (input) {
+        input.removeAttribute('required');
+      }
+    }
+  });
+
+  // Update help text
+  Object.entries(helpText).forEach(([fieldId, text]) => {
+    const helpEl = document.getElementById(`${fieldId}-help-text`);
+    if (helpEl) {
+      helpEl.textContent = text;
+    }
+  });
+
+  // Update placeholders
+  Object.entries(placeholders).forEach(([fieldId, placeholder]) => {
+    const input = document.getElementById(fieldId);
+    if (input) {
+      input.placeholder = placeholder;
+    }
+  });
+}
+
+/**
+ * Initialize the crawler type dropdown and apply the default configuration.
+ */
+function initializeCrawlerType() {
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (!crawlerTypeSelect) return;
+
+  // Populate dropdown if empty
+  if (crawlerTypeSelect.options.length === 0) {
+    populateCrawlerTypeDropdown();
+  }
+
+  // Default to first option (sitemap) if no value is set
+  if (!crawlerTypeSelect.value && crawlerTypeSelect.options.length > 0) {
+    crawlerTypeSelect.value = crawlerTypeSelect.options[0].value;
+  }
+
+  // Apply the form configuration for the selected crawler
+  applyCrawlerFormConfig(crawlerTypeSelect.value);
+}
+
 async function domContentLoaded() {
   try {
+    // Populate crawler type dropdown first so values can be restored
+    populateCrawlerTypeDropdown();
+
     // Retrieve the last executed URL from localStorage
     const lastURL = localStorage.getItem('lastExecutedURL');
 
     if (!lastURL) {
+      // No stored data, initialize crawler type to default
+      initializeCrawlerType();
       return;
     }
 
@@ -1263,10 +1384,13 @@ async function domContentLoaded() {
         const parsedData = JSON.parse(data); // Parse the stringified form data
         populateFormFromData(parsedData); // Populate the form with the retrieved data
       }
+      // Initialize crawler type after form population (applies form config)
+      initializeCrawlerType();
     };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.debug('Error during domContentLoaded:', error);
+    initializeCrawlerType();
   }
 }
 
@@ -1280,32 +1404,13 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
   // Function to populate the dropdown with reports
 
-  document.querySelectorAll('input[name="sitemap-option"]').forEach((option) => {
-    option.addEventListener('change', (event) => {
-      const fileInputContainer = document.getElementById('file-input-container');
-      const urlInputContainer = document.getElementById('url-input-container');
-      const fileInput = document.getElementById('embedded-sitemap-file');
-      const urlInput = document.getElementById('embedded-sitemap-url');
-
-      if (event.target.value === 'file') {
-        fileInputContainer.setAttribute('aria-hidden', 'false');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.setAttribute('required', 'required');
-        urlInput.removeAttribute('required');
-      } else if (event.target.value === 'url') {
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'false');
-        urlInput.setAttribute('required', 'required');
-        fileInput.removeAttribute('required');
-      } else {
-        // "None" selected: hide both fields and remove requirements
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.removeAttribute('required');
-        urlInput.removeAttribute('required');
-      }
+  // Crawler type change handler - applies form config from the selected crawler
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (crawlerTypeSelect) {
+    crawlerTypeSelect.addEventListener('change', (event) => {
+      applyCrawlerFormConfig(event.target.value);
     });
-  });
+  }
 
   const siteUrlInput = document.querySelector('[name="site-url"]');
   if (siteUrlInput) {
@@ -1496,6 +1601,8 @@ function registerListeners(doc) {
 
             // Populate form fields with imported data
             populateFormFromData(jsonData);
+            // Initialize crawler type to ensure form visibility is correct
+            initializeCrawlerType();
             const formData = getFormData(URL_FORM);
             saveFormData(formData['site-url'], formData);
           } catch (error) {

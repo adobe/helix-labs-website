@@ -250,6 +250,36 @@
   border-radius: var(--rounding-l);
 }
 
+/* Crawler type selector styling */
+.assets .sitemap-form #crawler-type {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: var(--body-size-m);
+  font-family: inherit;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--rounding-s);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.assets .sitemap-form #crawler-type:focus {
+  outline: none;
+  border-color: var(--color-link);
+  box-shadow: 0 0 0 3px rgb(0 123 255 / 15%);
+}
+
+/* Crawler field visibility - controlled by JavaScript */
+.assets .sitemap-form .crawler-field[aria-hidden="true"] {
+  display: none;
+}
+
+/* Crawler description styling */
+.assets #crawler-description {
+  font-style: italic;
+  color: var(--gray-600);
+}
+
 .assets .sitemap-form ul {
   width: 100%;
   list-style-type: none; /* Remove default list dots */

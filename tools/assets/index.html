@@ -58,61 +58,73 @@
       <form id="site-form">
         <div class="sitemap-form">
           <ul>
+            <!-- Crawler Type Selector - options populated dynamically -->
             <li>
+              <div class="form-field">
+                <label for="crawler-type">Crawler Type</label>
+                <select name="crawler-type" id="crawler-type">
+                  <!-- Options populated dynamically from CrawlerRegistry -->
+                </select>
+                <div class="field-help-text">
+                  <p id="crawler-description"></p>
+                </div>
+              </div>
+            </li>
+            <!-- Site URL - shown for all crawlers -->
+            <li class="crawler-field" data-field="site-url">
               <div class="form-field url-field">
                 <label for="site-url">Site URL</label>
-                <input name="site-url" id="site-url" type="url" placeholder="https://example.com/sitemap.xml" required list="site-url-history" />
+                <input name="site-url" id="site-url" type="url" placeholder="https://main--repo--org.aem.live" list="site-url-history" />
                 <datalist id="site-url-history"></datalist>
                 <div class="field-help-text">
-                  <p>Sitemap, GitHub repository, and hlx/aem page & live URLs supported.</p>
+                  <p id="site-url-help-text"></p>
                 </div>
               </div>
             </li>
-            <li>
-              <div class="form-field url-field">
-                <label>Sitemap replacement</label>
-                <div>
-                  <input type="radio" id="sitemap-none-option" name="sitemap-option" value="none" checked />
-                  <label for="sitemap-none-option">None</label>
-                  <input type="radio" id="sitemap-file-option" name="sitemap-option" value="file" />
-                  <label for="sitemap-file-option">File</label>
-                  <input type="radio" id="sitemap-url-option" name="sitemap-option" value="url" />
-                  <label for="sitemap-url-option">URL</label>
-                </div>
-                <div class="field-help-text">
-                  <p>
-                    A sitemap used in place of a sitemap on the site. Hostnames in the sitemap will be replaced with the site above.
-                  </p>
-                </div>
-              </div>
-            </li>
-            <li id="file-input-container" aria-hidden="true">
+            <!-- Sitemap File Upload - shown for file crawler -->
+            <li class="crawler-field" data-field="embedded-sitemap-file">
               <div class="form-field file-field">
                 <label for="embedded-sitemap-file" id="embedded-sitemap-file-label">Upload Sitemap File</label>
                 <input name="embedded-sitemap-file" id="embedded-sitemap-file" type="file" accept=".xml" />
+                <div class="field-help-text">
+                  <p id="embedded-sitemap-file-help-text"></p>
+                </div>
               </div>
             </li>
-            <li id="url-input-container" aria-hidden="true">
+            <!-- Sitemap URL - shown for URL crawler -->
+            <li class="crawler-field" data-field="embedded-sitemap-url">
               <div class="form-field url-field">
-                <label for="embedded-sitemap-url">Enter Sitemap URL</label>
+                <label for="embedded-sitemap-url">Sitemap URL</label>
                 <input name="embedded-sitemap-url" id="embedded-sitemap-url" type="url" placeholder="https://example.com/sitemap.xml" />
+                <div class="field-help-text">
+                  <p id="embedded-sitemap-url-help-text"></p>
+                </div>
               </div>
             </li>
-            <li>
+            <!-- RUM Production Domain -->
+            <li class="crawler-field" data-field="replacement-domain">
               <label for="replacement-domain">RUM Production Domain</label>
-              <input name="replacement-domain" id="replacement-domain" />
+              <input name="replacement-domain" id="replacement-domain" placeholder="example.com" />
+              <div class="field-help-text">
+                <p id="replacement-domain-help-text"></p>
+              </div>
             </li>
-            <li>
+            <!-- RUM Domain Key -->
+            <li class="crawler-field" data-field="domain-key">
               <label for="domain-key">RUM Domain Key</label>
               <input name="domain-key" id="domain-key" type="password" />
+              <div class="field-help-text">
+                <p id="domain-key-help-text"></p>
+              </div>
             </li>
-            <li>
+            <!-- Identity Selectors - shown for all crawlers -->
+            <li class="crawler-field" data-field="identity-selectors">
               <div class="field-help-text">
                 <p>Image identification methods:</p>
               </div>
+              <div id="identity-selectors">
+              </div>
             </li>
-            <div id="identity-selectors">
-            </div>
             <li>
               <hr/>
             </li>
