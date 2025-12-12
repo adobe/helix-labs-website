@@ -395,17 +395,33 @@ function displayModal(figure) {
       .filter((v) => v !== null);
     const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate')
       .filter((v) => v !== null);
+    const firstSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'firstSeenTimestamp')
+      .filter((v) => v !== null);
+    const lastSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'lastSeenTimestamp')
+      .filter((v) => v !== null);
 
     const maxPageLastModified = pageLastModifiedValues.length > 0
       ? Math.max(...pageLastModifiedValues) : null;
     const maxAssetLastModified = assetLastModifiedValues.length > 0
       ? Math.max(...assetLastModifiedValues) : null;
     const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
+    const firstSeenTimestamp = firstSeenValues.length > 0 ? Math.min(...firstSeenValues) : null;
+    const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
 
     // Add timestamp rows if available (works for any crawler)
     if (publishDate) {
       rows.publishDate = 'Publish Date';
       data.publishDate = new Date(publishDate).toLocaleDateString();
+    }
+
+    if (firstSeenTimestamp) {
+      rows.firstSeen = 'First Seen';
+      data.firstSeen = new Date(firstSeenTimestamp).toLocaleDateString();
+    }
+
+    if (lastSeenTimestamp) {
+      rows.lastSeen = 'Last Seen';
+      data.lastSeen = new Date(lastSeenTimestamp).toLocaleDateString();
     }
 
     if (window.collectingRum) {
@@ -2082,6 +2098,9 @@ function buildAEMMetadata(cluster) {
   const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
   const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
   const altTexts = cluster.getAll(UrlAndPageIdentity.type, 'alt').filter((a) => a && a.trim());
+  const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate').filter((v) => v !== null);
+  const firstSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'firstSeenTimestamp').filter((v) => v !== null);
+  const lastSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'lastSeenTimestamp').filter((v) => v !== null);
 
   // Calculate click-through rate (conversions/views) and bounce rate (bounces/views)
   const clickThroughRate = pageViews > 0 ? Math.min(conversions / pageViews, 1) : 0;
@@ -2097,6 +2116,21 @@ function buildAEMMetadata(cluster) {
     'xdm:assetExperienceClickThroughRate': parseFloat(clickThroughRate.toFixed(4)),
     'xdm:assetExperienceBounceRate': parseFloat(bounceRate.toFixed(4)),
   };
+
+  // Publish date and seen timestamps
+  const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
+  const firstSeenTimestamp = firstSeenValues.length > 0 ? Math.min(...firstSeenValues) : null;
+  const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
+
+  if (publishDate) {
+    metadata['xdm:publishDate'] = new Date(publishDate).toISOString().split('T')[0];
+  }
+  if (firstSeenTimestamp) {
+    metadata['xdm:firstSeenTimestamp'] = new Date(firstSeenTimestamp).toISOString().split('T')[0];
+  }
+  if (lastSeenTimestamp) {
+    metadata['xdm:lastSeenTimestamp'] = new Date(lastSeenTimestamp).toISOString().split('T')[0];
+  }
 
   // Only add URLs array if we have valid URLs
   if (siteUrls.length > 0) {

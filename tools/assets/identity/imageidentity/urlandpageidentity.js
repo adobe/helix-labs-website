@@ -8,6 +8,7 @@ import UrlIdentity from './urlidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import Hash from '../util/hash.js';
 import UrlResourceHandler from '../../util/urlresourcehandler.js';
+import ImageUrlParserRegistry from '../../crawler/util/imageurlparserregistry.js';
 
 const BUNDLER_ENDPOINT = 'https://rum.fastly-aem.page';
 // const BUNDLER_ENDPOINT = 'http://localhost:3000';
@@ -34,6 +35,10 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   #assetLastModified;
 
+  #firstSeenTimestamp;
+
+  #lastSeenTimestamp;
+
   constructor(
     identityId,
     src,
@@ -56,6 +61,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
     this.#instance = instance;
     this.#pageLastModified = pageLastModified;
     this.#assetLastModified = assetLastModified;
+    this.#firstSeenTimestamp = null;
+    this.#lastSeenTimestamp = null;
   }
 
   get pageViews() {
@@ -80,6 +87,14 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   get assetLastModified() {
     return this.#assetLastModified;
+  }
+
+  get firstSeenTimestamp() {
+    return this.#firstSeenTimestamp;
+  }
+
+  get lastSeenTimestamp() {
+    return this.#lastSeenTimestamp;
   }
 
   /**
@@ -324,21 +339,23 @@ class UrlAndPageIdentity extends AbstractIdentity {
       }, new Set())), 'every');
 
       const siteURL = new URL(identityValues.site);
-      siteURL.hostname = identityValues.replacementDomain;
+      // RUM usually reports the public hostname (replacementDomain), but can occasionally
+      // contain the internal hostname. Treat both as the same site for filtering/matching.
+      const internalPageUrl = new URL(siteURL.href);
+      const publicPageUrl = new URL(siteURL.href);
+      publicPageUrl.hostname = identityValues.replacementDomain;
 
       dataChunks.addFacet('url', (bundle) => {
         const url = new URL(bundle.url);
         return url.href;
       });
 
-      dataChunks.addFacet('filter', (bundle) => {
-        const matching = bundle.url.toLowerCase() === siteURL.href.toLowerCase();
-        return matching;
-      });
+      const acceptedPageUrls = new Set([internalPageUrl.href.toLowerCase(), publicPageUrl.href.toLowerCase()]);
+      dataChunks.addFacet('filter', (bundle) => acceptedPageUrls.has(String(bundle.url).toLowerCase()));
 
       dataChunks.load(rumLoadedData);
 
-      dataChunks.filter = { url: [siteURL.href] };
+      dataChunks.filter = { url: [publicPageUrl.href, internalPageUrl.href] };
 
       const pageViews = dataChunks.totals?.pageViews?.sum ?? 0;
       const conversions = dataChunks.totals?.conversions?.sum ?? 0;
@@ -352,6 +369,82 @@ class UrlAndPageIdentity extends AbstractIdentity {
         bounces,
         // dataChunks,
       };
+
+      // ---- Seen timestamps (requires raw bundle access) ----
+      // We derive "first/last seen" from bundle.timeSlot (coarse but consistent with RUM retention).
+      // For assets, prefer bundles that contain a matching viewmedia target (by pathname).
+      // Cache per page+asset-path to avoid rescans across identities.
+      if (!identityState.rumSeenIndex) {
+        identityState.rumSeenIndex = {
+          pageRange: new Map(), // pageUrlLower -> { first:number|null, last:number|null }
+          pageAssetRange: new Map(), // pageUrlLower -> Map<assetPath, { first:number|null, last:number|null }>
+        };
+      }
+
+      // Cache by internal page URL (stable for the crawl), but accept both internal+public when scanning bundles.
+      const pageKey = internalPageUrl.href.toLowerCase();
+      const assetUrl = new URL(this.#src);
+      const assetKey = ImageUrlParserRegistry.getDurableIdentityPart(assetUrl) || assetUrl.pathname;
+
+      const cachedPage = identityState.rumSeenIndex.pageRange.get(pageKey);
+      const cachedAssetMap = identityState.rumSeenIndex.pageAssetRange.get(pageKey);
+      const cachedAsset = cachedAssetMap ? cachedAssetMap.get(assetKey) : null;
+
+      if (cachedPage && cachedAsset) {
+        this.#firstSeenTimestamp = cachedAsset.first;
+        this.#lastSeenTimestamp = cachedAsset.last;
+        // If we somehow didn't see the asset but did see the page, keep asset nulls (per spec),
+        // but callers can still use publishDate/pageLastModified.
+      } else {
+        let pageFirst = cachedPage?.first ?? null;
+        let pageLast = cachedPage?.last ?? null;
+
+        let assetFirst = cachedAsset?.first ?? null;
+        let assetLast = cachedAsset?.last ?? null;
+
+        // Scan raw bundles only for this page, and only for the one assetPath we care about.
+        // rumLoadedData is an array of chunks: { date, rumBundles }
+        for (const chunk of rumLoadedData) {
+          const bundles = chunk?.rumBundles || [];
+          for (const bundle of bundles) {
+            if (!bundle?.url || !acceptedPageUrls.has(String(bundle.url).toLowerCase())) continue;
+            if (!bundle?.timeSlot) continue;
+
+            const ts = new Date(bundle.timeSlot).getTime();
+            if (!Number.isFinite(ts)) continue;
+
+            // Page seen range
+            if (pageFirst === null || ts < pageFirst) pageFirst = ts;
+            if (pageLast === null || ts > pageLast) pageLast = ts;
+
+            // Asset seen range (viewmedia target pathname match)
+            const events = bundle?.events || [];
+            // eslint-disable-next-line no-restricted-syntax
+            for (const evt of events) {
+              if (evt?.checkpoint !== 'viewmedia' || !evt?.target) continue;
+              let targetUrl;
+              try {
+                targetUrl = new URL(evt.target, bundle.url);
+              } catch {
+                continue;
+              }
+              const targetKey = ImageUrlParserRegistry.getDurableIdentityPart(targetUrl) || targetUrl.pathname;
+              if (targetKey !== assetKey) continue;
+              if (assetFirst === null || ts < assetFirst) assetFirst = ts;
+              if (assetLast === null || ts > assetLast) assetLast = ts;
+            }
+          }
+        }
+
+        identityState.rumSeenIndex.pageRange.set(pageKey, { first: pageFirst, last: pageLast });
+        if (!identityState.rumSeenIndex.pageAssetRange.has(pageKey)) {
+          identityState.rumSeenIndex.pageAssetRange.set(pageKey, new Map());
+        }
+        identityState.rumSeenIndex.pageAssetRange.get(pageKey).set(assetKey, { first: assetFirst, last: assetLast });
+
+        this.#firstSeenTimestamp = assetFirst;
+        this.#lastSeenTimestamp = assetLast;
+      }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Error parsing rum:', error);
