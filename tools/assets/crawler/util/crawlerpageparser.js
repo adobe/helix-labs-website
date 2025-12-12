@@ -3,11 +3,10 @@ import CrawlerImageValues from '../crawlerimagevalues.js';
 import ImageAuditUtil from '../../util/imageauditutil.js';
 
 const MIN_DIMENSION = 32;
+const DEFAULT_OPTIMIZATION_DIMENSION = 2048;
 const MAX_DETAIL_DIMENSION = 1200;
 const MAX_MEDIUM_DIMENSION = 750;
 const MAX_CARD_DIMENSION = 400;
-
-const AEM_EDS_HOSTS = ['.aem.live', '.hlx.live', '.aem.page', '.hlx.page'];
 
 /**
  * Shared utility for parsing HTML pages and extracting image data.
@@ -47,72 +46,86 @@ class CrawlerPageParser {
 
       // Process images and fetch asset Last-Modified in parallel
       const imgDataPromises = [...images].map(async (img) => {
-        let width = parseInt(img.getAttribute('width'), 10) || 0;
-        let height = parseInt(img.getAttribute('height'), 10) || 0;
-        const invalidDimensions = width === 0 || height === 0;
-        if (!width) width = MIN_DIMENSION;
-        if (!height) height = MIN_DIMENSION;
+        const rawWidth = parseInt(img.getAttribute('width'), 10) || 0;
+        const rawHeight = parseInt(img.getAttribute('height'), 10) || 0;
+        const invalidDimensions = rawWidth === 0 || rawHeight === 0;
 
-        const aspectRatio = parseFloat((width / height).toFixed(1)) || '';
+        // For storage/display, keep a small placeholder if the author did not specify dimensions.
+        const displayWidth = rawWidth || MIN_DIMENSION;
+        const displayHeight = rawHeight || MIN_DIMENSION;
+
+        // For image optimization, avoid producing tiny optimized URLs when dimensions are unknown.
+        const optWidth = rawWidth || DEFAULT_OPTIMIZATION_DIMENSION;
+        const optHeight = rawHeight || DEFAULT_OPTIMIZATION_DIMENSION;
+
+        const aspectRatio = parseFloat((displayWidth / displayHeight).toFixed(1)) || '';
 
         // Read src directly - safe because doc is from DOMParser, not live DOM
-        const src = img.getAttribute('src')?.split('?')[0];
-        if (!src) return null;
+        const rawSrc = img.getAttribute('src');
+        if (!rawSrc) return null;
 
-        const originalUrl = new URL(src, origin);
-
-        if (!CrawlerUtil.isUrlValid(originalUrl)) {
+        let resolvedUrl;
+        try {
+          resolvedUrl = new URL(rawSrc, origin);
+        } catch {
           return null;
         }
 
-        const original = { href: originalUrl.href, height, width };
+        if (!CrawlerUtil.isUrlValid(resolvedUrl)) {
+          return null;
+        }
 
-        // Use provided function to get optimized URLs
-        const detail = getOptimizedImageUrl
-          ? getOptimizedImageUrl(src, origin, width, height, MAX_DETAIL_DIMENSION)
+        // The HTML crawler/parser should not perform domain transformations.
+        // It simply resolves the URL relative to the origin it was fetched from.
+        const original = { href: resolvedUrl.href, height: displayHeight, width: displayWidth };
+
+        // Use provided function to get optimized URLs (prefer opt dims when intrinsic dims are missing)
+        const src = resolvedUrl.href;
+        const detailOpt = getOptimizedImageUrl
+          ? getOptimizedImageUrl(src, origin, optWidth, optHeight, MAX_DETAIL_DIMENSION)
           : null;
-        const medium = getOptimizedImageUrl
-          ? getOptimizedImageUrl(src, origin, width, height, MAX_MEDIUM_DIMENSION)
+        const mediumOpt = getOptimizedImageUrl
+          ? getOptimizedImageUrl(src, origin, optWidth, optHeight, MAX_MEDIUM_DIMENSION)
           : null;
-        const card = getOptimizedImageUrl
-          ? getOptimizedImageUrl(src, origin, width, height, MAX_CARD_DIMENSION)
+        const cardOpt = getOptimizedImageUrl
+          ? getOptimizedImageUrl(src, origin, optWidth, optHeight, MAX_CARD_DIMENSION)
           : null;
 
         const imageOptions = {
           original,
-          detail: detail || original,
-          medium: medium || original,
-          card: card || original,
+          detail: detailOpt || original,
+          medium: mediumOpt || original,
+          card: cardOpt || original,
         };
 
         let instance = 1;
-        if (seenMap.has(src)) {
-          instance = seenMap.get(src) + 1;
+        // Instance counting should be relative to the served content (path-based), not domain.
+        const instanceKey = resolvedUrl.pathname;
+        if (seenMap.has(instanceKey)) {
+          instance = seenMap.get(instanceKey) + 1;
         }
-        seenMap.set(src, instance);
+        seenMap.set(instanceKey, instance);
 
         const alt = img.getAttribute('alt') || '';
-        const fileType = ImageAuditUtil.getFileType(src);
+        const fileType = ImageAuditUtil.getFileType(resolvedUrl.pathname);
 
         // Fetch asset's Last-Modified header using shared utility
-        const assetLastModified = await CrawlerUtil.fetchAssetLastModified(originalUrl.href);
+        const assetLastModified = await CrawlerUtil.fetchAssetLastModified(resolvedUrl.href);
 
         return new CrawlerImageValues({
           site: pageUrl,
           origin,
-          src,
+          src: resolvedUrl.href,
           imageOptions,
           alt,
-          width,
-          height,
+          width: displayWidth,
+          height: displayHeight,
           invalidDimensions,
           aspectRatio,
           instance,
           fileType,
           pageLastModified,
           assetLastModified: assetLastModified ? assetLastModified.getTime() : null,
-          firstSeenTimestamp: null,
-          lastSeenTimestamp: null,
         });
       });
 
@@ -122,66 +135,6 @@ class CrawlerPageParser {
       console.error(`CrawlerPageParser: unable to fetch ${plainUrl}:`, error);
       return [];
     }
-  }
-
-  /**
-   * Get adjusted optimized image URL for EDS sites.
-   * @param {string} src - The source path
-   * @param {string} origin - The origin URL
-   * @param {number} width - Original width
-   * @param {number} height - Original height
-   * @param {number} maxLongestEdge - Maximum dimension
-   * @returns {Object|null} Object with href, width, height or null
-   */
-  static getAdjustedEDSOptimizedImageUrl(src, origin, width, height, maxLongestEdge) {
-    let adjustedWidth = width;
-    let adjustedHeight = height;
-
-    if (adjustedWidth === 0 || adjustedHeight === 0) {
-      adjustedWidth = MIN_DIMENSION;
-      adjustedHeight = MIN_DIMENSION;
-    }
-
-    if (adjustedWidth > maxLongestEdge || adjustedHeight > maxLongestEdge) {
-      const scalingFactor = maxLongestEdge / Math.max(adjustedWidth, adjustedHeight);
-      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
-      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
-    }
-
-    const url = this.getEDSOptimizedImageUrl(src, origin, adjustedWidth);
-    if (!CrawlerUtil.isUrlValid(url)) {
-      return null;
-    }
-
-    return {
-      href: url.href,
-      width: adjustedWidth,
-      height: adjustedHeight,
-    };
-  }
-
-  /**
-   * Get EDS optimized image URL with query parameters.
-   * @param {string} src - The source path
-   * @param {string} origin - The origin URL
-   * @param {number} width - Desired width
-   * @returns {URL|string} Optimized URL or original src
-   */
-  static getEDSOptimizedImageUrl(src, origin, width) {
-    const originalUrl = new URL(src, origin);
-    if (!CrawlerUtil.isUrlValid(originalUrl)) {
-      return null;
-    }
-    const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
-    if (!aemSite) {
-      return src;
-    }
-
-    originalUrl.searchParams.set('width', width);
-    originalUrl.searchParams.set('format', 'webply');
-    originalUrl.searchParams.set('optimize', 'medium');
-
-    return originalUrl;
   }
 
   static get MAX_DETAIL_DIMENSION() {
@@ -202,4 +155,5 @@ class CrawlerPageParser {
 }
 
 export default CrawlerPageParser;
+
 

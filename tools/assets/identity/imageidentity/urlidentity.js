@@ -3,8 +3,7 @@ import AbstractIdentity from '../abstractidentity.js';
 import IdentityRegistry from '../identityregistry.js';
 import Hash from '../util/hash.js';
 import UrlResourceHandler from '../../util/urlresourcehandler.js';
-
-const AEM_EDS_HOSTS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
+import ImageUrlParserRegistry from '../../crawler/util/imageurlparserregistry.js';
 
 class UrlIdentity extends AbstractIdentity {
   #src;
@@ -77,14 +76,12 @@ class UrlIdentity extends AbstractIdentity {
 
     const identificationParts = additionalTokensToSum.slice();
 
-    // is loadedImg definitely a helix image? If so it can't be changed and we dont need the etag.
-
-    if (AEM_EDS_HOSTS.find((h) => url.hostname.toLowerCase().endsWith(h))) {
-      // no need to include the host. The path contains an immutable reference.
-      // eslint-disable-next-line prefer-destructuring
-      identificationParts.push(':eds:');
-      identificationParts.push(href.split('://')[1].split('?')[0].toLowerCase());
-
+    // Generic identity: if a URL parser can provide a durable identity part, use it.
+    // This keeps EDS knowledge out of the identity itself.
+    const durablePart = ImageUrlParserRegistry.getDurableIdentityPart(url);
+    if (durablePart) {
+      identificationParts.push(':dur:');
+      identificationParts.push(durablePart);
       durability = true;
     } else {
       try {
@@ -159,6 +156,5 @@ class UrlIdentity extends AbstractIdentity {
 }
 
 export default UrlIdentity;
-export { AEM_EDS_HOSTS };
 
 IdentityRegistry.register(UrlIdentity);

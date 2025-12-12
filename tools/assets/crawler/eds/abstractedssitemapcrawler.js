@@ -1,13 +1,11 @@
 // eslint-disable-next-line import/no-relative-packages
-import { AEM_EDS_HOSTS } from '../../identity/imageidentity/urlidentity.js';
+import { AEM_EDS_HOSTS } from '../util/eds/edshosts.js';
 import CrawlerUtil from '../util/crawlerutil.js';
 import CrawlerPageParser from '../util/crawlerpageparser.js';
+import ImageUrlParserRegistry from '../util/imageurlparserregistry.js';
 import AbstractCrawler from '../abstractcrawler.js';
 import PromisePool from '../../util/promisepool.js';
 import UrlResourceHandler from '../../util/urlresourcehandler.js';
-
-// TODO: Make this dynamic? These are the max dimensions for the card and image compares.
-const MIN_DIMENSION = 32;
 
 class AbstractEDSSitemapCrawler extends AbstractCrawler {
   #duplicateFilter;
@@ -52,53 +50,6 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       return AbstractEDSSitemapCrawler.#getAemSitemapUrlForGithub(pathname);
     }
     return null;
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  #getAdjustedEDSOptimizedImageUrl(src, origin, width, height, maxLongestEdge) {
-    let adjustedWidth = width;
-    let adjustedHeight = height;
-
-    if (adjustedWidth < MIN_DIMENSION || adjustedHeight < MIN_DIMENSION) {
-      const scalingFactor = MIN_DIMENSION / Math.min(adjustedWidth, adjustedHeight);
-      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
-      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
-    }
-
-    if (adjustedWidth > maxLongestEdge || adjustedHeight > maxLongestEdge) {
-      const scalingFactor = maxLongestEdge / Math.max(adjustedWidth, adjustedHeight);
-      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
-      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
-    }
-
-    const url = this.#getEDSOptimizedImageUrl(src, origin, adjustedWidth);
-    if (!CrawlerUtil.isUrlValid(url)) {
-      return null;
-    }
-
-    return {
-      href: url.href,
-      width: adjustedWidth,
-      height: adjustedHeight,
-    };
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  #getEDSOptimizedImageUrl(src, origin, width) {
-    const originalUrl = new URL(src, origin);
-    if (!CrawlerUtil.isUrlValid(originalUrl)) {
-      return null;
-    }
-    const aemSite = AEM_EDS_HOSTS.find((h) => originalUrl.host.endsWith(h));
-    if (!aemSite) {
-      return src;
-    }
-
-    originalUrl.searchParams.set('width', width);
-    originalUrl.searchParams.set('format', 'webply');
-    originalUrl.searchParams.set('optimize', 'medium');
-
-    return originalUrl;
   }
 
   stop() {
@@ -167,8 +118,8 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
       pageUrl: url.href,
       plainUrl: url.plain,
       origin,
-      getOptimizedImageUrl: (src, orig, width, height, maxDimension) => this
-        .#getAdjustedEDSOptimizedImageUrl(src, orig, width, height, maxDimension),
+      getOptimizedImageUrl: (src, orig, width, height, maxDimension) => ImageUrlParserRegistry
+        .getOptimizedImageUrl(src, orig, width, height, maxDimension),
     });
   }
 

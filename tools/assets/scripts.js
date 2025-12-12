@@ -3,6 +3,7 @@
 import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import './crawler/defaultcrawlersloader.js';
+import './crawler/util/defaultparsersloader.js';
 import './sort/defaultsortsloader.js';
 import './filter/defaultfilterloader.js';
 

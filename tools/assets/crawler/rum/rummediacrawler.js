@@ -5,6 +5,8 @@ import CrawlerRegistry from '../crawlerregistry.js';
 import CrawlerImageValues from '../crawlerimagevalues.js';
 import CrawlerUtil from '../util/crawlerutil.js';
 import CrawlerPageParser from '../util/crawlerpageparser.js';
+import HtmlCrawlerRegistry from '../util/htmlcrawlerregistry.js';
+import ImageUrlParserRegistry from '../util/imageurlparserregistry.js';
 import ImageAuditUtil from '../../util/imageauditutil.js';
 import PromisePool from '../../util/promisepool.js';
 import UrlResourceHandler from '../../util/urlresourcehandler.js';
@@ -35,6 +37,69 @@ class RumMediaCrawler extends AbstractCrawler {
   #rumData = null; // Store RUM data for quick lookup
 
   #failedUrls = new Set(); // Track URLs that don't exist (404, errors)
+
+  /**
+   * Normalize a CrawlerImageValues object so that URLs are safe to fetch:
+   * - restrict to trusted domains
+   * - convert production-domain URLs to internal site URLs
+   * @param {CrawlerImageValues} imgData
+   * @returns {CrawlerImageValues|null}
+   */
+  #normalizeParsedPageImage(imgData) {
+    try {
+      const originalHref = imgData?.imageOptions?.original?.href || imgData?.src;
+      if (!originalHref) return null;
+
+      // SECURITY: Only process trusted domains
+      if (!this.#isTrustedDomain(originalHref)) return null;
+
+      const internalOriginalHref = this.#transformToInternalUrl(originalHref);
+      if (!internalOriginalHref) return null;
+
+      const internalOriginalUrl = new URL(internalOriginalHref);
+
+      const internalizeOption = (opt) => {
+        if (!opt?.href) return null;
+        if (!this.#isTrustedDomain(opt.href)) return null;
+        const internalHref = this.#transformToInternalUrl(opt.href);
+        return internalHref ? { ...opt, href: internalHref } : null;
+      };
+
+      const original = internalizeOption(imgData.imageOptions.original) || {
+        href: internalOriginalUrl.href,
+        width: imgData.width,
+        height: imgData.height,
+      };
+
+      const detail = internalizeOption(imgData.imageOptions.detail) || original;
+      const medium = internalizeOption(imgData.imageOptions.medium) || original;
+      const card = internalizeOption(imgData.imageOptions.card) || original;
+
+      return new CrawlerImageValues({
+        site: imgData.site,
+        origin: imgData.origin,
+        // src should match the URL we will actually fetch/identify
+        src: internalOriginalUrl.href,
+        imageOptions: {
+          original,
+          detail,
+          medium,
+          card,
+        },
+        alt: imgData.alt,
+        width: imgData.width,
+        height: imgData.height,
+        invalidDimensions: imgData.invalidDimensions,
+        aspectRatio: imgData.aspectRatio,
+        instance: imgData.instance,
+        fileType: imgData.fileType,
+        pageLastModified: imgData.pageLastModified,
+        assetLastModified: imgData.assetLastModified,
+      });
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Check if a URL is from a trusted domain (production or internal).
@@ -277,7 +342,7 @@ class RumMediaCrawler extends AbstractCrawler {
       const imgElements = doc.querySelectorAll('img[src]');
       
       imgElements.forEach((img) => {
-        const src = img.getAttribute('src')?.split('?')[0];
+        const src = img.getAttribute('src');
         if (!src) return;
 
         try {
@@ -287,10 +352,16 @@ class RumMediaCrawler extends AbstractCrawler {
           if (!this.#isTrustedDomain(originalUrl.href)) {
             return;
           }
+
+          const internalUrl = this.#transformToInternalUrl(originalUrl.href);
+          if (!internalUrl) {
+            return;
+          }
           
-          if (CrawlerUtil.isUrlValid(originalUrl)) {
+          const urlToUse = new URL(internalUrl);
+          if (CrawlerUtil.isUrlValid(urlToUse)) {
             images.push({
-              href: originalUrl.href,
+              href: urlToUse.href,
               pageUrl: productionPageUrl,
               discoveredVia: 'page-crawl',
             });
@@ -380,11 +451,11 @@ class RumMediaCrawler extends AbstractCrawler {
           // Track which images we found in the page
           pageImages.forEach((imgData) => {
             try {
-              const imgPathname = new URL(imgData.src).pathname.split('?')[0];
+              const imgPathname = new URL(imgData.imageOptions.original.href).pathname;
               seenImagePaths.add(imgPathname);
             } catch (error) {
               // eslint-disable-next-line no-console
-              console.debug(`Invalid image src: ${imgData.src}`);
+              console.debug(`Invalid image src: ${imgData?.imageOptions?.original?.href || imgData?.src}`);
             }
           });
           
@@ -399,7 +470,7 @@ class RumMediaCrawler extends AbstractCrawler {
           
           otherMediaOnPage.forEach((mediaUrl) => {
             try {
-              const mediaPathname = new URL(mediaUrl).pathname.split('?')[0];
+              const mediaPathname = new URL(mediaUrl).pathname;
               
               if (!seenImagePaths.has(mediaPathname) && !this.#failedUrls.has(mediaUrl)) {
                 seenImagePaths.add(mediaPathname);
@@ -450,16 +521,20 @@ class RumMediaCrawler extends AbstractCrawler {
       // Map production URL to fetchable URL
       const productionPathname = new URL(productionPageUrl).pathname;
       const fetchablePageUrl = `${this.#siteOrigin}${productionPathname}`;
-      const plainUrl = `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
+      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchablePageUrl);
+      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchablePageUrl)
+        : `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
       const { origin } = new URL(fetchablePageUrl);
 
       return CrawlerPageParser.parsePageForImages({
         pageUrl: fetchablePageUrl,
         plainUrl,
         origin,
-        getOptimizedImageUrl: (src, orig, width, height, maxDimension) => this
-          .#getAdjustedOptimizedImageUrl(src, orig, width, height, maxDimension),
-      });
+        getOptimizedImageUrl: (src, orig, width, height, maxDimension) => ImageUrlParserRegistry
+          .getOptimizedImageUrl(src, orig, width, height, maxDimension),
+      }).then((imgs) => imgs
+        .map((img) => this.#normalizeParsedPageImage(img))
+        .filter((img) => img !== null));
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(`RUM Media Crawler: Error fetching page ${productionPageUrl}:`, error);
@@ -477,7 +552,9 @@ class RumMediaCrawler extends AbstractCrawler {
       // Map production page URL to fetchable URL
       const productionPathname = new URL(pageUrl).pathname;
       const fetchablePageUrl = `${this.#siteOrigin}${productionPathname}`;
-      const plainUrl = `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
+      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchablePageUrl);
+      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchablePageUrl)
+        : `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
 
       // Fetch the page to get metadata
       const pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
@@ -487,8 +564,8 @@ class RumMediaCrawler extends AbstractCrawler {
       let width = MIN_DIMENSION;
       let height = MIN_DIMENSION;
       let instance = 1;
-      // Default to just the pathname (not the full production URL)
-      let src = new URL(href).pathname.split('?')[0];
+      // Default to the internal URL for consistency with proxy/security expectations
+      let src = this.#transformToInternalUrl(href) || href;
       const origin = new URL(fetchablePageUrl).origin;
 
       if (pageResult?.doc) {
@@ -503,10 +580,10 @@ class RumMediaCrawler extends AbstractCrawler {
 
           try {
             const imgUrl = new URL(imgSrc, fetchablePageUrl);
-            const imgHref = imgUrl.href;
+            const imgHref = this.#transformToInternalUrl(imgUrl.href) || imgUrl.href;
 
             // Track instances
-            const srcKey = imgSrc.split('?')[0];
+            const srcKey = `${imgUrl.hostname}${imgUrl.pathname}`;
             if (seenMap.has(srcKey)) {
               seenMap.set(srcKey, seenMap.get(srcKey) + 1);
             } else {
@@ -514,12 +591,13 @@ class RumMediaCrawler extends AbstractCrawler {
             }
 
             // Check if this is our image (compare normalized URLs)
-            if (imgHref.split('?')[0] === href.split('?')[0]) {
+            const hrefToCompare = this.#transformToInternalUrl(href) || href;
+            if (imgHref.split('#')[0] === hrefToCompare.split('#')[0]) {
               alt = img.getAttribute('alt') || '';
               width = parseInt(img.getAttribute('width'), 10) || MIN_DIMENSION;
               height = parseInt(img.getAttribute('height'), 10) || MIN_DIMENSION;
               instance = seenMap.get(srcKey);
-              src = imgSrc.split('?')[0]; // Use the actual src from the page
+              src = imgHref; // Use the normalized URL we will actually fetch
               break;
             }
           } catch {
@@ -540,26 +618,14 @@ class RumMediaCrawler extends AbstractCrawler {
       const original = { href: originalUrl.href, height, width };
 
       // Create optimized image URLs using optWidth/optHeight
-      const detail = this.#getAdjustedOptimizedImageUrl(
-        src,
-        origin,
-        optWidth,
-        optHeight,
-        MAX_DETAIL_DIMENSION,
+      const detail = ImageUrlParserRegistry.getOptimizedImageUrl(
+        src, origin, optWidth, optHeight, MAX_DETAIL_DIMENSION,
       );
-      const medium = this.#getAdjustedOptimizedImageUrl(
-        src,
-        origin,
-        optWidth,
-        optHeight,
-        MAX_MEDIUM_DIMENSION,
+      const medium = ImageUrlParserRegistry.getOptimizedImageUrl(
+        src, origin, optWidth, optHeight, MAX_MEDIUM_DIMENSION,
       );
-      const card = this.#getAdjustedOptimizedImageUrl(
-        src,
-        origin,
-        optWidth,
-        optHeight,
-        MAX_CARD_DIMENSION,
+      const card = ImageUrlParserRegistry.getOptimizedImageUrl(
+        src, origin, optWidth, optHeight, MAX_CARD_DIMENSION,
       );
 
       const imageOptions = {
@@ -596,54 +662,7 @@ class RumMediaCrawler extends AbstractCrawler {
     }
   }
 
-  #getAdjustedOptimizedImageUrl(src, origin, width, height, maxLongestEdge) {
-    let adjustedWidth = width;
-    let adjustedHeight = height;
-
-    if (adjustedWidth < MIN_DIMENSION || adjustedHeight < MIN_DIMENSION) {
-      const scalingFactor = MIN_DIMENSION / Math.min(adjustedWidth, adjustedHeight);
-      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
-      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
-    }
-
-    if (adjustedWidth > maxLongestEdge || adjustedHeight > maxLongestEdge) {
-      const scalingFactor = maxLongestEdge / Math.max(adjustedWidth, adjustedHeight);
-      adjustedWidth = Math.round(adjustedWidth * scalingFactor);
-      adjustedHeight = Math.round(adjustedHeight * scalingFactor);
-    }
-
-    const url = this.#getOptimizedImageUrl(src, origin, adjustedWidth);
-    if (!url || !CrawlerUtil.isUrlValid(url)) {
-      // eslint-disable-next-line no-console
-      console.debug(`RUM Crawler: Failed to create optimized URL for src=${src}, origin=${origin}`);
-      return null;
-    }
-
-    return {
-      href: url.href,
-      width: adjustedWidth,
-      height: adjustedHeight,
-    };
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  #getOptimizedImageUrl(src, origin, width) {
-    const originalUrl = new URL(src, origin);
-    if (!CrawlerUtil.isUrlValid(originalUrl)) {
-      return null;
-    }
-
-    // Only optimize for EDS URLs
-    if (!originalUrl.hostname.includes('.aem.') && !originalUrl.hostname.includes('.hlx.')) {
-      return originalUrl;
-    }
-
-    originalUrl.searchParams.set('width', width);
-    originalUrl.searchParams.set('format', 'webply');
-    originalUrl.searchParams.set('optimize', 'medium');
-
-    return originalUrl;
-  }
+  // Optimization is handled via ImageUrlParserRegistry
 }
 
 export default RumMediaCrawler;
