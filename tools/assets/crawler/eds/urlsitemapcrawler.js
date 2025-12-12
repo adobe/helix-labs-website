@@ -51,10 +51,10 @@ class UrlSitemapCrawler extends AbstractEDSSitemapCrawler {
     return false;
   }
 
-  async fetchSitemap(sitemapFormData) {
-    const siteUrl = sitemapFormData['site-url'];
+  async fetchCrawlerData(formData) {
+    const siteUrl = formData['site-url'];
     const { hostname } = new URL(siteUrl);
-    const sitemap = sitemapFormData['embedded-sitemap-url'];
+    const sitemap = formData['embedded-sitemap-url'];
 
     return this.walkSitemapFromUrl(sitemap, hostname);
   }

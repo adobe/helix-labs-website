@@ -58,11 +58,12 @@ class AbstractCrawler {
   }
 
   /**
-   * Fetches the list of items to crawl (pages, media URLs, etc.)
-   * @param {Object} sitemapFormData - Form data from the crawler form
+   * Fetches the initial data needed by this crawler (pages, media URLs, etc.)
+   * This could be sitemap URLs, RUM events, or any other data source.
+   * @param {Object} formData - Form data from the crawler form
    * @returns {Promise<Array>} Array of items to process
    */
-  async fetchSitemap(sitemapFormData) {
+  async fetchCrawlerData(formData) {
     throw new Error('abstract class');
   }
 

@@ -143,7 +143,8 @@ class PerceptualIdentity extends AbstractIdentity {
   }
 
   async getMergeWeight(otherIdentity) {
-    if (Math.abs(this.#aspectRatio - otherIdentity.#aspectRatio) > maximalAspectRatioDifference) {
+    const aspectRatioDiff = Math.abs(this.#aspectRatio - otherIdentity.#aspectRatio);
+    if (aspectRatioDiff > maximalAspectRatioDifference) {
       return 0; // aspect ratio is too different. Save other efforts.
     }
 
@@ -173,6 +174,7 @@ class PerceptualIdentity extends AbstractIdentity {
 
   #getMergeWeight(otherIdentity) {
     const distance = this.#phash.hammingDistance(otherIdentity.#phash);
+    
     if (distance > hammingDistanceThreshold) {
       return 0;
     }
@@ -239,7 +241,9 @@ class PerceptualIdentity extends AbstractIdentity {
       },
     );
 
-    if (numberDiffPixels === 0) return 100;
+    if (numberDiffPixels === 0) {
+      return 100;
+    }
     if (numberDiffPixels
       <= Math.min(imgData.length, otherImgData.length) * (exactMatchDifferentPixelPercent / 2)) {
       return 100;

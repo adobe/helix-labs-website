@@ -29,6 +29,11 @@ import UrlResourceHandler from './util/urlresourcehandler.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
 
+// RUM Configuration
+// Minimum weighted views required to calculate rates (CTR, bounce rate)
+// Default: 1000 views = ~10 bundles at typical 1/100 weight
+const MIN_RUM_VIEWS_FOR_RATES = 1000;
+
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
 
@@ -382,24 +387,55 @@ function displayModal(figure) {
 
     const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
 
+    // Timestamp data - available from any crawler
+    const pageLastModifiedValues = cluster.getAll(UrlAndPageIdentity.type, 'pageLastModified')
+      .filter((v) => v !== null);
+    const assetLastModifiedValues = cluster.getAll(UrlAndPageIdentity.type, 'assetLastModified')
+      .filter((v) => v !== null);
+    const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate')
+      .filter((v) => v !== null);
+
+    const maxPageLastModified = pageLastModifiedValues.length > 0
+      ? Math.max(...pageLastModifiedValues) : null;
+    const maxAssetLastModified = assetLastModifiedValues.length > 0
+      ? Math.max(...assetLastModifiedValues) : null;
+    const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
+
+    // Add timestamp rows if available (works for any crawler)
+    if (publishDate) {
+      rows.publishDate = 'Publish Date';
+      data.publishDate = new Date(publishDate).toLocaleDateString();
+    }
+
     if (window.collectingRum) {
       const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
       const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
       const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
       const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
 
-      rows.performanceScore = 'Asset Performance';
+      // Calculate rates only if we have sufficient sample size
+      const pageCTR = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (conversions / pageViews) : null;
+      const pageBounceRate = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (bounces / pageViews) : null;
+
+      rows.pageCTR = 'Page Click Through Rate';
       rows.pageViews = 'Page Views';
       rows.conversions = 'Conversions';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
+      rows.pageBounceRate = 'Page Bounce Rate';
       rows.lighthouse = 'Asset Success Score';
+
       const scoreArgs = [conversions, pageViews, visits, bounces, true];
-      data.performanceScore = PerformanceUtil.getPerformanceScore(...scoreArgs);
+      data.pageCTR = pageCTR !== null
+        ? `${(pageCTR * 100).toFixed(2)}%`
+        : 'Insufficient data';
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
       data.visits = visits > 0 ? visits : ' < 100';
       data.bounces = bounces > 0 ? bounces : ' < 100';
+      data.pageBounceRate = pageBounceRate !== null
+        ? `${(pageBounceRate * 100).toFixed(2)}%`
+        : 'Insufficient data';
     }
     data.lighthouse = lighthouse.scores;
 
@@ -775,6 +811,7 @@ async function loadImages(
 
     const {
       site, alt, aspectRatio, instance, fileType, width, height, imageOptions, invalidDimensions,
+      pageLastModified, assetLastModified,
     } = img;
 
     window.imageCount += 1;
@@ -817,6 +854,8 @@ async function loadImages(
       domainKey,
       replacementDomain,
       invalidDimensions,
+      pageLastModified,
+      assetLastModified,
     });
 
     batchEntries.push(originatingClusterId);
@@ -1117,7 +1156,7 @@ async function processForm(
 
   window.stopCallback = () => crawler.stop();
 
-  const urls = await crawler.fetchSitemap(sitemapFormData);
+  const urls = await crawler.fetchCrawlerData(sitemapFormData);
   await fetchAndDisplayBatches(
     crawler,
     urls,

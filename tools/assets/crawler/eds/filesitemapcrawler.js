@@ -50,10 +50,10 @@ class FileSitemapCrawler extends AbstractEDSSitemapCrawler {
     return false;
   }
 
-  async fetchSitemap(sitemapFormData) {
-    const siteUrl = sitemapFormData['site-url'];
+  async fetchCrawlerData(formData) {
+    const siteUrl = formData['site-url'];
     const { hostname } = new URL(siteUrl);
-    const file = sitemapFormData['embedded-sitemap-file'][0];
+    const file = formData['embedded-sitemap-file'][0];
 
     if (!file) {
       throw new Error('No file provided in form data');

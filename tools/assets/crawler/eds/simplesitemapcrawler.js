@@ -104,9 +104,9 @@ class SimpleSitemapCrawler extends AbstractEDSSitemapCrawler {
    * Otherwise, discover sitemaps from robots.txt.
    * @returns {Promise<Object[]>} - Promise that resolves to an array of URL objects.
    */
-  async fetchSitemap(sitemapFormData) {
-    const siteUrl = sitemapFormData['site-url'];
-    const derivedSitemap = SimpleSitemapCrawler.getSitemapUrl(sitemapFormData);
+  async fetchCrawlerData(formData) {
+    const siteUrl = formData['site-url'];
+    const derivedSitemap = SimpleSitemapCrawler.getSitemapUrl(formData);
 
     let sitemapUrls;
 

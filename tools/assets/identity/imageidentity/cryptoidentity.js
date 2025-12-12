@@ -24,6 +24,12 @@ class CryptoIdentity extends AbstractIdentity {
     return true;
   }
 
+  // Strong identities should never merge - if this is called, it's a bug
+  // eslint-disable-next-line no-unused-vars
+  mergeOther(otherIdentity) {
+    throw new Error('BUG: mergeOther called on strong identity CryptoIdentity');
+  }
+
   // eslint-disable-next-line no-unused-vars
   static async identifyPostflightWithCanvas(identityValues, identityState) {
     const {

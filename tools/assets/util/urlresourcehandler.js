@@ -40,6 +40,7 @@ class UrlResourceHandler {
 
   /**
    * Wraps a URL with the CORS proxy if proxy mode is enabled.
+   * Skips proxy for same-origin requests.
    * @param {string|URL} url - The URL to potentially wrap
    * @returns {string} The original or proxied URL
    */
@@ -47,7 +48,48 @@ class UrlResourceHandler {
     if (!this.#useProxy) {
       return url;
     }
+    
     const urlString = url instanceof URL ? url.href : url;
+    
+    // Skip proxy for same-origin requests
+    try {
+      const targetUrl = new URL(urlString);
+      const currentOrigin = window.location.origin;
+      
+      if (targetUrl.origin === currentOrigin) {
+        return urlString;
+      }
+      
+      // TEMPORARY CHECK: Validate that cross-origin requests are allowed
+      // Only sitemap.xml and robots.txt should come from external domains
+      const siteUrl = document.getElementById('site-url')?.value;
+      if (siteUrl) {
+        const siteOrigin = new URL(siteUrl).origin;
+        const isSiteUrl = targetUrl.origin === siteOrigin;
+        const isSitemapOrRobots = targetUrl.pathname.endsWith('/sitemap.xml') 
+          || targetUrl.pathname.endsWith('/robots.txt')
+          || targetUrl.pathname.includes('/sitemap');
+        
+        if (!isSiteUrl && !isSitemapOrRobots) {
+          // eslint-disable-next-line no-console
+          console.error(`[PROXY ERROR] Attempting to proxy URL that is not from site origin: ${urlString}`);
+          // eslint-disable-next-line no-console
+          console.error(`  Site URL: ${siteUrl}`);
+          // eslint-disable-next-line no-console
+          console.error(`  Target URL: ${urlString}`);
+          // eslint-disable-next-line no-console
+          console.error('  This URL should have been transformed to the internal site domain.');
+          throw new Error(`Invalid proxy request: ${urlString} is not from site origin ${siteOrigin}`);
+        }
+      }
+    } catch (error) {
+      // Re-throw validation errors
+      if (error.message.startsWith('Invalid proxy request:')) {
+        throw error;
+      }
+      // Invalid URL, let it fail naturally
+    }
+    
     return `${CORS_PROXY_URL}${encodeURIComponent(urlString)}`;
   }
 

@@ -10,7 +10,7 @@ class Performance extends AbstractSort {
   }
 
   static get description() {
-    return 'Asset Performance';
+    return 'Page Click Through Rate';
   }
 
   // eslint-disable-next-line no-unused-vars

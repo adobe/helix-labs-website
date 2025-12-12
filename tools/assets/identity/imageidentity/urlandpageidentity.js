@@ -30,7 +30,22 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   #rumData;
 
-  constructor(identityId, src, site, alt, width, height, aspectRatio, instance) {
+  #pageLastModified;
+
+  #assetLastModified;
+
+  constructor(
+    identityId,
+    src,
+    site,
+    alt,
+    width,
+    height,
+    aspectRatio,
+    instance,
+    pageLastModified,
+    assetLastModified,
+  ) {
     super(identityId);
     this.#src = src;
     this.#site = site;
@@ -39,6 +54,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
     this.#height = height;
     this.#aspectRatio = aspectRatio;
     this.#instance = instance;
+    this.#pageLastModified = pageLastModified;
+    this.#assetLastModified = assetLastModified;
   }
 
   get pageViews() {
@@ -55,6 +72,33 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   get bounces() {
     return this.#rumData ? this.#rumData.bounces : 0;
+  }
+
+  get pageLastModified() {
+    return this.#pageLastModified;
+  }
+
+  get assetLastModified() {
+    return this.#assetLastModified;
+  }
+
+  /**
+   * Returns the publish date using the fallback chain:
+   * 1. Page Last-Modified (most recent if multiple pages)
+   * 2. Asset's own Last-Modified
+   * 3. Falls back to null if neither available
+   */
+  get publishDate() {
+    // Priority 1: Page Last-Modified (most authoritative)
+    if (this.#pageLastModified) {
+      return this.#pageLastModified;
+    }
+    // Priority 2: Asset's own Last-Modified
+    if (this.#assetLastModified) {
+      return this.#assetLastModified;
+    }
+    // No date information available
+    return null;
   }
 
   static get type() {
@@ -98,7 +142,6 @@ class UrlAndPageIdentity extends AbstractIdentity {
     return this.#instance;
   }
 
-  // eslint-disable-next-line no-unused-vars
   static async identifyPreflight(identityValues, identityState) {
     const {
       originatingClusterId,
@@ -109,6 +152,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
       height,
       aspectRatio,
       instance,
+      pageLastModified,
+      assetLastModified,
     } = identityValues;
 
     const { href } = identityValues.imageOptions.original;
@@ -141,6 +186,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
       height,
       aspectRatio,
       instance,
+      pageLastModified,
+      assetLastModified,
     );
 
     if (identityValues.domainKey) {
@@ -231,8 +278,16 @@ class UrlAndPageIdentity extends AbstractIdentity {
           }
         } else {
           try {
-            identityState.rumLoadingPromise = loader.fetchPrevious12Months(null);
-            identityState.rumLoadedData = await identityState.rumLoadingPromise;
+            // Fetch 25 months of data (full RUM retention)
+            identityState.rumLoadingPromise = (async () => {
+              const chunks = await loader.fetchPrevious12Months(null);
+              const endDate = new Date();
+              endDate.setMonth(endDate.getMonth() - 13);
+              const olderChunks = await loader.fetchPrevious12Months(endDate);
+              identityState.rumLoadedData = [...chunks, ...olderChunks];
+              return identityState.rumLoadedData;
+            })();
+            await identityState.rumLoadingPromise;
             identityState.rumLoadingPromise = null;
           } catch (error) {
             // eslint-disable-next-line no-console
@@ -308,6 +363,13 @@ class UrlAndPageIdentity extends AbstractIdentity {
       };
       identityState.rumLoadedError = true;
     }
+  }
+
+  // UrlAndPageIdentity should never merge - each URL+page+instance is unique
+  // If this is called, it's a bug in the clustering logic
+  // eslint-disable-next-line no-unused-vars
+  mergeOther(otherIdentity) {
+    throw new Error('BUG: mergeOther called on UrlAndPageIdentity - this should never merge');
   }
 }
 

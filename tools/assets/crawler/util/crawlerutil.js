@@ -16,9 +16,17 @@ class CrawlerUtil {
   static isUrlValid(url) {
     if (!url) return false;
     if (url instanceof URL) {
+      // Allow same-origin URLs (including localhost if running locally)
+      const currentOrigin = window.location.origin;
+      if (url.origin === currentOrigin) {
+        return true;
+      }
+      
+      // Reject localhost/empty hostname for cross-origin requests
       if (url.hostname === 'localhost' || url.hostname === '') {
         return false;
       }
+      
       const protocol = url.protocol.replace(':', '').toLowerCase();
       return this.#permittedProtocols.includes(protocol);
     }
@@ -68,9 +76,11 @@ class CrawlerUtil {
    * since it's not inserted into the live DOM.
    *
    * @param {string} url - The URL to fetch
-   * @returns {Promise<Document|null>} The parsed document or null if fetch failed
+   * @param {Object} options - Optional configuration
+   * @param {boolean} options.includeMetadata - If true, returns {doc, lastModified}
+   * @returns {Promise<Document|{doc: Document, lastModified: Date}|null>}
    */
-  static async fetchPageDocument(url) {
+  static async fetchPageDocument(url, options = {}) {
     try {
       const req = await this.#requestPool.run(async () => UrlResourceHandler.fetch(url));
       if (!req.ok) {
@@ -88,10 +98,38 @@ class CrawlerUtil {
 
       const html = await req.text();
       const parser = new DOMParser();
-      return parser.parseFromString(html, 'text/html');
+      const doc = parser.parseFromString(html, 'text/html');
+
+      if (options.includeMetadata) {
+        const lastModifiedHeader = req.headers.get('Last-Modified');
+        const lastModified = lastModifiedHeader ? new Date(lastModifiedHeader) : null;
+        return { doc, lastModified };
+      }
+
+      return doc;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(`Error fetching page at ${url}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches the Last-Modified header for an asset URL.
+   * @param {string} assetUrl - The asset URL to check
+   * @returns {Promise<Date|null>} The Last-Modified date or null
+   */
+  static async fetchAssetLastModified(assetUrl) {
+    try {
+      const req = await this.#requestPool.run(
+        async () => UrlResourceHandler.fetch(assetUrl, { method: 'HEAD' }),
+      );
+      if (!req.ok) {
+        return null;
+      }
+      const lastModifiedHeader = req.headers.get('Last-Modified');
+      return lastModifiedHeader ? new Date(lastModifiedHeader) : null;
+    } catch (error) {
       return null;
     }
   }
