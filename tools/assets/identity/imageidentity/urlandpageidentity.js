@@ -39,6 +39,10 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   #lastSeenTimestamp;
 
+  #assetViews;
+
+  #assetClicks;
+
   constructor(
     identityId,
     src,
@@ -63,6 +67,8 @@ class UrlAndPageIdentity extends AbstractIdentity {
     this.#assetLastModified = assetLastModified;
     this.#firstSeenTimestamp = null;
     this.#lastSeenTimestamp = null;
+    this.#assetViews = 0;
+    this.#assetClicks = 0;
   }
 
   get pageViews() {
@@ -95,6 +101,19 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
   get lastSeenTimestamp() {
     return this.#lastSeenTimestamp;
+  }
+
+  get assetViews() {
+    return this.#assetViews;
+  }
+
+  get assetClicks() {
+    return this.#assetClicks;
+  }
+
+  get assetClickThroughRate() {
+    if (!this.#assetViews) return 0;
+    return Math.min(this.#assetClicks / this.#assetViews, 1);
   }
 
   /**
@@ -380,6 +399,11 @@ class UrlAndPageIdentity extends AbstractIdentity {
           pageAssetRange: new Map(), // pageUrlLower -> Map<assetPath, { first:number|null, last:number|null }>
         };
       }
+      if (!identityState.rumAssetMetricIndex) {
+        identityState.rumAssetMetricIndex = {
+          pageAssetMetrics: new Map(), // pageUrlLower -> Map<assetKey, { views:number, clicks:number }>
+        };
+      }
 
       // Cache by internal page URL (stable for the crawl), but accept both internal+public when scanning bundles.
       const pageKey = internalPageUrl.href.toLowerCase();
@@ -389,10 +413,14 @@ class UrlAndPageIdentity extends AbstractIdentity {
       const cachedPage = identityState.rumSeenIndex.pageRange.get(pageKey);
       const cachedAssetMap = identityState.rumSeenIndex.pageAssetRange.get(pageKey);
       const cachedAsset = cachedAssetMap ? cachedAssetMap.get(assetKey) : null;
+      const cachedMetricMap = identityState.rumAssetMetricIndex.pageAssetMetrics.get(pageKey);
+      const cachedMetrics = cachedMetricMap ? cachedMetricMap.get(assetKey) : null;
 
-      if (cachedPage && cachedAsset) {
+      if (cachedPage && cachedAsset && cachedMetrics) {
         this.#firstSeenTimestamp = cachedAsset.first;
         this.#lastSeenTimestamp = cachedAsset.last;
+        this.#assetViews = cachedMetrics.views;
+        this.#assetClicks = Math.min(cachedMetrics.clicks, this.conversions);
         // If we somehow didn't see the asset but did see the page, keep asset nulls (per spec),
         // but callers can still use publishDate/pageLastModified.
       } else {
@@ -401,6 +429,9 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
         let assetFirst = cachedAsset?.first ?? null;
         let assetLast = cachedAsset?.last ?? null;
+
+        let assetViews = cachedMetrics?.views ?? 0;
+        let assetClicks = cachedMetrics?.clicks ?? 0;
 
         // Scan raw bundles only for this page, and only for the one assetPath we care about.
         // rumLoadedData is an array of chunks: { date, rumBundles }
@@ -419,19 +450,54 @@ class UrlAndPageIdentity extends AbstractIdentity {
 
             // Asset seen range (viewmedia target pathname match)
             const events = bundle?.events || [];
+            const weight = Number(bundle.weight) || 0;
+            let bundleSawAsset = false;
+            let bundleClickedAsset = false;
+            const lastViewmediaBySource = new Map();
+            let lastViewmediaAny = null;
+
             // eslint-disable-next-line no-restricted-syntax
             for (const evt of events) {
-              if (evt?.checkpoint !== 'viewmedia' || !evt?.target) continue;
-              let targetUrl;
-              try {
-                targetUrl = new URL(evt.target, bundle.url);
-              } catch {
-                continue;
+              if (!evt?.checkpoint) continue;
+
+              if (evt.checkpoint === 'viewmedia' && evt.target) {
+                let targetUrl;
+                try {
+                  targetUrl = new URL(evt.target, bundle.url);
+                } catch {
+                  continue;
+                }
+                const targetKey = ImageUrlParserRegistry.getDurableIdentityPart(targetUrl) || targetUrl.pathname;
+                if (targetKey !== assetKey) continue;
+
+                // Seen timestamps
+                if (assetFirst === null || ts < assetFirst) assetFirst = ts;
+                if (assetLast === null || ts > assetLast) assetLast = ts;
+
+                bundleSawAsset = true;
+
+                // Correlate clicks by source identifier and event order.
+                const sourceKey = evt.source || '__nosrc__';
+                lastViewmediaBySource.set(sourceKey, assetKey);
+                lastViewmediaAny = { assetKey, sourceKey };
               }
-              const targetKey = ImageUrlParserRegistry.getDurableIdentityPart(targetUrl) || targetUrl.pathname;
-              if (targetKey !== assetKey) continue;
-              if (assetFirst === null || ts < assetFirst) assetFirst = ts;
-              if (assetLast === null || ts > assetLast) assetLast = ts;
+
+              if (evt.checkpoint === 'click') {
+                const sourceKey = evt.source || '__nosrc__';
+                const matchedBySource = lastViewmediaBySource.get(sourceKey) === assetKey;
+                const matchedByProximity = lastViewmediaAny?.assetKey === assetKey;
+                if (matchedBySource || matchedByProximity) {
+                  bundleClickedAsset = true;
+                }
+              }
+            }
+
+            // Metrics are estimated by summing bundle.weight once per bundle per asset
+            if (bundleSawAsset) {
+              assetViews += weight;
+            }
+            if (bundleClickedAsset) {
+              assetClicks += weight;
             }
           }
         }
@@ -442,8 +508,15 @@ class UrlAndPageIdentity extends AbstractIdentity {
         }
         identityState.rumSeenIndex.pageAssetRange.get(pageKey).set(assetKey, { first: assetFirst, last: assetLast });
 
+        if (!identityState.rumAssetMetricIndex.pageAssetMetrics.has(pageKey)) {
+          identityState.rumAssetMetricIndex.pageAssetMetrics.set(pageKey, new Map());
+        }
+        identityState.rumAssetMetricIndex.pageAssetMetrics.get(pageKey).set(assetKey, { views: assetViews, clicks: assetClicks });
+
         this.#firstSeenTimestamp = assetFirst;
         this.#lastSeenTimestamp = assetLast;
+        this.#assetViews = assetViews;
+        this.#assetClicks = Math.min(assetClicks, this.conversions);
       }
     } catch (error) {
       // eslint-disable-next-line no-console

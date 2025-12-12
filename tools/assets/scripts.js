@@ -429,14 +429,20 @@ function displayModal(figure) {
       const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
       const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
       const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
+      const assetViews = cluster.getAll(UrlAndPageIdentity.type, 'assetViews').reduce((acc, curr) => acc + curr, 0);
+      const assetClicks = cluster.getAll(UrlAndPageIdentity.type, 'assetClicks').reduce((acc, curr) => acc + curr, 0);
 
       // Calculate rates only if we have sufficient sample size
       const pageCTR = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (conversions / pageViews) : null;
       const pageBounceRate = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (bounces / pageViews) : null;
+      const assetCTR = assetViews >= MIN_RUM_VIEWS_FOR_RATES ? (assetClicks / assetViews) : null;
 
       rows.pageCTR = 'Page Click Through Rate';
       rows.pageViews = 'Page Views';
       rows.conversions = 'Conversions';
+      rows.assetViews = 'Asset Views';
+      rows.assetClicks = 'Asset Clicks';
+      rows.assetCTR = 'Asset Click Through Rate';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
       rows.pageBounceRate = 'Page Bounce Rate';
@@ -448,6 +454,11 @@ function displayModal(figure) {
         : 'Insufficient data';
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
+      data.assetViews = assetViews > 0 ? assetViews : ' < 100';
+      data.assetClicks = assetClicks > 0 ? assetClicks : ' < 100';
+      data.assetCTR = assetCTR !== null
+        ? `${(Math.min(assetCTR, 1) * 100).toFixed(2)}%`
+        : 'Insufficient data';
       data.visits = visits > 0 ? visits : ' < 100';
       data.bounces = bounces > 0 ? bounces : ' < 100';
       data.pageBounceRate = pageBounceRate !== null
@@ -2096,6 +2107,8 @@ function buildAEMMetadata(cluster) {
   const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
   const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
   const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
+  const assetViews = cluster.getAll(UrlAndPageIdentity.type, 'assetViews').reduce((acc, curr) => acc + curr, 0);
+  const assetClicks = cluster.getAll(UrlAndPageIdentity.type, 'assetClicks').reduce((acc, curr) => acc + curr, 0);
   const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
   const altTexts = cluster.getAll(UrlAndPageIdentity.type, 'alt').filter((a) => a && a.trim());
   const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate').filter((v) => v !== null);
@@ -2115,7 +2128,13 @@ function buildAEMMetadata(cluster) {
     'xdm:bounces': bounces,
     'xdm:assetExperienceClickThroughRate': parseFloat(clickThroughRate.toFixed(4)),
     'xdm:assetExperienceBounceRate': parseFloat(bounceRate.toFixed(4)),
+    'xdm:assetViews': assetViews,
+    'xdm:assetClicks': assetClicks,
   };
+
+  if (assetViews >= MIN_RUM_VIEWS_FOR_RATES) {
+    metadata['xdm:assetClickThroughRate'] = parseFloat(Math.min(assetClicks / assetViews, 1).toFixed(4));
+  }
 
   // Publish date and seen timestamps
   const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
