@@ -16,6 +16,11 @@ const MAX_CARD_DIMENSION = 256;
 const MAX_MEDIUM_DIMENSION = 800;
 const MAX_DETAIL_DIMENSION = 1024;
 
+// RUM "viewmedia" can include videos and other media. This crawler currently only supports images.
+const ALLOWED_IMAGE_FILE_TYPES = new Set([
+  'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg', 'avif', 'tif', 'tiff', 'bmp',
+]);
+
 /**
  * RUM Media Crawler - discovers images from RUM viewmedia events,
  * then crawls the pages to get full metadata.
@@ -24,11 +29,7 @@ const MAX_DETAIL_DIMENSION = 1024;
 class RumMediaCrawler extends AbstractCrawler {
   #stopped = false;
 
-  #duplicateFilter = new Set();
-
   #handledPages = new Set(); // Rapid lookup for pages already crawled
-
-  #imagesToCrawl = []; // List of images to process
 
   #siteOrigin = null;
 
@@ -212,7 +213,12 @@ class RumMediaCrawler extends AbstractCrawler {
 
   /**
    * Fetches 25 months of RUM data and collects viewmedia events.
-   * Returns the list of media events to be processed in batches.
+   * Returns the list of unique pages to be processed in batches.
+   *
+   * IMPORTANT: The UI's counters treat the returned list as "pages to crawl"
+   * (total-counter = list length, pages-counter increments once per handled page).
+   * So for the RUM crawler we must return pages (not raw media events), and keep
+   * the media-event details in-memory (this.#rumData) for gap-filling.
    */
   async fetchCrawlerData(formData) {
     const domain = formData['replacement-domain'];
@@ -238,9 +244,27 @@ class RumMediaCrawler extends AbstractCrawler {
     const olderChunks = await loader.fetchPrevious12Months(endDate);
     const allChunks = [...chunks, ...olderChunks];
 
-    // Build RUM data structure for quick lookup: pageUrl -> [mediaUrls]
+    // Build RUM data structure for quick lookup: productionPageUrl -> Set<internalMediaUrl>
     const pageToMediaMap = new Map();
-    const mediaEvents = [];
+
+    const normalizePageUrl = (rawUrl) => {
+      try {
+        const u = new URL(rawUrl);
+        // Hash never impacts EDS HTML; strip it.
+        u.hash = '';
+
+        // Keep query params unless they are purely tracking (prevents duplicate crawling/ids).
+        const params = new URLSearchParams(u.search);
+        const keys = [...params.keys()];
+        const isTrackingKey = (k) => /^utm_/i.test(k) || ['gclid', 'fbclid', 'msclkid'].includes(k.toLowerCase());
+        const allTracking = keys.length > 0 && keys.every(isTrackingKey);
+        if (allTracking) u.search = '';
+
+        return u.href;
+      } catch {
+        return null;
+      }
+    };
 
     allChunks.forEach((chunk) => {
       const bundles = chunk.rumBundles || [];
@@ -259,7 +283,8 @@ class RumMediaCrawler extends AbstractCrawler {
           return;
         }
 
-        const pageUrl = bundle.url;
+        const pageUrl = normalizePageUrl(bundle.url);
+        if (!pageUrl) return;
 
         // Collect viewmedia events
         const viewmediaEvents = (bundle.events || [])
@@ -286,6 +311,12 @@ class RumMediaCrawler extends AbstractCrawler {
             return;
           }
 
+          // Only keep image media types (viewmedia can include videos, etc.)
+          const mediaType = ImageAuditUtil.getFileType(parsedUrl.pathname);
+          if (!ALLOWED_IMAGE_FILE_TYPES.has(mediaType)) {
+            return;
+          }
+
           // SECURITY: Only process trusted domains
           if (!this.#isTrustedDomain(parsedUrl.href)) {
             return;
@@ -300,12 +331,6 @@ class RumMediaCrawler extends AbstractCrawler {
           }
           pageToMediaMap.get(pageUrl).add(normalizedUrl);
 
-          // Store event for processing
-          mediaEvents.push({
-            mediaUrl: normalizedUrl,
-            pageUrl,
-            source: evt.source,
-          });
         });
       });
     });
@@ -313,69 +338,10 @@ class RumMediaCrawler extends AbstractCrawler {
     this.#rumData = pageToMediaMap;
 
     // eslint-disable-next-line no-console
-    console.log(`RUM Media Crawler: Found ${mediaEvents.length} viewmedia events across ${pageToMediaMap.size} pages`);
+    console.log(`RUM Media Crawler: Found viewmedia events across ${pageToMediaMap.size} pages`);
 
-    // Return media events - actual crawling happens in fetchBatch
-    return mediaEvents;
-  }
-
-  /**
-   * Crawl a single page and extract all image URLs
-   */
-  async #crawlPageForImages(productionPageUrl) {
-    const images = [];
-
-    try {
-      // Map production URL to fetchable URL
-      const productionPathname = new URL(productionPageUrl).pathname;
-      const fetchablePageUrl = `${this.#siteOrigin}${productionPathname}`;
-      const plainUrl = `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
-
-      const pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
-      if (!pageResult || !pageResult.doc) {
-        return images;
-      }
-
-      const { doc } = pageResult;
-      const { origin } = new URL(fetchablePageUrl);
-
-      const imgElements = doc.querySelectorAll('img[src]');
-      
-      imgElements.forEach((img) => {
-        const src = img.getAttribute('src');
-        if (!src) return;
-
-        try {
-          const originalUrl = new URL(src, origin);
-          
-          // SECURITY: Only process images from trusted domains
-          if (!this.#isTrustedDomain(originalUrl.href)) {
-            return;
-          }
-
-          const internalUrl = this.#transformToInternalUrl(originalUrl.href);
-          if (!internalUrl) {
-            return;
-          }
-          
-          const urlToUse = new URL(internalUrl);
-          if (CrawlerUtil.isUrlValid(urlToUse)) {
-            images.push({
-              href: urlToUse.href,
-              pageUrl: productionPageUrl,
-              discoveredVia: 'page-crawl',
-            });
-          }
-        } catch {
-          // Skip invalid URLs
-        }
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn(`RUM Media Crawler: Failed to crawl page ${productionPageUrl}:`, error.message);
-    }
-
-    return images;
+    // Return unique pages to crawl; media details stay in this.#rumData
+    return [...pageToMediaMap.keys()];
   }
 
   /**
@@ -422,19 +388,76 @@ class RumMediaCrawler extends AbstractCrawler {
   }
 
   /**
-   * Process a batch of media events.
-   * For each event: crawl page if needed, add all images from page with correct instance counts.
-   * Then add any RUM media that wasn't found in the page.
+   * Process a batch of pages.
+   * For each page:
+   * - crawl the page (if not already handled) and add all images from HTML with correct instances
+   * - then add any RUM media for that page that wasn't found in the current HTML
    */
   async fetchBatch(batch, maxBatchSize, pageCounterIncrement) {
     const results = [];
     const promisePool = new PromisePool(Infinity, 'RUM Media crawler fetchBatch pool');
 
+    const getDurableAssetKey = (url) => {
+      try {
+        const u = new URL(url);
+        return ImageUrlParserRegistry.getDurableIdentityPart(u) || u.pathname;
+      } catch {
+        return null;
+      }
+    };
+
+    const enqueue = (imgData) => {
+      if (imgData) results.push(imgData);
+    };
+
+    const ensureLoadableImage = async (imgData) => {
+      if (!imgData?.imageOptions?.original?.href) return null;
+      const cardHref = imgData?.imageOptions?.card?.href;
+      const originalHref = imgData.imageOptions.original.href;
+
+      // Prefer the URL we will load (card). If it fails but original works, fall back to original.
+      if (cardHref && cardHref !== originalHref) {
+        // eslint-disable-next-line no-await-in-loop
+        const cardOk = await this.#validateImageExists(cardHref);
+        if (cardOk) return imgData;
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      const originalOk = await this.#validateImageExists(originalHref);
+      if (!originalOk) {
+        return null;
+      }
+
+      // Original exists; make sure the card URL we will load is also safe.
+      // This avoids repeated imageOnError spam when an optimization variant is unsupported.
+      const original = imgData.imageOptions.original;
+      return new CrawlerImageValues({
+        site: imgData.site,
+        origin: imgData.origin,
+        src: imgData.src,
+        imageOptions: {
+          original,
+          detail: imgData.imageOptions.detail || original,
+          medium: imgData.imageOptions.medium || original,
+          card: original,
+        },
+        alt: imgData.alt,
+        width: imgData.width,
+        height: imgData.height,
+        invalidDimensions: imgData.invalidDimensions,
+        aspectRatio: imgData.aspectRatio,
+        instance: imgData.instance,
+        fileType: imgData.fileType,
+        pageLastModified: imgData.pageLastModified,
+        assetLastModified: imgData.assetLastModified,
+      });
+    };
+
     for (let i = 0; !this.#stopped && i < maxBatchSize; i += 1) {
       promisePool.run(async () => {
         while (batch.length > 0 && !this.#stopped) {
-          const event = batch.shift();
-          const { pageUrl } = event;
+          const pageUrl = batch.shift(); // production URL (as returned by fetchCrawlerData)
+          if (!pageUrl) continue;
 
           // Step 1 & 2: Check if page already handled
           if (this.#handledPages.has(pageUrl)) {
@@ -442,27 +465,51 @@ class RumMediaCrawler extends AbstractCrawler {
           }
 
           this.#handledPages.add(pageUrl);
-          const seenImagePaths = new Set(); // Track images found on this page
+          // Count this page as "handled" immediately, even if the crawl later fails.
+          // This prevents the UI counter from staying at 0 due to downstream errors.
+          try {
+            if (typeof pageCounterIncrement === 'function') pageCounterIncrement();
+          } catch {
+            // ignore counter errors
+          }
+          // Track which assets we saw in the HTML so we don't add them again from RUM.
+          // Use durable asset key (not pathname) because the same mediabus asset can appear
+          // under different paths (e.g., /media_... vs /blog/media_...).
+          const seenAssetKeys = new Set();
+          const loadableAssetKeyCache = new Map(); // durableKey -> boolean
 
           // Step 2: Crawl the page for all images (with correct instance counts)
           // eslint-disable-next-line no-await-in-loop
           const pageImages = await this.#fetchImageDataFromPage(pageUrl);
-          
-          // Track which images we found in the page
-          pageImages.forEach((imgData) => {
-            try {
-              const imgPathname = new URL(imgData.imageOptions.original.href).pathname;
-              seenImagePaths.add(imgPathname);
-            } catch (error) {
-              // eslint-disable-next-line no-console
-              console.debug(`Invalid image src: ${imgData?.imageOptions?.original?.href || imgData?.src}`);
-            }
-          });
-          
-          results.push(...pageImages);
+          const skipPageFetchForRumOnly = pageImages.length === 0;
 
-          // Increment page counter for this page
-          pageCounterIncrement();
+          // Validate/enqueue HTML images:
+          // - only count an asset as "seen in HTML" if at least one loadable URL exists
+          // - keep real multiple usages via instance (1..N)
+          // - avoid duplicate outputs via enqueue gate
+          // eslint-disable-next-line no-restricted-syntax
+          for (const imgData of pageImages) {
+            const key = getDurableAssetKey(imgData?.imageOptions?.original?.href || imgData?.src);
+            if (!key) continue;
+
+            if (!loadableAssetKeyCache.has(key)) {
+              // eslint-disable-next-line no-await-in-loop
+              const loadable = await ensureLoadableImage(imgData);
+              loadableAssetKeyCache.set(key, !!loadable);
+              if (loadable) {
+                seenAssetKeys.add(key);
+                enqueue(loadable);
+              }
+            } else if (loadableAssetKeyCache.get(key)) {
+              // We already proved this asset is loadable; enqueue this instance too.
+              // eslint-disable-next-line no-await-in-loop
+              const loadable = await ensureLoadableImage(imgData);
+              if (loadable) {
+                seenAssetKeys.add(key);
+                enqueue(loadable);
+              }
+            }
+          }
 
           // Step 3: Get other media from RUM for this page that weren't in the HTML
           const otherMediaOnPage = this.#rumData.get(pageUrl) || new Set();
@@ -470,10 +517,14 @@ class RumMediaCrawler extends AbstractCrawler {
           
           otherMediaOnPage.forEach((mediaUrl) => {
             try {
-              const mediaPathname = new URL(mediaUrl).pathname;
+              const mediaType = ImageAuditUtil.getFileType(new URL(mediaUrl).pathname);
+              if (!ALLOWED_IMAGE_FILE_TYPES.has(mediaType)) return;
+
+              const mediaKey = getDurableAssetKey(mediaUrl);
+              if (!mediaKey) return;
               
-              if (!seenImagePaths.has(mediaPathname) && !this.#failedUrls.has(mediaUrl)) {
-                seenImagePaths.add(mediaPathname);
+              if (!seenAssetKeys.has(mediaKey) && !this.#failedUrls.has(mediaUrl)) {
+                seenAssetKeys.add(mediaKey);
                 
                 // This image had viewmedia events but isn't in the current HTML
                 // Add it as a single instance
@@ -482,13 +533,19 @@ class RumMediaCrawler extends AbstractCrawler {
                     return this.#fetchImageMetadata({
                       href: mediaUrl,
                       pageUrl,
+                      skipPageFetch: skipPageFetchForRumOnly,
                     });
                   }
                   return null;
                 }).then((imgData) => {
-                  if (imgData) {
-                    results.push(imgData);
-                  }
+                  // Validate before enqueueing to avoid repeated load errors (and keep 404s out).
+                  return ensureLoadableImage(imgData).then((loadable) => {
+                    if (loadable) {
+                      const key = getDurableAssetKey(loadable?.imageOptions?.original?.href || loadable?.src);
+                      if (key) seenAssetKeys.add(key);
+                      enqueue(loadable);
+                    }
+                  });
                 }).catch((error) => {
                   // eslint-disable-next-line no-console
                   console.warn(`Error fetching ${mediaUrl}:`, error);
@@ -518,16 +575,19 @@ class RumMediaCrawler extends AbstractCrawler {
    */
   async #fetchImageDataFromPage(productionPageUrl) {
     try {
-      // Map production URL to fetchable URL
-      const productionPathname = new URL(productionPageUrl).pathname;
-      const fetchablePageUrl = `${this.#siteOrigin}${productionPathname}`;
-      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchablePageUrl);
-      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchablePageUrl)
-        : `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
-      const { origin } = new URL(fetchablePageUrl);
+      // Fetch by pathname, but keep the query string on the "site" field so query-distinct pages
+      // remain distinct in reporting/identity keys.
+      const prodUrl = new URL(productionPageUrl);
+      const fetchableBaseUrl = `${this.#siteOrigin}${prodUrl.pathname}`;
+      const siteUrl = `${this.#siteOrigin}${prodUrl.pathname}${prodUrl.search || ''}`;
+
+      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchableBaseUrl);
+      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
+        : `${fetchableBaseUrl.endsWith('/') ? `${fetchableBaseUrl}index` : fetchableBaseUrl}.plain.html`;
+      const { origin } = new URL(fetchableBaseUrl);
 
       return CrawlerPageParser.parsePageForImages({
-        pageUrl: fetchablePageUrl,
+        pageUrl: siteUrl,
         plainUrl,
         origin,
         getOptimizedImageUrl: (src, orig, width, height, maxDimension) => ImageUrlParserRegistry
@@ -547,18 +607,28 @@ class RumMediaCrawler extends AbstractCrawler {
    */
   async #fetchImageMetadata(imageItem) {
     try {
-      const { href, pageUrl } = imageItem;
+      const { href, pageUrl, skipPageFetch = false } = imageItem;
+      const fileType = ImageAuditUtil.getFileType(href);
+      if (!ALLOWED_IMAGE_FILE_TYPES.has(fileType)) {
+        return null;
+      }
 
-      // Map production page URL to fetchable URL
-      const productionPathname = new URL(pageUrl).pathname;
-      const fetchablePageUrl = `${this.#siteOrigin}${productionPathname}`;
-      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchablePageUrl);
-      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchablePageUrl)
-        : `${fetchablePageUrl.endsWith('/') ? `${fetchablePageUrl}index` : fetchablePageUrl}.plain.html`;
+      // Map production page URL to fetchable URL (fetch by pathname), but preserve query for reporting
+      const prodUrl = new URL(pageUrl);
+      const fetchableBaseUrl = `${this.#siteOrigin}${prodUrl.pathname}`;
+      const siteUrl = `${this.#siteOrigin}${prodUrl.pathname}${prodUrl.search || ''}`;
+      const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchableBaseUrl);
+      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
+        : `${fetchableBaseUrl.endsWith('/') ? `${fetchableBaseUrl}index` : fetchableBaseUrl}.plain.html`;
 
-      // Fetch the page to get metadata
-      const pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
-      const pageLastModified = pageResult?.lastModified ? pageResult.lastModified.getTime() : null;
+      // Fetch the page to get metadata (optional). For missing/404 pages, we can still generate
+      // optimized image variants using EDS knowledge and default dimensions.
+      let pageResult = null;
+      let pageLastModified = null;
+      if (!skipPageFetch) {
+        pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
+        pageLastModified = pageResult?.lastModified ? pageResult.lastModified.getTime() : null;
+      }
 
       let alt = '';
       let width = MIN_DIMENSION;
@@ -566,7 +636,7 @@ class RumMediaCrawler extends AbstractCrawler {
       let instance = 1;
       // Default to the internal URL for consistency with proxy/security expectations
       let src = this.#transformToInternalUrl(href) || href;
-      const origin = new URL(fetchablePageUrl).origin;
+      const origin = new URL(fetchableBaseUrl).origin;
 
       if (pageResult?.doc) {
         // Find this specific image in the page
@@ -579,7 +649,7 @@ class RumMediaCrawler extends AbstractCrawler {
           if (!imgSrc) continue;
 
           try {
-            const imgUrl = new URL(imgSrc, fetchablePageUrl);
+            const imgUrl = new URL(imgSrc, fetchableBaseUrl);
             const imgHref = this.#transformToInternalUrl(imgUrl.href) || imgUrl.href;
 
             // Track instances
@@ -635,13 +705,11 @@ class RumMediaCrawler extends AbstractCrawler {
         card: card || original,
       };
 
-      const fileType = ImageAuditUtil.getFileType(src);
-
       // Fetch asset Last-Modified
       const assetLastModified = await CrawlerUtil.fetchAssetLastModified(originalUrl.href);
 
       return new CrawlerImageValues({
-        site: fetchablePageUrl,
+        site: siteUrl,
         origin,
         src,
         imageOptions,

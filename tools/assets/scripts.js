@@ -20,7 +20,6 @@ import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
 import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './reports/util/namingutil.js';
-import PerformanceUtil from './reports/util/performanceutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
@@ -84,6 +83,90 @@ async function saveFormData(url, formData) {
     console.warn('Error opening DB or saving form data:', error);
     return Promise.resolve();
   }
+}
+
+async function deleteDatabase(dbName) {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase(dbName);
+      req.onsuccess = () => resolve({ name: dbName, ok: true });
+      req.onerror = () => resolve({ name: dbName, ok: false });
+      req.onblocked = () => resolve({ name: dbName, ok: false, blocked: true });
+    } catch {
+      resolve({ name: dbName, ok: false });
+    }
+  });
+}
+
+async function deleteExecutionForKey(key) {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.delete(key);
+    return new Promise((resolve) => {
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+      transaction.onabort = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function purgeIndexedDbForSite(formData) {
+  const siteUrl = formData?.['site-url'];
+  const replacementDomain = formData?.['replacement-domain'];
+
+  const candidates = new Set();
+  if (replacementDomain) candidates.add(String(replacementDomain).toLowerCase());
+  if (siteUrl?.hostname) candidates.add(siteUrl.hostname.toLowerCase());
+
+  // Delete the saved form execution for this site URL (if present)
+  const deletedExecution = siteUrl?.href ? await deleteExecutionForKey(siteUrl.href) : false;
+
+  // Delete identity-cache DBs for likely domains.
+  // IndexedDBCachProvider uses `assets-${domain}` where domain is replacementDomain or image host.
+  const deletedDbs = [];
+
+  // Best-effort enumeration of databases (supported in modern Chromium)
+  let dbs = null;
+  try {
+    if (typeof indexedDB.databases === 'function') {
+      dbs = await indexedDB.databases();
+    }
+  } catch {
+    dbs = null;
+  }
+
+  const namesToDelete = new Set();
+  candidates.forEach((d) => namesToDelete.add(`assets-${d}`));
+
+  // If we can enumerate, also delete any assets-* DB that matches the site domain(s)
+  if (Array.isArray(dbs)) {
+    dbs.forEach((db) => {
+      const name = db?.name;
+      if (!name || typeof name !== 'string') return;
+      if (!name.startsWith('assets-')) return;
+      const domain = name.substring('assets-'.length).toLowerCase();
+      if (candidates.has(domain)) {
+        namesToDelete.add(name);
+      }
+    });
+  }
+
+  // Execute deletes
+  // eslint-disable-next-line no-restricted-syntax
+  for (const name of namesToDelete) {
+    // eslint-disable-next-line no-await-in-loop
+    deletedDbs.push(await deleteDatabase(name));
+  }
+
+  return {
+    deletedExecution,
+    deletedDbs,
+    candidates: Array.from(candidates),
+  };
 }
 
 function isHidden(element) {
@@ -388,11 +471,6 @@ function displayModal(figure) {
 
     const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
 
-    // Timestamp data - available from any crawler
-    const pageLastModifiedValues = cluster.getAll(UrlAndPageIdentity.type, 'pageLastModified')
-      .filter((v) => v !== null);
-    const assetLastModifiedValues = cluster.getAll(UrlAndPageIdentity.type, 'assetLastModified')
-      .filter((v) => v !== null);
     const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate')
       .filter((v) => v !== null);
     const firstSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'firstSeenTimestamp')
@@ -400,10 +478,6 @@ function displayModal(figure) {
     const lastSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'lastSeenTimestamp')
       .filter((v) => v !== null);
 
-    const maxPageLastModified = pageLastModifiedValues.length > 0
-      ? Math.max(...pageLastModifiedValues) : null;
-    const maxAssetLastModified = assetLastModifiedValues.length > 0
-      ? Math.max(...assetLastModifiedValues) : null;
     const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
     const firstSeenTimestamp = firstSeenValues.length > 0 ? Math.min(...firstSeenValues) : null;
     const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
@@ -448,7 +522,6 @@ function displayModal(figure) {
       rows.pageBounceRate = 'Page Bounce Rate';
       rows.lighthouse = 'Asset Success Score';
 
-      const scoreArgs = [conversions, pageViews, visits, bounces, true];
       data.pageCTR = pageCTR !== null
         ? `${(pageCTR * 100).toFixed(2)}%`
         : 'Insufficient data';
@@ -722,7 +795,27 @@ async function imageOnError(identityValues, identityState, error) {
     .identifyPostError(identityValues, identityState);
 
   // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${identityValues.href}`, error);
+  const href = identityValues?.imageOptions?.card?.href
+    || identityValues?.imageOptions?.original?.href
+    || identityValues?.imageOptions?.detail?.href
+    || '(unknown href)';
+  // Helpful for debugging: img.src uses UrlResourceHandler.getImageUrl(href) (proxy),
+  // so log both the logical href and the actual requested URL (proxied).
+  let requested = href;
+  try {
+    requested = UrlResourceHandler.getImageUrl(href);
+  } catch {
+    // ignore; requested stays as href
+  }
+
+  // De-dupe noisy logs on large crawls
+  window.imageLoadErrorSeen = window.imageLoadErrorSeen || new Set();
+  const key = `${href}|${requested}`;
+  if (!window.imageLoadErrorSeen.has(key)) {
+    window.imageLoadErrorSeen.add(key);
+    // eslint-disable-next-line no-console
+    console.error(`Error loading img. href=${href} requested=${requested}`, error);
+  }
   // TODO: Show broken file image?
 }
 
@@ -745,10 +838,16 @@ function updateProgress() {
  */
 function updateCounter(counter, increment, float = false) {
   const value = parseFloat(counter.textContent, 10);
-  // calculate the new value (or reset to 0 if no increment is provided)
-  const targetValue = increment ? value + increment : 0;
+  // calculate the new value
+  // - if increment is undefined/null: reset to 0 (existing behavior used by callers)
+  // - if increment is 0: keep value (do NOT reset)
+  const targetValue = (increment === undefined || increment === null)
+    ? 0
+    : value + increment;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
-  if (counter.id === 'images-counter' || counter.id === 'total-counter') updateProgress();
+  if (counter.id === 'images-counter'
+    || counter.id === 'total-counter'
+    || counter.id === 'pages-counter') updateProgress();
 }
 
 /**
@@ -842,8 +941,6 @@ async function loadImages(
       pageLastModified, assetLastModified,
     } = img;
 
-    window.imageCount += 1;
-    const { imageCount } = window;
     const loadedImg = new Image(imageOptions.card.width, imageOptions.card.height);
     const { identityCache } = window;
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
@@ -857,48 +954,78 @@ async function loadImages(
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
 
-    const originatingClusterId = clusterManager.newCluster(
-      new SitemapLoadOrderIdentity(imageCount),
-      loadedImg,
-      figure,
-      'image',
-      imageOptions,
-    );
-
-    const identityValues = new IdentityValues({
-      originatingClusterId,
-      clusterManager,
-      selectedIdentifiers,
-      submissionValues,
-      identityCache,
-      imageOptions,
+    // Use UrlAndPageIdentity as the originating identity so we can dedupe
+    // (page + media + instance) at cluster creation time.
+    const originalHref = imageOptions?.original?.href || imageOptions?.card?.href;
+    const urlAndPage = new UrlAndPageIdentity(
+      UrlAndPageIdentity.buildGlobalUniqueAssetIdentifier(site, originalHref, instance),
+      originalHref,
       site,
       alt,
       width,
       height,
       aspectRatio,
       instance,
-      fileType,
-      domainKey,
-      replacementDomain,
-      invalidDimensions,
       pageLastModified,
       assetLastModified,
-    });
+    );
 
-    batchEntries.push(originatingClusterId);
+    const originatingClusterId = clusterManager.newCluster(
+      urlAndPage,
+      loadedImg,
+      figure,
+      'image',
+      imageOptions,
+    );
 
-    loadingImagesPool.run(async () => {
-      await identityValues.initializeIdentityHash();
-      await loadImage(
-        identityValues,
-        identityState,
-        clusterManager,
-        originatingClusterId,
-        loadedImg,
-        imageOptions.card.href,
+    // Duplicate (page, media, instance) tuple: skip creating/loading another cluster.
+    if (!originatingClusterId) {
+      // This means the crawler returned a literal duplicate (same page + media + instance).
+      // We drop it silently and do NOT count it as a "duplicate image found".
+    } else {
+      window.imageCount += 1;
+      const { imageCount } = window;
+
+      // Still attach SitemapLoadOrderIdentity for ordering/debugging
+      clusterManager.get(originatingClusterId).addIdentity(
+        new SitemapLoadOrderIdentity(imageCount),
       );
-    });
+
+      const identityValues = new IdentityValues({
+        originatingClusterId,
+        clusterManager,
+        selectedIdentifiers,
+        submissionValues,
+        identityCache,
+        imageOptions,
+        site,
+        alt,
+        width,
+        height,
+        aspectRatio,
+        instance,
+        fileType,
+        domainKey,
+        replacementDomain,
+        invalidDimensions,
+        pageLastModified,
+        assetLastModified,
+      });
+
+      batchEntries.push(originatingClusterId);
+
+      loadingImagesPool.run(async () => {
+        await identityValues.initializeIdentityHash();
+        await loadImage(
+          identityValues,
+          identityState,
+          clusterManager,
+          originatingClusterId,
+          loadedImg,
+          imageOptions.card.href,
+        );
+      });
+    }
   }
 
   await loadingImagesPool.allSettled();
@@ -1569,6 +1696,52 @@ function registerListeners(doc) {
     }
   });
 
+  // Purge browser stored data (IndexedDB) for the currently entered site.
+  const purgeButton = doc.getElementById('purge-stored-data-button');
+  if (purgeButton) {
+    purgeButton.addEventListener('click', async () => {
+      const data = getFormData(URL_FORM);
+      const siteUrl = data?.['site-url'];
+      if (!siteUrl) {
+        // eslint-disable-next-line no-alert
+        alert('Please enter a Site URL first.');
+        return;
+      }
+
+      // eslint-disable-next-line no-alert
+      const confirmed = window.confirm(
+        `Purge browser-stored data for:\n\n${siteUrl.href}\n\nThis will remove IndexedDB caches for this site (identity cache) and the saved form state for this URL.\n\nYour next run will be significantly slower while everything is recomputed.\n\nContinue?`,
+      );
+      if (!confirmed) return;
+
+      // If a crawl is running, stop it first to avoid races with cache access.
+      if (!window.stopProcessing && typeof window.stopCallback === 'function') {
+        try {
+          window.stopProcessing = true;
+          window.stopCallback();
+        } catch {
+          // ignore
+        }
+      }
+
+      const result = await purgeIndexedDbForSite(data);
+      const okDbs = result.deletedDbs.filter((d) => d.ok).map((d) => d.name);
+      const failedDbs = result.deletedDbs.filter((d) => !d.ok).map((d) => d.name);
+
+      // eslint-disable-next-line no-alert
+      alert([
+        'Purge complete.',
+        '',
+        `Site: ${siteUrl.href}`,
+        'Next run note: expect a slower run while caches are recomputed.',
+        result.candidates.length ? `Domains: ${result.candidates.join(', ')}` : '',
+        `Saved form entry deleted: ${result.deletedExecution ? 'yes' : 'no/none'}`,
+        okDbs.length ? `Deleted DBs:\n- ${okDbs.join('\n- ')}` : 'Deleted DBs: none',
+        failedDbs.length ? `Failed DB deletes:\n- ${failedDbs.join('\n- ')}` : '',
+      ].filter(Boolean).join('\n'));
+    });
+  }
+
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
@@ -1595,21 +1768,24 @@ function registerListeners(doc) {
         return;
       }
 
-    const reportData = await report.generateReport(window.clusterManager);
+      const reportData = await report.generateReport(window.clusterManager);
 
-    if (reportData.size > 0) {
-      const csv = reportData.blob;
-      const link = document.createElement('a');
-      const data = getFormData(URL_FORM);
-      const site = data['site-url']?.hostname;
-      const url = URL.createObjectURL(csv);
+      if (reportData.size > 0) {
+        const csv = reportData.blob;
+        const link = document.createElement('a');
+        const data = getFormData(URL_FORM);
+        const site = data['site-url']?.hostname;
+        const url = URL.createObjectURL(csv);
 
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
-      link.style.display = 'none';
+        link.setAttribute('href', url);
+        link.setAttribute(
+          'download',
+          `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`,
+        );
+        link.style.display = 'none';
         ACTION_SELECT.insertAdjacentElement('afterend', link);
 
-      setTimeout(() => {
+        setTimeout(() => {
           link.click();
           link.remove();
           ACTION_SELECT.classList.remove('download-pulse');
@@ -1625,13 +1801,22 @@ function registerListeners(doc) {
       try {
         switch (id) {
           case AEM_ACTIONS.EXPORT_ASSETS:
-            await generateAEMExportScript(window.clusterManager, { exportAssets: true, exportMetadata: false });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: true,
+              exportMetadata: false,
+            });
             break;
           case AEM_ACTIONS.EXPORT_METADATA:
-            await generateAEMExportScript(window.clusterManager, { exportAssets: false, exportMetadata: true });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: false,
+              exportMetadata: true,
+            });
             break;
           case AEM_ACTIONS.EXPORT_BOTH:
-            await generateAEMExportScript(window.clusterManager, { exportAssets: true, exportMetadata: true });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: true,
+              exportMetadata: true,
+            });
             break;
           default:
             // eslint-disable-next-line no-console
@@ -1974,95 +2159,6 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
  * Creates and shows a progress modal for long-running operations.
  * @returns {Object} Object with { modal, log, close } functions
  */
-function createProgressModal() {
-  const modalId = 'aem-progress-modal';
-
-  // Remove existing modal if present
-  const existingModal = document.getElementById(modalId);
-  if (existingModal) {
-    existingModal.remove();
-  }
-
-  const [modal, body] = buildModal();
-  modal.id = modalId;
-  modal.classList.add('aem-progress-modal');
-
-  // Build progress content
-  const container = document.createElement('div');
-  container.className = 'progress-container';
-
-  const title = document.createElement('h2');
-  title.textContent = 'Exporting to AEM';
-  container.appendChild(title);
-
-  const logContainer = document.createElement('div');
-  logContainer.className = 'progress-log';
-  container.appendChild(logContainer);
-
-  const statusBar = document.createElement('div');
-  statusBar.className = 'progress-status';
-  statusBar.innerHTML = '<span class="progress-count">0 / 0</span>';
-  container.appendChild(statusBar);
-
-  body.appendChild(container);
-  document.body.appendChild(modal);
-  modal.showModal();
-
-  let totalCount = 0;
-  let currentCount = 0;
-
-  return {
-    modal,
-    setTotal: (total) => {
-      totalCount = total;
-      statusBar.querySelector('.progress-count').textContent = `${currentCount} / ${totalCount}`;
-    },
-    log: (message, type = 'info') => {
-      const entry = document.createElement('div');
-      entry.className = `log-entry log-${type}`;
-      entry.textContent = message;
-      logContainer.appendChild(entry);
-      logContainer.scrollTop = logContainer.scrollHeight;
-    },
-    increment: () => {
-      currentCount += 1;
-      statusBar.querySelector('.progress-count').textContent = `${currentCount} / ${totalCount}`;
-    },
-    complete: (message) => {
-      title.textContent = 'Export Complete';
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'button primary';
-      closeBtn.textContent = 'Close';
-      closeBtn.addEventListener('click', () => {
-        modal.close();
-        modal.remove();
-      });
-      statusBar.innerHTML = '';
-      statusBar.appendChild(document.createTextNode(message || 'Export finished'));
-      statusBar.appendChild(closeBtn);
-    },
-    error: (message) => {
-      title.textContent = 'Export Error';
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'button primary';
-      closeBtn.textContent = 'Close';
-      closeBtn.addEventListener('click', () => {
-        modal.close();
-        modal.remove();
-      });
-      statusBar.innerHTML = '';
-      statusBar.appendChild(document.createTextNode(message));
-      statusBar.appendChild(closeBtn);
-    },
-    close: () => {
-      modal.close();
-      modal.remove();
-    },
-  };
-}
-
 /**
  * Gets the shortest page path from all sites where an asset appears.
  * @param {Array<string>} sites - Array of site URLs
@@ -2142,13 +2238,16 @@ function buildAEMMetadata(cluster) {
   const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
 
   if (publishDate) {
-    metadata['xdm:publishDate'] = new Date(publishDate).toISOString().split('T')[0];
+    const [d] = new Date(publishDate).toISOString().split('T');
+    metadata['xdm:publishDate'] = d;
   }
   if (firstSeenTimestamp) {
-    metadata['xdm:firstSeenTimestamp'] = new Date(firstSeenTimestamp).toISOString().split('T')[0];
+    const [d] = new Date(firstSeenTimestamp).toISOString().split('T');
+    metadata['xdm:firstSeenTimestamp'] = d;
   }
   if (lastSeenTimestamp) {
-    metadata['xdm:lastSeenTimestamp'] = new Date(lastSeenTimestamp).toISOString().split('T')[0];
+    const [d] = new Date(lastSeenTimestamp).toISOString().split('T');
+    metadata['xdm:lastSeenTimestamp'] = d;
   }
 
   // Only add URLs array if we have valid URLs
@@ -2166,8 +2265,31 @@ function buildAEMMetadata(cluster) {
 }
 
 /**
+ * Converts a DAM path to an API path by stripping /content/dam prefix.
+ * @param {string} damPath - The full DAM path (e.g., /content/dam/project/image.jpg)
+ * @returns {string} API path (e.g., /project/image.jpg)
+ */
+function damPathToApiPath(damPath) {
+  const path = String(damPath || '');
+  if (path.startsWith('/content/dam')) {
+    return path.substring('/content/dam'.length) || '/';
+  }
+  return path;
+}
+
+/**
  * AEM API helper class for making authenticated requests.
  */
+/* eslint-disable
+  no-await-in-loop,
+  no-restricted-syntax,
+  prefer-destructuring,
+  no-promise-executor-return,
+  object-curly-newline,
+  quotes,
+  max-len */
+// Legacy browser-based AEM export support (unused in normal flow). Prefer generateAEMExportScript().
+// eslint-disable-next-line no-unused-vars
 class AEMApi {
   #baseUrl;
 
@@ -2702,6 +2824,14 @@ class AEMApi {
     return { success: true };
   }
 }
+/* eslint-enable
+  no-await-in-loop,
+  no-restricted-syntax,
+  prefer-destructuring,
+  no-promise-executor-return,
+  object-curly-newline,
+  quotes,
+  max-len */
 
 /**
  * Gets the filename from an image URL.
@@ -2736,42 +2866,6 @@ function sanitizeFolderPath(path) {
  * @param {string} damPath - The full DAM path (e.g., /content/dam/project/image.jpg)
  * @returns {string} API path (e.g., /project/image.jpg)
  */
-function damPathToApiPath(damPath) {
-  if (damPath.startsWith('/content/dam')) {
-    return damPath.substring('/content/dam'.length) || '/';
-  }
-  return damPath;
-}
-
-// Concurrency limit for parallel API requests
-const AEM_API_CONCURRENCY = 5;
-
-/**
- * Runs promises in parallel with a concurrency limit.
- * @param {Array<Function>} tasks - Array of functions that return promises
- * @param {number} concurrency - Max concurrent tasks
- * @returns {Promise<Array>} Results array
- */
-async function runWithConcurrency(tasks, concurrency) {
-  const results = [];
-  const executing = new Set();
-
-  for (const task of tasks) {
-    const promise = Promise.resolve().then(() => task());
-    results.push(promise);
-    executing.add(promise);
-
-    const cleanup = () => executing.delete(promise);
-    promise.then(cleanup, cleanup);
-
-    if (executing.size >= concurrency) {
-      await Promise.race(executing);
-    }
-  }
-
-  return Promise.all(results);
-}
-
 /**
  * Escapes a string for safe use in a shell script single-quoted string.
  * @param {string} str - String to escape
@@ -2808,6 +2902,13 @@ function escapeJsonForBash(jsonStr) {
  * @param {boolean} options.exportAssets - Whether to export assets
  * @param {boolean} options.exportMetadata - Whether to export metadata
  */
+/* eslint-disable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  quotes,
+  max-len */
 async function generateAEMExportScript(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
   try {
     // Show config modal and get user input
@@ -2970,17 +3071,46 @@ async function generateAEMExportScript(clusterManager, { exportAssets = true, ex
 
       // Generate batch import for each folder
       for (const [fullFolderPath, assets] of assetsByFolder) {
+        // Ensure unique file names within the folder batch.
+        // AEM rejects a single import request when two entries share the same fileName.
+        // We deterministically suffix duplicates with "-dupN" before the extension.
+        const usedNames = new Map(); // fileName -> count
+        const assetsWithUniqueNames = assets.map((info) => {
+          const originalName = info.filename;
+          const count = (usedNames.get(originalName) || 0) + 1;
+          usedNames.set(originalName, count);
+
+          if (count === 1) {
+            return { ...info, effectiveFilename: originalName };
+          }
+
+          const dot = originalName.lastIndexOf('.');
+          const base = dot > 0 ? originalName.substring(0, dot) : originalName;
+          const ext = dot > 0 ? originalName.substring(dot) : '';
+          const effectiveFilename = `${base}-dup${count}${ext}`;
+          return { ...info, effectiveFilename };
+        });
+
+        // Emit a note into the script when we had to rename duplicates.
+        if (usedNames.size !== assets.length) {
+          const renamed = assetsWithUniqueNames
+            .filter((i) => i.effectiveFilename !== i.filename)
+            .map((i) => `${i.filename}→${i.effectiveFilename}`)
+            .join(', ');
+          lines.push(`# NOTE: Renamed duplicate filenames in this batch: ${renamed}`);
+        }
+
         // Build the files array JSON - include metadata if exportMetadata is enabled
-        const filesJson = assets.map((info) => {
+        const filesJson = assetsWithUniqueNames.map((info) => {
           if (exportMetadata) {
             // Metadata JSON goes inside single-quoted bash string
             // Single quotes in the JSON must be escaped: ' becomes '\''
             const metadataJson = JSON.stringify(info.metadata).replace(/'/g, "'\\''");
-            return `{"fileName":"${escapeShellString(info.filename)}","url":"${escapeShellString(info.sourceUrl)}","assetMetadata":${metadataJson}}`;
+            return `{"fileName":"${escapeShellString(info.effectiveFilename)}","url":"${escapeShellString(info.sourceUrl)}","assetMetadata":${metadataJson}}`;
           }
-          return `{"fileName":"${escapeShellString(info.filename)}","url":"${escapeShellString(info.sourceUrl)}"}`;
+          return `{"fileName":"${escapeShellString(info.effectiveFilename)}","url":"${escapeShellString(info.sourceUrl)}"}`;
         }).join(',');
-        const filenamesList = assets.map((info) => info.filename).join(', ');
+        const filenamesList = assetsWithUniqueNames.map((info) => info.effectiveFilename).join(', ');
 
         lines.push(`echo "Importing batch: ${assets.length} files to ${escapeShellString(fullFolderPath)}"`);
         lines.push(`echo "  Files: ${escapeShellString(filenamesList.substring(0, 100))}${filenamesList.length > 100 ? '...' : ''}"`);
@@ -3071,7 +3201,7 @@ async function generateAEMExportScript(clusterManager, { exportAssets = true, ex
       lines.push('echo ""');
 
       for (const info of assetInfos) {
-        const metadata = info.metadata;
+        const { metadata } = info;
         // Build JSON Patch operations
         const patchOps = Object.entries(metadata).map(([key, value]) => ({
           op: 'add',
@@ -3143,6 +3273,13 @@ async function generateAEMExportScript(clusterManager, { exportAssets = true, ex
     alert(`Failed to generate export script: ${error.message}`);
   }
 }
+/* eslint-enable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  quotes,
+  max-len */
 
 /**
  * Exports assets and/or metadata to AEM using phased approach (browser-based, has CORS issues).
@@ -3159,6 +3296,16 @@ async function generateAEMExportScript(clusterManager, { exportAssets = true, ex
  * @param {boolean} options.exportAssets - Whether to export assets
  * @param {boolean} options.exportMetadata - Whether to export metadata
  */
+/* eslint-disable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  no-unused-vars,
+  no-undef,
+  arrow-parens,
+  quotes,
+  max-len */
 async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
   let progress = null;
 
@@ -3434,6 +3581,14 @@ async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata
     console.error('Export to AEM failed:', error);
   }
 }
+/* eslint-enable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  no-unused-vars,
+  quotes,
+  max-len */
 
 function addActionsToDropdown(doc) {
   const dropdown = doc.getElementById('action-select');

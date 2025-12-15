@@ -1,6 +1,8 @@
 import PromisePool from './promisepool.js';
 
-const LOAD_URLS_CONCURRENCY = 50;
+// The proxy is a shared external service and can time out or throttle under high parallelism.
+// Keep this conservative to reduce false image-load failures on large crawls.
+const LOAD_URLS_CONCURRENCY = 20;
 const CORS_PROXY_URL = 'https://little-forest-58aa.david8603.workers.dev/?url=';
 
 // Set to false for debugging direct requests (requires CORS browser extension)

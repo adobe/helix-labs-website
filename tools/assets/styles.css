@@ -318,6 +318,18 @@
   margin-right: 2rem;
 }
 
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-s);
+  justify-content: flex-end;
+}
+
 @keyframes pulse {
   0% {
     opacity: 1;
