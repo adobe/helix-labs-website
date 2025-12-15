@@ -649,8 +649,10 @@ function sortImages(doc, targetSort, targetFilter, targetPagination) {
   // Clear the gallery and append sorted figures
   GALLERY.innerHTML = ''; // Clear current gallery content
   clusters.forEach((cluster) => {
-    if (cluster.figureForCluster) {
-      GALLERY.appendChild(cluster.figureForCluster);
+    const currentCluster = clusterManager.get(cluster.id);
+    if (!currentCluster) return;
+    if (currentCluster.figureForCluster) {
+      GALLERY.appendChild(currentCluster.figureForCluster);
     }
   });
 
