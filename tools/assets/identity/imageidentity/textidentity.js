@@ -118,10 +118,15 @@ class TextIdentity extends AbstractIdentity {
 
           identityText = text.toLowerCase().replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
           return true;
+        })
+        .catch((ocrError) => {
+          // OCR can fail for various reasons - just log and continue
+          // eslint-disable-next-line no-console
+          console.debug(`OCR failed for cluster ${originatingClusterId}:`, ocrError.message);
         });
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error(`Error processing OCR for cluster ${originatingClusterId}`, error);
+      console.debug(`Error processing OCR for cluster ${originatingClusterId}:`, error.message);
     }
     return {
       text,

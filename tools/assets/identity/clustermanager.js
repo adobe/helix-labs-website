@@ -20,11 +20,16 @@ class ClusterManager {
 
   #clusterCount;
 
+  // Prevent duplicate originating identities (page + media + instance) across the entire run.
+  // Originating identities must expose `globalUniqueAssetIdentifier`.
+  #globalUniqueAssetIdentifiers;
+
   constructor() {
     this.#clusterCount = 0;
     this.#strongIdentityToClusterMap = new Map();
     this.#clusterMap = new Map();
     this.#types = new Set();
+    this.#globalUniqueAssetIdentifiers = new Set();
   }
 
   get clusterCount() {
@@ -32,6 +37,30 @@ class ClusterManager {
   }
 
   newCluster(originatingIdentity, elementForCluster, figureForCluster, type, detailHref) {
+    // Originating identities must provide a global unique asset identifier so we can
+    // dedupe across the whole run and avoid later merge collisions.
+    if (!originatingIdentity || !('globalUniqueAssetIdentifier' in originatingIdentity)) {
+      console.error(
+        'ClusterManager.newCluster: originatingIdentity must define globalUniqueAssetIdentifier',
+        originatingIdentity,
+      );
+      return null;
+    }
+
+    const key = originatingIdentity.globalUniqueAssetIdentifier;
+    if (!key) {
+      console.error(
+        'ClusterManager.newCluster: originatingIdentity.globalUniqueAssetIdentifier must be non-null',
+        originatingIdentity,
+      );
+      return null;
+    }
+
+    if (this.#globalUniqueAssetIdentifiers.has(key)) {
+      return null;
+    }
+    this.#globalUniqueAssetIdentifiers.add(key);
+
     this.#clusterCount += 1;
 
     const cluster = new IdentityCluster(
@@ -57,6 +86,30 @@ class ClusterManager {
 
   get(clusterId) {
     return this.#clusterMap.get(clusterId);
+  }
+
+  /**
+   * Check whether this run has already seen the given UrlAndPageIdentity tuple.
+   * @param {Object} identity - UrlAndPageIdentity instance
+   * @returns {boolean}
+   */
+  doesContainGlobalUniqueAssetIdentifier(identity) {
+    const key = identity?.globalUniqueAssetIdentifier;
+    if (!key) return false;
+    return this.#globalUniqueAssetIdentifiers.has(key);
+  }
+
+  /**
+   * Register a UrlAndPageIdentity tuple for this run.
+   * @param {Object} identity - UrlAndPageIdentity instance
+   * @returns {boolean} true if newly registered, false if it already existed
+   */
+  registerGlobalUniqueAssetIdentifier(identity) {
+    const key = identity?.globalUniqueAssetIdentifier;
+    if (!key) return false;
+    if (this.#globalUniqueAssetIdentifiers.has(key)) return false;
+    this.#globalUniqueAssetIdentifiers.add(key);
+    return true;
   }
 
   reclusterComplete(persistedCluster, consumedCluster) {
@@ -97,14 +150,23 @@ class ClusterManager {
   }
 
   async detectSimilarity(batchedClusterIds, identityState) {
-    const callCount = { value: 0 }; // Use an object to hold the count
     const clusterInfoWithInstigator = [];
 
-    // Gather cluster info with instigator identities
+    // IMPORTANT: A batch can contain many cluster IDs that are now aliases of the same
+    // live cluster (after reclustering). Deduplicate by the *current* cluster.id so we
+    // don't schedule redundant (and potentially cyclic) similarity checks.
+    const distinctClusters = new Map(); // cluster.id -> cluster
     batchedClusterIds.forEach((clusterId) => {
       const cluster = this.get(clusterId);
+      if (cluster) distinctClusters.set(cluster.id, cluster);
+    });
+
+    // Gather cluster info with instigator identities (deduped per cluster+type)
+    distinctClusters.forEach((cluster) => {
+      const seenInstigatorTypes = new Set();
       cluster.identities.forEach((identity) => {
-        if (identity.similarityInstigator) {
+        if (identity.similarityInstigator && !seenInstigatorTypes.has(identity.type)) {
+          seenInstigatorTypes.add(identity.type);
           clusterInfoWithInstigator.push({
             clusterId: cluster.id,
             instigatorIdentityType: identity.type,
@@ -121,6 +183,9 @@ class ClusterManager {
 
     // Collect all similarity comparison promises
     const promisePool = new PromisePool(Infinity, 'Similarity detection pool');
+    // Prevent redundant work and A<->B ping-pong, but DO NOT suppress valid comparisons
+    // across different instigator identity types.
+    const processedPairKeys = new Set(); // key = `${instigatorIdentityType}|${sortedPair}`
 
     // Iterate over each cluster info with instigator
     clusterInfoWithInstigator.forEach((clusterInfo) => {
@@ -137,7 +202,8 @@ class ClusterManager {
           instigatingCluster,
           similarCluster,
           similarityCollaboratorIdentityTypes,
-          callCount,
+          instigatorIdentityType,
+          processedPairKeys,
         ));
       });
     });
@@ -149,27 +215,54 @@ class ClusterManager {
     instigatingCluster,
     similarCluster,
     identityTypes,
+    instigatorIdentityType,
+    processedPairKeys,
   ) {
+    // Resolve to the current live clusters (handles recluster aliasing)
+    const liveInstigating = instigatingCluster ? this.get(instigatingCluster.id) : null;
+    const liveSimilar = similarCluster ? this.get(similarCluster.id) : null;
+    if (!liveInstigating || !liveSimilar) return;
+
+    // Deduplicate pair work (prevents A->B and B->A ping-pong, and repeated work due to aliases)
+    const pairKey = `${instigatorIdentityType}|${[liveInstigating.id, liveSimilar.id].sort().join('|')}`;
+    if (processedPairKeys?.has(pairKey)) return;
+    processedPairKeys?.add(pairKey);
+
     if (
-      instigatingCluster.reclustered
-      || similarCluster.reclustered
-      || instigatingCluster.id === similarCluster.id
+      liveInstigating.reclustered
+      || liveSimilar.reclustered
+      || liveInstigating.id === liveSimilar.id
     ) return;
+
+    // If we've already marked these clusters similar, don't do it again.
+    // SimilarClusterIdentity ids are deterministic: psim:{hereId}->{thereId}
+    const alreadySimilar = !!(
+      liveInstigating.get(`psim:${liveInstigating.id}->${liveSimilar.id}`)
+      || liveSimilar.get(`psim:${liveSimilar.id}->${liveInstigating.id}`)
+    );
+    if (alreadySimilar) return;
 
     // Await the merge score calculation
     const mergeScore = await this.#calculateMergeScore(
-      instigatingCluster,
-      similarCluster,
+      liveInstigating,
+      liveSimilar,
       identityTypes,
     );
 
-    // always merge the other cluster into the instigating cluster
-    // otherwise the instigating cluster gets replaced half way though,
-    // but we keep trying to merge against it.
+    // Re-resolve after async work: either cluster may have been reclustered while we awaited.
+    const postInstigating = this.get(liveInstigating.id);
+    const postSimilar = this.get(liveSimilar.id);
+    if (!postInstigating || !postSimilar) return;
+    if (postInstigating.reclustered || postSimilar.reclustered) return;
+    if (postInstigating.id === postSimilar.id) return;
+
+    // Always merge/mark the OTHER cluster into/against the instigating cluster.
+    // Otherwise the instigating cluster can get replaced halfway through and cause
+    // redundant work (and in worst cases cycles).
     if (mergeScore >= matchingPointsThreshold) {
-      this.#mergeSimilarCluster(instigatingCluster, similarCluster, mergeScore);
+      this.#mergeSimilarCluster(postSimilar, postInstigating, mergeScore);
     } else if (mergeScore >= similarPointsThreshold) {
-      this.#markSimilarCluster(instigatingCluster, similarCluster, mergeScore);
+      this.#markSimilarCluster(postSimilar, postInstigating, mergeScore);
     }
   }
 
@@ -236,6 +329,15 @@ class ClusterManager {
 
   #markSimilarCluster(clusterToMerge, clusterToMergeInto, score) {
     if (clusterToMerge.reclustered || clusterToMergeInto.reclustered) {
+      return;
+    }
+
+    if (clusterToMerge === clusterToMergeInto || clusterToMerge.id === clusterToMergeInto.id) {
+      return;
+    }
+
+    // Avoid re-adding the same similarity edge over and over.
+    if (clusterToMergeInto.get(`psim:${clusterToMergeInto.id}->${clusterToMerge.id}`)) {
       return;
     }
 

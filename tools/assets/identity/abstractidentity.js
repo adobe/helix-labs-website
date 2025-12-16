@@ -2,6 +2,16 @@
 /* eslint-disable class-methods-use-this */
 
 class AbstractIdentity {
+  /**
+   * Originating identities (passed to ClusterManager.newCluster) MUST provide a
+   * `globalUniqueAssetIdentifier` string. This is used for run-wide deduplication and
+   * to prevent merge collisions when two clusters would otherwise carry equivalent
+   * originating identities.
+   *
+   * Other identities should NOT define this property.
+   *
+   * @typedef {AbstractIdentity & { globalUniqueAssetIdentifier: string }} OriginatingIdentity
+   */
   /*
   For an autowired identity, one (or more) of these methods must be implemented.
 

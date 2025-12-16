@@ -23,6 +23,12 @@ class SitemapLoadOrderIdentity extends AbstractIdentity {
     // There would never be a collision so it would never be merged.
     return true;
   }
+
+  // Strong identities should never merge - if this is called, it's a bug
+  // eslint-disable-next-line no-unused-vars
+  mergeOther(otherIdentity) {
+    throw new Error('BUG: mergeOther called on strong identity SitemapLoadOrderIdentity');
+  }
 }
 
 export default SitemapLoadOrderIdentity;

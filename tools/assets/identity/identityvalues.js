@@ -39,6 +39,10 @@ class IdentityValues {
 
   #imageOptions;
 
+  #pageLastModified;
+
+  #assetLastModified;
+
   constructor(
     {
       originatingClusterId,
@@ -57,6 +61,8 @@ class IdentityValues {
       domainKey,
       replacementDomain,
       invalidDimensions,
+      pageLastModified,
+      assetLastModified,
     },
   ) {
     this.#originatingClusterId = originatingClusterId;
@@ -76,6 +82,8 @@ class IdentityValues {
     this.#domainKey = domainKey;
     this.#replacementDomain = replacementDomain;
     this.#invalidDimensions = invalidDimensions;
+    this.#pageLastModified = pageLastModified;
+    this.#assetLastModified = assetLastModified;
   }
 
   async initializeIdentityHash() {
@@ -194,6 +202,14 @@ class IdentityValues {
       return callthroughFunction();
     }
     return this.#identityCache.get(this, identity, key, callthroughFunction, version);
+  }
+
+  get pageLastModified() {
+    return this.#pageLastModified;
+  }
+
+  get assetLastModified() {
+    return this.#assetLastModified;
   }
 }
 

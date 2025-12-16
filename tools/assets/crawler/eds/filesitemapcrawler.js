@@ -2,17 +2,58 @@
 import CrawlerRegistry from '../crawlerregistry.js';
 import AbstractEDSSitemapCrawler from './abstractedssitemapcrawler.js';
 
+/**
+ * File Sitemap Crawler - uses an uploaded sitemap XML file
+ */
 class FileSitemapCrawler extends AbstractEDSSitemapCrawler {
+  static get type() {
+    return 'sitemap-file';
+  }
+
+  static get displayName() {
+    return 'Sitemap from File';
+  }
+
+  static get description() {
+    return 'Upload a sitemap XML file to crawl';
+  }
+
+  static getFormConfig() {
+    return {
+      visibleFields: [
+        'site-url',
+        'embedded-sitemap-file',
+        'replacement-domain',
+        'domain-key',
+        'identity-selectors',
+      ],
+      requiredFields: ['site-url', 'embedded-sitemap-file'],
+      helpText: {
+        'site-url': 'EDS site URL to use as the base for crawling pages',
+        'embedded-sitemap-file': 'Upload a sitemap.xml file',
+      },
+      placeholders: {
+        'site-url': 'https://main--repo--org.aem.live',
+      },
+    };
+  }
+
   static accept(sitemapFormData) {
+    // Accept if crawler-type matches
+    if (sitemapFormData['crawler-type'] === this.type) {
+      return true;
+    }
+    // Legacy support
     if (sitemapFormData['sitemap-option'] === 'file' && sitemapFormData['embedded-sitemap-file']) {
       return this.getSitemapUrl(sitemapFormData) != null;
     }
     return false;
   }
 
-  async fetchSitemap(sitemapFormData) {
-    const { hostname } = new URL(FileSitemapCrawler.getSitemapUrl(sitemapFormData));
-    const file = sitemapFormData['embedded-sitemap-file'][0];
+  async fetchCrawlerData(formData) {
+    const siteUrl = formData['site-url'];
+    const { hostname } = new URL(siteUrl);
+    const file = formData['embedded-sitemap-file'][0];
 
     if (!file) {
       throw new Error('No file provided in form data');

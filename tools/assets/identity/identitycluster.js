@@ -47,6 +47,16 @@ class IdentityCluster {
     this.#imageOptions = imageOptions;
   }
 
+  /**
+   * Returns true only if this object is the current live instance for its id.
+   * After reclustering, ClusterManager maps the old id to the new persisted cluster,
+   * so stale cluster objects must not perform merges.
+   * @returns {boolean}
+   */
+  #isCurrentClusterInstance() {
+    return !this.#replacedBy && this.#clusterManager.get(this.id) === this;
+  }
+
   get id() {
     return this.#id;
   }
@@ -95,6 +105,11 @@ class IdentityCluster {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
     if (identity.singleton && this.getSingletonOf(identity.type)) {
+      // Defensive: if this cluster instance is stale (was replaced), do not attempt to merge.
+      // Async identity work can hold references to old cluster objects.
+      if (!this.#isCurrentClusterInstance()) {
+        return;
+      }
       // This should only happen because the cluster we're referencing has had another
       // cluster merged into it, and async operations are still operating on the current cluster
       // eslint-disable-next-line no-console
@@ -146,6 +161,15 @@ class IdentityCluster {
     if (this.#replacedBy) {
       throw new Error(`Cluster ${this.id} was replaced by ${this.#replacedBy.id}`);
     }
+    // Defensive: if either the destination or source cluster objects are stale, stop.
+    // This avoids mergeOther being invoked in an already-superseded merge chain.
+    if (!this.#isCurrentClusterInstance()) {
+      return;
+    }
+    if (owningCluster && this.#clusterManager.get(owningCluster.id) !== owningCluster) {
+      return;
+    }
+
     if (identity.type === SimilarClusterIdentity.type) {
       if (identity.similarClusterId === this.id) {
         // previously, these clusters were similar, now they are the same.
@@ -171,6 +195,10 @@ class IdentityCluster {
       if (!localIdentity) {
         this.#insertIdentity(identity);
       } else {
+        // Defensive: re-check we're still the live cluster before merging identity fields.
+        if (!this.#isCurrentClusterInstance()) {
+          return;
+        }
         // merge otherIdentity into localIdentity
         localIdentity.mergeOther(identity);
       }
@@ -188,6 +216,9 @@ class IdentityCluster {
       // different fields from the one in this identity.
       // eslint-disable-next-line no-console
       const localIdentity = this.#identities.get(identity.id);
+      if (!this.#isCurrentClusterInstance()) {
+        return;
+      }
       localIdentity.mergeOther(identity);
     } else {
       this.#insertIdentity(identity);

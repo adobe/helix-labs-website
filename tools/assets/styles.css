@@ -64,7 +64,7 @@
     linear-gradient(45deg, transparent 75%, var(--color-background) 75%),
     linear-gradient(135deg, transparent 75%, var(--color-background) 75%);
   background-size: 16px 16px;
-  background-position: 0 0, 8px 0, 8px -8px, 0px 8px;
+  background-position: 0 0, 8px 0, 8px -8px, 0 8px;
 }
 
 .assets dialog table td {
@@ -143,7 +143,7 @@
 }
 
 .assets .stop-button-container {
-  margin-right: 0px;
+  margin-right: 0;
 }
 
 .assets .stop-button-container #stop-button {
@@ -174,10 +174,12 @@
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.3);
     opacity: 0.5;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -248,6 +250,36 @@
   border-radius: var(--rounding-l);
 }
 
+/* Crawler type selector styling */
+.assets .sitemap-form #crawler-type {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: var(--body-size-m);
+  font-family: inherit;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--rounding-s);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.assets .sitemap-form #crawler-type:focus {
+  outline: none;
+  border-color: var(--color-link);
+  box-shadow: 0 0 0 3px rgb(0 123 255 / 15%);
+}
+
+/* Crawler field visibility - controlled by JavaScript */
+.assets .sitemap-form .crawler-field[aria-hidden="true"] {
+  display: none;
+}
+
+/* Crawler description styling */
+.assets #crawler-description {
+  font-style: italic;
+  color: var(--gray-600);
+}
+
 .assets .sitemap-form ul {
   width: 100%;
   list-style-type: none; /* Remove default list dots */
@@ -286,15 +318,29 @@
   margin-right: 2rem;
 }
 
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-s);
+  justify-content: flex-end;
+}
+
 @keyframes pulse {
   0% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.5;
     transform: scale(1.1);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -303,19 +349,204 @@
 
 @keyframes pulse {
   0% {
-    background-color: rgba(0, 123, 255, 1); /* Original background color */
+    background-color: rgb(0 123 255 / 100%); /* Original background color */
     color: white;
   }
+
   50% {
-    background-color: rgba(0, 123, 255, 0.7); /* Lighter color */
+    background-color: rgb(0 123 255 / 70%); /* Lighter color */
     color: white;
   }
+
   100% {
-    background-color: rgba(0, 123, 255, 1); /* Original color again */
+    background-color: rgb(0 123 255 / 100%); /* Original color again */
     color: white;
   }
 }
 
 .assets .download-pulse {
   animation: pulse 1s ease-in-out 2; /* Pulses 2 times */
+}
+
+/* AEM Config Modal Styles */
+.assets .aem-config-modal {
+  max-width: 480px;
+  width: 90vw;
+}
+
+.assets .aem-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.assets .aem-config-form h2 {
+  margin: 0 0 0.25rem;
+  font-size: var(--heading-size-m);
+  color: var(--color-text);
+}
+
+.assets .aem-config-form .aem-config-desc {
+  margin: 0;
+  font-size: var(--body-size-s);
+  color: var(--gray-500);
+}
+
+.assets .aem-config-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.assets .aem-config-form label {
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.assets .aem-config-form input[type="text"],
+.assets .aem-config-form input[type="password"] {
+  padding: 0.75rem 1rem;
+  font-size: var(--body-size-m);
+  font-family: inherit;
+  border: var(--border-s) solid var(--gray-300);
+  border-radius: var(--rounding-s);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.assets .aem-config-form input[type="text"]:focus,
+.assets .aem-config-form input[type="password"]:focus {
+  outline: none;
+  border-color: var(--color-link);
+  box-shadow: 0 0 0 3px rgb(0 123 255 / 15%);
+}
+
+.assets .aem-config-form input::placeholder {
+  color: var(--gray-400);
+}
+
+.assets .aem-config-form .form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.assets .aem-config-form .form-buttons button {
+  padding: 0.625rem 1.25rem;
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  border-radius: var(--rounding-s);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.assets .aem-config-form .form-buttons button.secondary {
+  background-color: transparent;
+  border: var(--border-s) solid var(--gray-300);
+  color: var(--color-text);
+}
+
+.assets .aem-config-form .form-buttons button.secondary:hover {
+  background-color: var(--gray-100);
+  border-color: var(--gray-400);
+}
+
+.assets .aem-config-form .form-buttons button.primary {
+  background-color: var(--color-link);
+  border: var(--border-s) solid var(--color-link);
+  color: white;
+}
+
+.assets .aem-config-form .form-buttons button.primary:hover {
+  background-color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
+}
+
+/* AEM Progress Modal Styles */
+.assets .aem-progress-modal {
+  max-width: 600px;
+  width: 90vw;
+}
+
+.assets .progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.assets .progress-container h2 {
+  margin: 0;
+  font-size: var(--heading-size-m);
+  color: var(--color-text);
+}
+
+.assets .progress-log {
+  height: 300px;
+  overflow-y: auto;
+  background-color: var(--gray-50);
+  border: var(--border-s) solid var(--gray-200);
+  border-radius: var(--rounding-s);
+  padding: 0.75rem;
+  font-family: var(--code-font-family);
+  font-size: var(--body-size-xs);
+}
+
+.assets .progress-log .log-entry {
+  padding: 0.25rem 0;
+  border-bottom: var(--border-s) solid var(--gray-100);
+  word-break: break-word;
+}
+
+.assets .progress-log .log-entry:last-child {
+  border-bottom: none;
+}
+
+.assets .progress-log .log-info {
+  color: var(--gray-600);
+}
+
+.assets .progress-log .log-success {
+  color: var(--green-900);
+}
+
+.assets .progress-log .log-warning {
+  color: var(--orange-900);
+}
+
+.assets .progress-log .log-error {
+  color: var(--red-900);
+}
+
+.assets .progress-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: var(--border-s) solid var(--gray-200);
+  font-size: var(--body-size-s);
+  color: var(--gray-600);
+}
+
+.assets .progress-status .progress-count {
+  font-weight: 600;
+}
+
+.assets .progress-status button {
+  padding: 0.5rem 1rem;
+  font-size: var(--body-size-s);
+  font-weight: 600;
+  border-radius: var(--rounding-s);
+  cursor: pointer;
+  background-color: var(--color-link);
+  border: var(--border-s) solid var(--color-link);
+  color: white;
+}
+
+.assets .progress-status button:hover {
+  background-color: var(--color-link-hover);
+  border-color: var(--color-link-hover);
 }

@@ -21,6 +21,10 @@ class CrawlerImageValues {
 
   #height;
 
+  #pageLastModified;
+
+  #assetLastModified;
+
   constructor({
     site,
     origin,
@@ -33,6 +37,8 @@ class CrawlerImageValues {
     aspectRatio,
     instance,
     fileType,
+    pageLastModified,
+    assetLastModified,
   }) {
     this.#site = site;
     this.#origin = origin;
@@ -45,6 +51,8 @@ class CrawlerImageValues {
     this.#instance = instance;
     this.#fileType = fileType;
     this.#imageOptions = imageOptions;
+    this.#pageLastModified = pageLastModified;
+    this.#assetLastModified = assetLastModified;
   }
 
   get site() {
@@ -89,6 +97,14 @@ class CrawlerImageValues {
 
   get fileType() {
     return this.#fileType;
+  }
+
+  get pageLastModified() {
+    return this.#pageLastModified;
+  }
+
+  get assetLastModified() {
+    return this.#assetLastModified;
   }
 }
 

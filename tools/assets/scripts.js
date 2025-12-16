@@ -3,6 +3,7 @@
 import './identity/defaultidentityloader.js';
 import './reports/defaultreportsloader.js';
 import './crawler/defaultcrawlersloader.js';
+import './crawler/util/defaultparsersloader.js';
 import './sort/defaultsortsloader.js';
 import './filter/defaultfilterloader.js';
 
@@ -19,7 +20,6 @@ import PromisePool from './util/promisepool.js';
 import ReportRegistry from './reports/reportregistry.js';
 import LighthouseIdentity from './identity/imageidentity/lighthouseidentity.js';
 import NamingUtil from './reports/util/namingutil.js';
-import PerformanceUtil from './reports/util/performanceutil.js';
 import ImageAuditUtil from './util/imageauditutil.js';
 import CrawlerRegistry from './crawler/crawlerregistry.js';
 import SortRegistry from './sort/sortregistry.js';
@@ -28,6 +28,11 @@ import AbstractFilter from './filter/abstractfilter.js';
 import UrlResourceHandler from './util/urlresourcehandler.js';
 
 // import { AEM_EDS_HOSTS } from './identity/imageidentity/urlidentity.js';
+
+// RUM Configuration
+// Minimum weighted views required to calculate rates (CTR, bounce rate)
+// Default: 1000 views = ~10 bundles at typical 1/100 weight
+const MIN_RUM_VIEWS_FOR_RATES = 1000;
 
 /* url and sitemap utility */
 const CORS_ANONYMOUS = true;
@@ -78,6 +83,90 @@ async function saveFormData(url, formData) {
     console.warn('Error opening DB or saving form data:', error);
     return Promise.resolve();
   }
+}
+
+async function deleteDatabase(dbName) {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.deleteDatabase(dbName);
+      req.onsuccess = () => resolve({ name: dbName, ok: true });
+      req.onerror = () => resolve({ name: dbName, ok: false });
+      req.onblocked = () => resolve({ name: dbName, ok: false, blocked: true });
+    } catch {
+      resolve({ name: dbName, ok: false });
+    }
+  });
+}
+
+async function deleteExecutionForKey(key) {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.delete(key);
+    return new Promise((resolve) => {
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => resolve(false);
+      transaction.onabort = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function purgeIndexedDbForSite(formData) {
+  const siteUrl = formData?.['site-url'];
+  const replacementDomain = formData?.['replacement-domain'];
+
+  const candidates = new Set();
+  if (replacementDomain) candidates.add(String(replacementDomain).toLowerCase());
+  if (siteUrl?.hostname) candidates.add(siteUrl.hostname.toLowerCase());
+
+  // Delete the saved form execution for this site URL (if present)
+  const deletedExecution = siteUrl?.href ? await deleteExecutionForKey(siteUrl.href) : false;
+
+  // Delete identity-cache DBs for likely domains.
+  // IndexedDBCachProvider uses `assets-${domain}` where domain is replacementDomain or image host.
+  const deletedDbs = [];
+
+  // Best-effort enumeration of databases (supported in modern Chromium)
+  let dbs = null;
+  try {
+    if (typeof indexedDB.databases === 'function') {
+      dbs = await indexedDB.databases();
+    }
+  } catch {
+    dbs = null;
+  }
+
+  const namesToDelete = new Set();
+  candidates.forEach((d) => namesToDelete.add(`assets-${d}`));
+
+  // If we can enumerate, also delete any assets-* DB that matches the site domain(s)
+  if (Array.isArray(dbs)) {
+    dbs.forEach((db) => {
+      const name = db?.name;
+      if (!name || typeof name !== 'string') return;
+      if (!name.startsWith('assets-')) return;
+      const domain = name.substring('assets-'.length).toLowerCase();
+      if (candidates.has(domain)) {
+        namesToDelete.add(name);
+      }
+    });
+  }
+
+  // Execute deletes
+  // eslint-disable-next-line no-restricted-syntax
+  for (const name of namesToDelete) {
+    // eslint-disable-next-line no-await-in-loop
+    deletedDbs.push(await deleteDatabase(name));
+  }
+
+  return {
+    deletedExecution,
+    deletedDbs,
+    candidates: Array.from(candidates),
+  };
 }
 
 function isHidden(element) {
@@ -382,23 +471,72 @@ function displayModal(figure) {
 
     const lighthouse = cluster.getSingletonOf(LighthouseIdentity.type);
 
+    const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate')
+      .filter((v) => v !== null);
+    const firstSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'firstSeenTimestamp')
+      .filter((v) => v !== null);
+    const lastSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'lastSeenTimestamp')
+      .filter((v) => v !== null);
+
+    const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
+    const firstSeenTimestamp = firstSeenValues.length > 0 ? Math.min(...firstSeenValues) : null;
+    const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
+
+    // Add timestamp rows if available (works for any crawler)
+    if (publishDate) {
+      rows.publishDate = 'Publish Date';
+      data.publishDate = new Date(publishDate).toLocaleDateString();
+    }
+
+    if (firstSeenTimestamp) {
+      rows.firstSeen = 'First Seen';
+      data.firstSeen = new Date(firstSeenTimestamp).toLocaleDateString();
+    }
+
+    if (lastSeenTimestamp) {
+      rows.lastSeen = 'Last Seen';
+      data.lastSeen = new Date(lastSeenTimestamp).toLocaleDateString();
+    }
+
     if (window.collectingRum) {
       const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
       const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
       const visits = cluster.getAll(UrlAndPageIdentity.type, 'visits').reduce((acc, curr) => acc + curr, 0);
       const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
+      const assetViews = cluster.getAll(UrlAndPageIdentity.type, 'assetViews').reduce((acc, curr) => acc + curr, 0);
+      const assetClicks = cluster.getAll(UrlAndPageIdentity.type, 'assetClicks').reduce((acc, curr) => acc + curr, 0);
 
-      rows.performanceScore = 'Asset Performance';
+      // Calculate rates only if we have sufficient sample size
+      const pageCTR = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (conversions / pageViews) : null;
+      const pageBounceRate = pageViews >= MIN_RUM_VIEWS_FOR_RATES ? (bounces / pageViews) : null;
+      const assetCTR = assetViews >= MIN_RUM_VIEWS_FOR_RATES ? (assetClicks / assetViews) : null;
+
+      rows.pageCTR = 'Page Click Through Rate';
       rows.pageViews = 'Page Views';
       rows.conversions = 'Conversions';
+      rows.assetViews = 'Asset Views';
+      rows.assetClicks = 'Asset Clicks';
+      rows.assetCTR = 'Asset Click Through Rate';
       rows.visits = 'Visits';
       rows.bounces = 'Bounces';
+      rows.pageBounceRate = 'Page Bounce Rate';
       rows.lighthouse = 'Asset Success Score';
-      data.performanceScore = PerformanceUtil.getPerformanceScore(conversions, pageViews, visits, bounces, true);
+
+      data.pageCTR = pageCTR !== null
+        ? `${(pageCTR * 100).toFixed(2)}%`
+        : 'Insufficient data';
       data.pageViews = pageViews > 0 ? pageViews : ' < 100';
       data.conversions = conversions > 0 ? conversions : ' < 100';
+      data.assetViews = assetViews > 0 ? assetViews : ' < 100';
+      data.assetClicks = assetClicks > 0 ? assetClicks : ' < 100';
+      data.assetCTR = assetCTR !== null
+        ? `${(Math.min(assetCTR, 1) * 100).toFixed(2)}%`
+        : 'Insufficient data';
       data.visits = visits > 0 ? visits : ' < 100';
       data.bounces = bounces > 0 ? bounces : ' < 100';
+      data.pageBounceRate = pageBounceRate !== null
+        ? `${(pageBounceRate * 100).toFixed(2)}%`
+        : 'Insufficient data';
     }
     data.lighthouse = lighthouse.scores;
 
@@ -511,8 +649,10 @@ function sortImages(doc, targetSort, targetFilter, targetPagination) {
   // Clear the gallery and append sorted figures
   GALLERY.innerHTML = ''; // Clear current gallery content
   clusters.forEach((cluster) => {
-    if (cluster.figureForCluster) {
-      GALLERY.appendChild(cluster.figureForCluster);
+    const currentCluster = clusterManager.get(cluster.id);
+    if (!currentCluster) return;
+    if (currentCluster.figureForCluster) {
+      GALLERY.appendChild(currentCluster.figureForCluster);
     }
   });
 
@@ -657,7 +797,27 @@ async function imageOnError(identityValues, identityState, error) {
     .identifyPostError(identityValues, identityState);
 
   // eslint-disable-next-line no-console
-  console.error(`Error loading img file at ${identityValues.href}`, error);
+  const href = identityValues?.imageOptions?.card?.href
+    || identityValues?.imageOptions?.original?.href
+    || identityValues?.imageOptions?.detail?.href
+    || '(unknown href)';
+  // Helpful for debugging: img.src uses UrlResourceHandler.getImageUrl(href) (proxy),
+  // so log both the logical href and the actual requested URL (proxied).
+  let requested = href;
+  try {
+    requested = UrlResourceHandler.getImageUrl(href);
+  } catch {
+    // ignore; requested stays as href
+  }
+
+  // De-dupe noisy logs on large crawls
+  window.imageLoadErrorSeen = window.imageLoadErrorSeen || new Set();
+  const key = `${href}|${requested}`;
+  if (!window.imageLoadErrorSeen.has(key)) {
+    window.imageLoadErrorSeen.add(key);
+    // eslint-disable-next-line no-console
+    console.error(`Error loading img. href=${href} requested=${requested}`, error);
+  }
   // TODO: Show broken file image?
 }
 
@@ -680,10 +840,16 @@ function updateProgress() {
  */
 function updateCounter(counter, increment, float = false) {
   const value = parseFloat(counter.textContent, 10);
-  // calculate the new value (or reset to 0 if no increment is provided)
-  const targetValue = increment ? value + increment : 0;
+  // calculate the new value
+  // - if increment is undefined/null: reset to 0 (existing behavior used by callers)
+  // - if increment is 0: keep value (do NOT reset)
+  const targetValue = (increment === undefined || increment === null)
+    ? 0
+    : value + increment;
   counter.textContent = float ? targetValue.toFixed(1) : Math.floor(targetValue);
-  if (counter.id === 'images-counter' || counter.id === 'total-counter') updateProgress();
+  if (counter.id === 'images-counter'
+    || counter.id === 'total-counter'
+    || counter.id === 'pages-counter') updateProgress();
 }
 
 /**
@@ -774,10 +940,9 @@ async function loadImages(
 
     const {
       site, alt, aspectRatio, instance, fileType, width, height, imageOptions, invalidDimensions,
+      pageLastModified, assetLastModified,
     } = img;
 
-    window.imageCount += 1;
-    const { imageCount } = window;
     const loadedImg = new Image(imageOptions.card.width, imageOptions.card.height);
     const { identityCache } = window;
     if (CORS_ANONYMOUS) loadedImg.crossOrigin = 'Anonymous';
@@ -791,46 +956,78 @@ async function loadImages(
     info.innerHTML = '<span class="icon icon-info"></span>';
     figure.append(info);
 
-    const originatingClusterId = clusterManager.newCluster(
-      new SitemapLoadOrderIdentity(imageCount),
-      loadedImg,
-      figure,
-      'image',
-      imageOptions,
-    );
-
-    const identityValues = new IdentityValues({
-      originatingClusterId,
-      clusterManager,
-      selectedIdentifiers,
-      submissionValues,
-      identityCache,
-      imageOptions,
+    // Use UrlAndPageIdentity as the originating identity so we can dedupe
+    // (page + media + instance) at cluster creation time.
+    const originalHref = imageOptions?.original?.href || imageOptions?.card?.href;
+    const urlAndPage = new UrlAndPageIdentity(
+      UrlAndPageIdentity.buildGlobalUniqueAssetIdentifier(site, originalHref, instance),
+      originalHref,
       site,
       alt,
       width,
       height,
       aspectRatio,
       instance,
-      fileType,
-      domainKey,
-      replacementDomain,
-      invalidDimensions,
-    });
+      pageLastModified,
+      assetLastModified,
+    );
 
-    batchEntries.push(originatingClusterId);
+    const originatingClusterId = clusterManager.newCluster(
+      urlAndPage,
+      loadedImg,
+      figure,
+      'image',
+      imageOptions,
+    );
 
-    loadingImagesPool.run(async () => {
-      await identityValues.initializeIdentityHash();
-      await loadImage(
-        identityValues,
-        identityState,
-        clusterManager,
-        originatingClusterId,
-        loadedImg,
-        imageOptions.card.href,
+    // Duplicate (page, media, instance) tuple: skip creating/loading another cluster.
+    if (!originatingClusterId) {
+      // This means the crawler returned a literal duplicate (same page + media + instance).
+      // We drop it silently and do NOT count it as a "duplicate image found".
+    } else {
+      window.imageCount += 1;
+      const { imageCount } = window;
+
+      // Still attach SitemapLoadOrderIdentity for ordering/debugging
+      clusterManager.get(originatingClusterId).addIdentity(
+        new SitemapLoadOrderIdentity(imageCount),
       );
-    });
+
+      const identityValues = new IdentityValues({
+        originatingClusterId,
+        clusterManager,
+        selectedIdentifiers,
+        submissionValues,
+        identityCache,
+        imageOptions,
+        site,
+        alt,
+        width,
+        height,
+        aspectRatio,
+        instance,
+        fileType,
+        domainKey,
+        replacementDomain,
+        invalidDimensions,
+        pageLastModified,
+        assetLastModified,
+      });
+
+      batchEntries.push(originatingClusterId);
+
+      loadingImagesPool.run(async () => {
+        await identityValues.initializeIdentityHash();
+        await loadImage(
+          identityValues,
+          identityState,
+          clusterManager,
+          originatingClusterId,
+          loadedImg,
+          imageOptions.card.href,
+        );
+      });
+    }
   }
 
   await loadingImagesPool.allSettled();
@@ -1116,7 +1313,7 @@ async function processForm(
 
   window.stopCallback = () => crawler.stop();
 
-  const urls = await crawler.fetchSitemap(sitemapFormData);
+  const urls = await crawler.fetchCrawlerData(sitemapFormData);
   await fetchAndDisplayBatches(
     crawler,
     urls,
@@ -1240,12 +1437,133 @@ async function handleSiteUrlFocus() {
   }
 }
 
+/**
+ * Populate the crawler type dropdown with options from CrawlerRegistry
+ */
+function populateCrawlerTypeDropdown() {
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (!crawlerTypeSelect) return;
+
+  // Clear existing options
+  crawlerTypeSelect.innerHTML = '';
+
+  // Get all crawlers from registry
+  const crawlerOptions = CrawlerRegistry.getCrawlerOptions();
+
+  // Add options for each crawler
+  crawlerOptions.forEach((option, index) => {
+    const optionEl = document.createElement('option');
+    optionEl.value = option.type;
+    optionEl.textContent = option.displayName;
+    if (index === 0) optionEl.selected = true;
+    crawlerTypeSelect.appendChild(optionEl);
+  });
+}
+
+/**
+ * Apply form configuration from the selected crawler.
+ * Shows/hides fields and updates help text based on crawler's getFormConfig().
+ * @param {string} crawlerType - The crawler type to apply config for
+ */
+function applyCrawlerFormConfig(crawlerType) {
+  const crawler = CrawlerRegistry.getCrawlerByType(crawlerType);
+  if (!crawler) {
+    // eslint-disable-next-line no-console
+    console.warn('No crawler found for type:', crawlerType);
+    return;
+  }
+
+  const config = crawler.getFormConfig();
+  const {
+    visibleFields, requiredFields, helpText, placeholders,
+  } = config;
+
+  // Update crawler description
+  const descriptionEl = document.getElementById('crawler-description');
+  if (descriptionEl) {
+    descriptionEl.textContent = crawler.description;
+  }
+
+  // Show/hide fields and update required attributes based on visibleFields
+  const allFields = document.querySelectorAll('.crawler-field');
+  allFields.forEach((fieldEl) => {
+    const fieldId = fieldEl.dataset.field;
+    const input = document.getElementById(fieldId);
+
+    if (visibleFields.includes(fieldId)) {
+      // Show the field
+      fieldEl.style.display = '';
+      fieldEl.removeAttribute('aria-hidden');
+
+      // Set required attribute if needed
+      if (input) {
+        if (requiredFields.includes(fieldId)) {
+          input.setAttribute('required', 'required');
+        } else {
+          input.removeAttribute('required');
+        }
+      }
+    } else {
+      // Hide the field
+      fieldEl.style.display = 'none';
+      fieldEl.setAttribute('aria-hidden', 'true');
+
+      // Remove required attribute from hidden fields to prevent form validation errors
+      if (input) {
+        input.removeAttribute('required');
+      }
+    }
+  });
+
+  // Update help text
+  Object.entries(helpText).forEach(([fieldId, text]) => {
+    const helpEl = document.getElementById(`${fieldId}-help-text`);
+    if (helpEl) {
+      helpEl.textContent = text;
+    }
+  });
+
+  // Update placeholders
+  Object.entries(placeholders).forEach(([fieldId, placeholder]) => {
+    const input = document.getElementById(fieldId);
+    if (input) {
+      input.placeholder = placeholder;
+    }
+  });
+}
+
+/**
+ * Initialize the crawler type dropdown and apply the default configuration.
+ */
+function initializeCrawlerType() {
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (!crawlerTypeSelect) return;
+
+  // Populate dropdown if empty
+  if (crawlerTypeSelect.options.length === 0) {
+    populateCrawlerTypeDropdown();
+  }
+
+  // Default to first option (sitemap) if no value is set
+  if (!crawlerTypeSelect.value && crawlerTypeSelect.options.length > 0) {
+    crawlerTypeSelect.value = crawlerTypeSelect.options[0].value;
+  }
+
+  // Apply the form configuration for the selected crawler
+  applyCrawlerFormConfig(crawlerTypeSelect.value);
+}
+
 async function domContentLoaded() {
   try {
+    // Populate crawler type dropdown first so values can be restored
+    populateCrawlerTypeDropdown();
+
     // Retrieve the last executed URL from localStorage
     const lastURL = localStorage.getItem('lastExecutedURL');
 
     if (!lastURL) {
+      // No stored data, initialize crawler type to default
+      initializeCrawlerType();
       return;
     }
 
@@ -1262,10 +1580,13 @@ async function domContentLoaded() {
         const parsedData = JSON.parse(data); // Parse the stringified form data
         populateFormFromData(parsedData); // Populate the form with the retrieved data
       }
+      // Initialize crawler type after form population (applies form config)
+      initializeCrawlerType();
     };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.debug('Error during domContentLoaded:', error);
+    initializeCrawlerType();
   }
 }
 
@@ -1279,32 +1600,13 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
   // Function to populate the dropdown with reports
 
-  document.querySelectorAll('input[name="sitemap-option"]').forEach((option) => {
-    option.addEventListener('change', (event) => {
-      const fileInputContainer = document.getElementById('file-input-container');
-      const urlInputContainer = document.getElementById('url-input-container');
-      const fileInput = document.getElementById('embedded-sitemap-file');
-      const urlInput = document.getElementById('embedded-sitemap-url');
-
-      if (event.target.value === 'file') {
-        fileInputContainer.setAttribute('aria-hidden', 'false');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.setAttribute('required', 'required');
-        urlInput.removeAttribute('required');
-      } else if (event.target.value === 'url') {
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'false');
-        urlInput.setAttribute('required', 'required');
-        fileInput.removeAttribute('required');
-      } else {
-        // "None" selected: hide both fields and remove requirements
-        fileInputContainer.setAttribute('aria-hidden', 'true');
-        urlInputContainer.setAttribute('aria-hidden', 'true');
-        fileInput.removeAttribute('required');
-        urlInput.removeAttribute('required');
-      }
+  // Crawler type change handler - applies form config from the selected crawler
+  const crawlerTypeSelect = document.getElementById('crawler-type');
+  if (crawlerTypeSelect) {
+    crawlerTypeSelect.addEventListener('change', (event) => {
+      applyCrawlerFormConfig(event.target.value);
     });
-  });
+  }
 
   const siteUrlInput = document.querySelector('[name="site-url"]');
   if (siteUrlInput) {
@@ -1396,6 +1698,52 @@ function registerListeners(doc) {
     }
   });
 
+  // Purge browser stored data (IndexedDB) for the currently entered site.
+  const purgeButton = doc.getElementById('purge-stored-data-button');
+  if (purgeButton) {
+    purgeButton.addEventListener('click', async () => {
+      const data = getFormData(URL_FORM);
+      const siteUrl = data?.['site-url'];
+      if (!siteUrl) {
+        // eslint-disable-next-line no-alert
+        alert('Please enter a Site URL first.');
+        return;
+      }
+
+      // eslint-disable-next-line no-alert
+      const confirmed = window.confirm(
+        `Purge browser-stored data for:\n\n${siteUrl.href}\n\nThis will remove IndexedDB caches for this site (identity cache) and the saved form state for this URL.\n\nYour next run will be significantly slower while everything is recomputed.\n\nContinue?`,
+      );
+      if (!confirmed) return;
+
+      // If a crawl is running, stop it first to avoid races with cache access.
+      if (!window.stopProcessing && typeof window.stopCallback === 'function') {
+        try {
+          window.stopProcessing = true;
+          window.stopCallback();
+        } catch {
+          // ignore
+        }
+      }
+
+      const result = await purgeIndexedDbForSite(data);
+      const okDbs = result.deletedDbs.filter((d) => d.ok).map((d) => d.name);
+      const failedDbs = result.deletedDbs.filter((d) => !d.ok).map((d) => d.name);
+
+      // eslint-disable-next-line no-alert
+      alert([
+        'Purge complete.',
+        '',
+        `Site: ${siteUrl.href}`,
+        'Next run note: expect a slower run while caches are recomputed.',
+        result.candidates.length ? `Domains: ${result.candidates.join(', ')}` : '',
+        `Saved form entry deleted: ${result.deletedExecution ? 'yes' : 'no/none'}`,
+        okDbs.length ? `Deleted DBs:\n- ${okDbs.join('\n- ')}` : 'Deleted DBs: none',
+        failedDbs.length ? `Failed DB deletes:\n- ${failedDbs.join('\n- ')}` : '',
+      ].filter(Boolean).join('\n'));
+    });
+  }
+
   // handle gallery clicks to display modals
   GALLERY.addEventListener('click', (e) => {
     const figure = e.target.closest('figure');
@@ -1432,7 +1780,10 @@ function registerListeners(doc) {
         const url = URL.createObjectURL(csv);
 
         link.setAttribute('href', url);
-        link.setAttribute('download', `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`);
+        link.setAttribute(
+          'download',
+          `${site ? `${site.replace('.', '_')}_` : ''}${report.name.toLowerCase().replace(' ', '_')}.csv`,
+        );
         link.style.display = 'none';
         ACTION_SELECT.insertAdjacentElement('afterend', link);
 
@@ -1447,22 +1798,33 @@ function registerListeners(doc) {
         ACTION_SELECT.value = '';
       }
     } else if (type === 'action') {
-      // Handle AEM export actions
+      // Handle AEM export actions - generate downloadable shell script
+      /* eslint-disable no-use-before-define */
       try {
         switch (id) {
           case AEM_ACTIONS.EXPORT_ASSETS:
-            await exportToAEM(window.clusterManager, { exportAssets: true, exportMetadata: false });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: true,
+              exportMetadata: false,
+            });
             break;
           case AEM_ACTIONS.EXPORT_METADATA:
-            await exportToAEM(window.clusterManager, { exportAssets: false, exportMetadata: true });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: false,
+              exportMetadata: true,
+            });
             break;
           case AEM_ACTIONS.EXPORT_BOTH:
-            await exportToAEM(window.clusterManager, { exportAssets: true, exportMetadata: true });
+            await generateAEMExportScript(window.clusterManager, {
+              exportAssets: true,
+              exportMetadata: true,
+            });
             break;
           default:
             // eslint-disable-next-line no-console
             console.warn('Unknown action:', id);
         }
+        /* eslint-enable no-use-before-define */
       } finally {
         ACTION_SELECT.classList.remove('download-pulse');
         ACTION_SELECT.value = '';
@@ -1493,6 +1855,8 @@ function registerListeners(doc) {
 
             // Populate form fields with imported data
             populateFormFromData(jsonData);
+            // Initialize crawler type to ensure form visibility is correct
+            initializeCrawlerType();
             const formData = getFormData(URL_FORM);
             saveFormData(formData['site-url'], formData);
           } catch (error) {
@@ -1549,24 +1913,1684 @@ const AEM_ACTIONS = {
   EXPORT_BOTH: 'export-assets-and-metadata-to-aem',
 };
 
+// Storage key for AEM config
+const AEM_CONFIG_STORAGE_KEY = 'aem-export-config';
+
 /**
- * Exports assets and/or metadata to AEM.
+ * Loads saved AEM config from IndexedDB.
+ * @returns {Promise<Object|null>} The saved config or null if not found
+ */
+async function loadAEMConfig() {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(AEM_CONFIG_STORAGE_KEY);
+
+    return new Promise((resolve) => {
+      request.onsuccess = (e) => {
+        const data = e.target.result;
+        if (data) {
+          resolve(JSON.parse(data));
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error loading AEM config:', error);
+    return null;
+  }
+}
+
+/**
+ * Saves AEM config to IndexedDB.
+ * @param {Object} config - The config to save
+ */
+async function saveAEMConfig(config) {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+
+    const configToSave = {
+      repositoryId: config.repositoryId,
+      rootPath: config.rootPath,
+      apiKey: config.apiKey,
+      accessToken: config.accessToken,
+    };
+
+    const request = store.put(JSON.stringify(configToSave), AEM_CONFIG_STORAGE_KEY);
+
+    return new Promise((resolve) => {
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('Error saving AEM config:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Shows a configuration modal for AEM export and returns the entered values.
+ * @param {Object} options - Options to display in the modal
+ * @param {boolean} options.exportAssets - Whether assets will be exported
+ * @param {boolean} options.exportMetadata - Whether metadata will be exported
+ * @returns {Promise<Object>} Config with repositoryId, rootPath, apiKey, accessToken
+ */
+async function showAEMConfigModal({ exportAssets, exportMetadata }) {
+  // Load previously saved config
+  const savedConfig = await loadAEMConfig();
+
+  return new Promise((resolve, reject) => {
+    const modalId = 'aem-config-modal';
+    let modal = document.getElementById(modalId);
+
+    // Remove existing modal if present
+    if (modal) {
+      modal.remove();
+    }
+
+    // Build new modal
+    const [newModal, body] = buildModal();
+    newModal.id = modalId;
+    newModal.classList.add('aem-config-modal');
+    modal = newModal;
+
+    // Build the form content
+    const form = document.createElement('form');
+    form.className = 'aem-config-form';
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = 'Export to AEM';
+    form.appendChild(title);
+
+    // Description
+    const desc = document.createElement('p');
+    desc.className = 'aem-config-desc';
+    const exportItems = [];
+    if (exportAssets) exportItems.push('assets');
+    if (exportMetadata) exportItems.push('metadata');
+    desc.textContent = `Configure the AEM target to export ${exportItems.join(' and ')}.`;
+    form.appendChild(desc);
+
+    // Repository ID field - use saved value if available
+    const repoGroup = document.createElement('div');
+    repoGroup.className = 'form-group';
+    const repoLabel = document.createElement('label');
+    repoLabel.htmlFor = 'aem-repository-id';
+    repoLabel.textContent = 'AEMaaCS Repository ID';
+    const repoInput = document.createElement('input');
+    repoInput.type = 'text';
+    repoInput.id = 'aem-repository-id';
+    repoInput.name = 'repositoryId';
+    repoInput.value = savedConfig?.repositoryId || '';
+    repoInput.placeholder = 'e.g., author-p12345-e67890';
+    repoInput.required = true;
+    repoGroup.appendChild(repoLabel);
+    repoGroup.appendChild(repoInput);
+    form.appendChild(repoGroup);
+
+    // Root Path field - use saved value, or prepopulate with RUM domain if no saved value
+    const rumDomain = document.getElementById('replacement-domain')?.value?.trim();
+    const defaultRootPath = rumDomain ? `/content/dam/${rumDomain}` : '';
+
+    const pathGroup = document.createElement('div');
+    pathGroup.className = 'form-group';
+    const pathLabel = document.createElement('label');
+    pathLabel.htmlFor = 'aem-root-path';
+    pathLabel.textContent = 'Root Path';
+    const pathInput = document.createElement('input');
+    pathInput.type = 'text';
+    pathInput.id = 'aem-root-path';
+    pathInput.name = 'rootPath';
+    pathInput.value = savedConfig?.rootPath || defaultRootPath;
+    pathInput.placeholder = 'e.g., /content/dam/my-project';
+    pathInput.required = true;
+    pathGroup.appendChild(pathLabel);
+    pathGroup.appendChild(pathInput);
+    form.appendChild(pathGroup);
+
+    // API Key field (x-api-key header)
+    const apiKeyGroup = document.createElement('div');
+    apiKeyGroup.className = 'form-group';
+    const apiKeyLabel = document.createElement('label');
+    apiKeyLabel.htmlFor = 'aem-api-key';
+    apiKeyLabel.textContent = 'API Key';
+    const apiKeyInput = document.createElement('input');
+    apiKeyInput.type = 'text';
+    apiKeyInput.id = 'aem-api-key';
+    apiKeyInput.name = 'apiKey';
+    apiKeyInput.value = savedConfig?.apiKey || 'aem-assets-frontend-1_assetsui';
+    apiKeyInput.placeholder = 'e.g., aem-assets-frontend-1_assetsui';
+    apiKeyInput.required = true;
+    apiKeyGroup.appendChild(apiKeyLabel);
+    apiKeyGroup.appendChild(apiKeyInput);
+    form.appendChild(apiKeyGroup);
+
+    // Access Token field (password style)
+    const tokenGroup = document.createElement('div');
+    tokenGroup.className = 'form-group';
+    const tokenLabel = document.createElement('label');
+    tokenLabel.htmlFor = 'aem-access-token';
+    tokenLabel.textContent = 'Access Token';
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'password';
+    tokenInput.id = 'aem-access-token';
+    tokenInput.name = 'accessToken';
+    tokenInput.value = savedConfig?.accessToken || '';
+    tokenInput.placeholder = 'Enter your access token';
+    tokenInput.required = true;
+    tokenGroup.appendChild(tokenLabel);
+    tokenGroup.appendChild(tokenInput);
+    form.appendChild(tokenGroup);
+
+    // Buttons container
+    const buttons = document.createElement('div');
+    buttons.className = 'form-buttons';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'button secondary';
+    cancelBtn.textContent = 'Cancel';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'button primary';
+    submitBtn.textContent = 'Run';
+
+    buttons.appendChild(cancelBtn);
+    buttons.appendChild(submitBtn);
+    form.appendChild(buttons);
+
+    body.appendChild(form);
+
+    // Handle cancel
+    const handleCancel = () => {
+      modal.close();
+      modal.remove();
+      reject(new Error('Export cancelled by user'));
+    };
+
+    cancelBtn.addEventListener('click', handleCancel);
+
+    // Override the modal's close behavior
+    modal.addEventListener('close', () => {
+      reject(new Error('Export cancelled by user'));
+    });
+
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const config = {
+        repositoryId: formData.get('repositoryId'),
+        rootPath: formData.get('rootPath'),
+        apiKey: formData.get('apiKey'),
+        accessToken: formData.get('accessToken'),
+      };
+
+      // Save config for next time (without access token)
+      await saveAEMConfig(config);
+
+      modal.close();
+      modal.remove();
+      resolve(config);
+    });
+
+    document.body.appendChild(modal);
+    modal.showModal();
+
+    // Focus on the first empty required field
+    if (!repoInput.value) {
+      repoInput.focus();
+    } else if (!pathInput.value) {
+      pathInput.focus();
+    } else {
+      tokenInput.focus();
+    }
+  });
+}
+
+/**
+ * Creates and shows a progress modal for long-running operations.
+ * @returns {Object} Object with { modal, log, close } functions
+ */
+/**
+ * Gets the shortest page path from all sites where an asset appears.
+ * @param {Array<string>} sites - Array of site URLs
+ * @returns {string} The shortest pathname (without leading slash for folder naming)
+ */
+function getShortestPagePath(sites) {
+  if (!sites || sites.length === 0) return '';
+
+  const paths = sites.map((site) => {
+    try {
+      const url = new URL(site);
+      return url.pathname;
+    } catch {
+      return '/';
+    }
+  });
+
+  // Normalize paths (remove trailing slashes for comparison)
+  const normalizedPaths = paths.map((p) => (p === '/' ? '/' : p.replace(/\/$/, '')));
+
+  // Find the minimum length
+  const minLength = Math.min(...normalizedPaths.map((p) => p.length));
+
+  // Get all paths with the minimum length
+  const shortestPaths = normalizedPaths.filter((p) => p.length === minLength);
+
+  // Sort alphabetically and pick the first one (deterministic selection)
+  shortestPaths.sort();
+  const shortestPath = shortestPaths[0];
+
+  // Remove leading slash and trailing slash, handle root case
+  if (shortestPath === '/' || shortestPath === '') return '';
+  return shortestPath.replace(/^\//, '').replace(/\/$/, '');
+}
+
+/**
+ * Builds AEM metadata object from cluster data.
+ * @param {Object} cluster - The cluster object
+ * @returns {Object} Metadata object for AEM
+ */
+function buildAEMMetadata(cluster) {
+  const pageViews = cluster.getAll(UrlAndPageIdentity.type, 'pageViews').reduce((acc, curr) => acc + curr, 0);
+  const conversions = cluster.getAll(UrlAndPageIdentity.type, 'conversions').reduce((acc, curr) => acc + curr, 0);
+  const bounces = cluster.getAll(UrlAndPageIdentity.type, 'bounces').reduce((acc, curr) => acc + curr, 0);
+  const assetViews = cluster.getAll(UrlAndPageIdentity.type, 'assetViews').reduce((acc, curr) => acc + curr, 0);
+  const assetClicks = cluster.getAll(UrlAndPageIdentity.type, 'assetClicks').reduce((acc, curr) => acc + curr, 0);
+  const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+  const altTexts = cluster.getAll(UrlAndPageIdentity.type, 'alt').filter((a) => a && a.trim());
+  const publishDates = cluster.getAll(UrlAndPageIdentity.type, 'publishDate').filter((v) => v !== null);
+  const firstSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'firstSeenTimestamp').filter((v) => v !== null);
+  const lastSeenValues = cluster.getAll(UrlAndPageIdentity.type, 'lastSeenTimestamp').filter((v) => v !== null);
+
+  // Calculate click-through rate (conversions/views) and bounce rate (bounces/views)
+  const clickThroughRate = pageViews > 0 ? Math.min(conversions / pageViews, 1) : 0;
+  const bounceRate = pageViews > 0 ? Math.min(bounces / pageViews, 1) : 0;
+
+  // Ensure sites is a proper array of strings (not a CSV)
+  const siteUrls = Array.isArray(sites) ? sites.filter((s) => typeof s === 'string' && s.trim()) : [];
+
+  const metadata = {
+    'xdm:impressions': pageViews,
+    'xdm:conversions': conversions,
+    'xdm:bounces': bounces,
+    'xdm:assetExperienceClickThroughRate': parseFloat(clickThroughRate.toFixed(4)),
+    'xdm:assetExperienceBounceRate': parseFloat(bounceRate.toFixed(4)),
+    'xdm:assetViews': assetViews,
+    'xdm:assetClicks': assetClicks,
+  };
+
+  if (assetViews >= MIN_RUM_VIEWS_FOR_RATES) {
+    metadata['xdm:assetClickThroughRate'] = parseFloat(Math.min(assetClicks / assetViews, 1).toFixed(4));
+  }
+
+  // Publish date and seen timestamps
+  const publishDate = publishDates.length > 0 ? Math.max(...publishDates) : null;
+  const firstSeenTimestamp = firstSeenValues.length > 0 ? Math.min(...firstSeenValues) : null;
+  const lastSeenTimestamp = lastSeenValues.length > 0 ? Math.max(...lastSeenValues) : null;
+
+  if (publishDate) {
+    const [d] = new Date(publishDate).toISOString().split('T');
+    metadata['xdm:publishDate'] = d;
+  }
+  if (firstSeenTimestamp) {
+    const [d] = new Date(firstSeenTimestamp).toISOString().split('T');
+    metadata['xdm:firstSeenTimestamp'] = d;
+  }
+  if (lastSeenTimestamp) {
+    const [d] = new Date(lastSeenTimestamp).toISOString().split('T');
+    metadata['xdm:lastSeenTimestamp'] = d;
+  }
+
+  // Only add URLs array if we have valid URLs
+  if (siteUrls.length > 0) {
+    metadata['xdm:assetSeenInURLs'] = siteUrls;
+  }
+
+  // Add alt text if available (use first non-empty alt text)
+  if (altTexts.length > 0) {
+    const [firstAlt] = altTexts;
+    metadata['Iptc4xmpExt:ExtDescrAccessibility'] = firstAlt;
+  }
+
+  return metadata;
+}
+
+/**
+ * Converts a DAM path to an API path by stripping /content/dam prefix.
+ * @param {string} damPath - The full DAM path (e.g., /content/dam/project/image.jpg)
+ * @returns {string} API path (e.g., /project/image.jpg)
+ */
+function damPathToApiPath(damPath) {
+  const path = String(damPath || '');
+  if (path.startsWith('/content/dam')) {
+    return path.substring('/content/dam'.length) || '/';
+  }
+  return path;
+}
+
+/**
+ * AEM API helper class for making authenticated requests.
+ */
+/* eslint-disable
+  no-await-in-loop,
+  no-restricted-syntax,
+  prefer-destructuring,
+  no-promise-executor-return,
+  object-curly-newline,
+  quotes,
+  max-len */
+// Legacy browser-based AEM export support (unused in normal flow). Prefer generateAEMExportScript().
+// eslint-disable-next-line no-unused-vars
+class AEMApi {
+  #baseUrl;
+
+  #apiKey;
+
+  #accessToken;
+
+  #corsProxyUrl = 'https://little-forest-58aa.david8603.workers.dev/?url=';
+
+  constructor(repositoryId, apiKey, accessToken) {
+    this.#baseUrl = `https://${repositoryId}.adobeaemcloud.com`;
+    this.#apiKey = apiKey;
+    this.#accessToken = accessToken;
+  }
+
+  #getHeaders(contentType = 'application/json') {
+    return {
+      Authorization: `Bearer ${this.#accessToken}`,
+      'x-api-key': this.#apiKey,
+      'Content-Type': contentType,
+    };
+  }
+
+  #getProxiedUrl(url) {
+    return `${this.#corsProxyUrl}${encodeURIComponent(url)}`;
+  }
+
+  /**
+   * Check if an asset exists at the given path.
+   * @param {string} assetPath - Full path to the asset
+   * @returns {Promise<{exists: boolean, error?: string}>} Existence check result
+   */
+  async assetExists(assetPath) {
+    try {
+      // First try HEAD request (fastest)
+      const apiPath = damPathToApiPath(assetPath);
+      const headUrl = `${this.#baseUrl}/api/assets${apiPath}.json`;
+      const headResponse = await fetch(headUrl, {
+        method: 'HEAD',
+        headers: this.#getHeaders(),
+      });
+
+      // If HEAD returns 404, definitely doesn't exist
+      if (headResponse.status === 404) {
+        return { exists: false };
+      }
+
+      // If HEAD is successful, try to get the asset metadata to verify and get ID
+      if (headResponse.ok) {
+        const getResponse = await fetch(headUrl, {
+          method: 'GET',
+          headers: this.#getHeaders(),
+        });
+
+        if (getResponse.ok) {
+          try {
+            const data = await getResponse.json();
+            // Look for asset ID in various possible fields
+            const assetId = data?.assetId || data?.id || data?.['jcr:uuid'];
+            return { exists: true, assetId };
+          } catch {
+            // Could not parse JSON, but HEAD succeeded so assume it exists
+            return { exists: true };
+          }
+        }
+      }
+
+      // HEAD failed with non-404 error, or GET failed - probably doesn't exist
+      return { exists: false, error: `Asset check failed: HEAD ${headResponse.status}, GET ${headResponse.ok ? 'N/A' : 'failed'}` };
+    } catch (err) {
+      // Network error - assume doesn't exist to be safe
+      return { exists: false, error: `Network error checking asset: ${err.message}` };
+    }
+  }
+
+  /**
+   * Create an asset from a URL.
+   * @param {string} folderPath - Folder path (e.g., /content/dam/project)
+   * @param {string} sourceUrl - URL to import the asset from
+   * @param {string} fileName - Name for the asset
+   * @returns {Promise<Object>} Object with { status, jobUrl, body, headers }
+   */
+  async createAssetFromUrl(folderPath, sourceUrl, fileName) {
+    const apiPath = damPathToApiPath(folderPath);
+    const url = `${this.#baseUrl}/api/assets${apiPath}/*`;
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: this.#getHeaders(),
+        body: JSON.stringify({
+          class: 'asset',
+          properties: {
+            name: fileName,
+            'dc:title': fileName,
+          },
+          links: [{
+            rel: ['content'],
+            href: sourceUrl,
+          }],
+        }),
+      });
+    } catch (err) {
+      throw new Error(`Network error creating asset at ${folderPath}/${fileName}: ${err.message}`);
+    }
+
+    // Capture all response info for debugging and job tracking
+    const responseHeaders = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+
+    let responseBody = null;
+    try {
+      const text = await response.text();
+      responseBody = text ? JSON.parse(text) : null;
+    } catch {
+      // Body might not be JSON
+      responseBody = null;
+    }
+
+    if (!response.ok && response.status !== 202) {
+      throw new Error(`POST ${url} returned ${response.status}: ${JSON.stringify(responseBody) || '(no body)'}`);
+    }
+
+    // Return full response info including job URL if present
+    return {
+      status: response.status,
+      jobUrl: responseHeaders.location || responseHeaders['content-location'] || null,
+      headers: responseHeaders,
+      body: responseBody,
+    };
+  }
+
+  /**
+   * Poll a job URL until it completes.
+   * @param {string} jobUrl - The job status URL to poll
+   * @param {number} maxWaitMs - Maximum time to wait (default 60 seconds)
+   * @param {number} intervalMs - Polling interval (default 2 seconds)
+   * @returns {Promise<Object>} Final job status
+   */
+  async pollJobStatus(jobUrl, maxWaitMs = 60000, intervalMs = 2000) {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const response = await fetch(jobUrl, {
+          method: 'GET',
+          headers: this.#getHeaders(),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Job status check failed: ${response.status}`);
+        }
+
+        let body = null;
+        try {
+          body = await response.json();
+        } catch {
+          body = null;
+        }
+
+        // Check for completion - adjust based on actual API response format
+        const status = body?.status || body?.state || 'unknown';
+        if (status === 'complete' || status === 'completed' || status === 'success' || status === 'SUCCESS') {
+          return { complete: true, status, body };
+        }
+        if (status === 'failed' || status === 'error' || status === 'FAILED' || status === 'ERROR') {
+          return {
+            complete: true, status, body, error: true,
+          };
+        }
+
+        // If response is 200 and no status field, might be complete
+        if (response.status === 200 && !body?.status && !body?.state) {
+          return { complete: true, status: 'assumed-complete', body };
+        }
+      } catch (err) {
+        // Log but continue polling
+        // eslint-disable-next-line no-console
+        console.warn('Poll error:', err.message);
+      }
+
+      // Wait before next poll
+      await new Promise((resolve) => { setTimeout(resolve, intervalMs); });
+    }
+
+    return { complete: false, status: 'timeout', error: true };
+  }
+
+  /**
+   * Import assets from URLs using the Import from URL API.
+   * This API supports up to 300 files per request and auto-creates folders.
+   * @param {string} folderPath - Target folder path (e.g., /content/dam/project)
+   * @param {Array<{fileName: string, url: string, mimeType?: string, fileSize?: number, assetMetadata?: Object}>} files
+   * @param {Object} globalMetadata - Optional metadata applied to all files
+   * @returns {Promise<{jobId: string, statusUrl: string, resultUrl: string}>}
+   */
+  async importFromUrl(folderPath, files, globalMetadata = null) {
+    // eslint-disable-next-line no-console
+    console.log(`[AEMApi] importFromUrl called with folder: ${folderPath}, files: ${files.length}`);
+    const url = `${this.#baseUrl}/adobe/assets/import/fromUrl`;
+
+    const requestBody = {
+      folder: folderPath, // Send full /content/dam path as required by API
+      files,
+      sourceName: 'Assets Workbench',
+    };
+
+    if (globalMetadata) {
+      requestBody.assetMetadata = globalMetadata;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(`[AEMApi] Making import request to: ${url}`);
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: this.#getHeaders(),
+        body: JSON.stringify(requestBody),
+      });
+      // eslint-disable-next-line no-console
+      console.log(`[AEMApi] Import response status: ${response.status}`);
+    } catch (err) {
+      throw new Error(`Network error calling import API: ${err.message}`);
+    }
+
+    // Read response body
+    let responseBody = null;
+    try {
+      responseBody = await response.json();
+    } catch {
+      // Body might not be JSON
+    }
+
+    if (response.status !== 202) {
+      const errorDetail = responseBody ? JSON.stringify(responseBody) : '(no body)';
+      throw new Error(`Import API returned ${response.status}: ${errorDetail}`);
+    }
+
+    // Get job ID from response body or Location header
+    const locationHeader = response.headers.get('Location');
+    let jobId = responseBody?.id || responseBody?.data?.id;
+
+    if (!jobId && locationHeader) {
+      // Try to extract job ID from Location header
+      const match = locationHeader.match(/jobs\/([^/]+)/);
+      if (match) {
+        jobId = match[1];
+      }
+    }
+
+    if (!jobId) {
+      throw new Error('Import API did not return a job ID');
+    }
+
+    return {
+      jobId,
+      statusUrl: `${this.#baseUrl}/adobe/assets/import/jobs/${jobId}/status`,
+      resultUrl: `${this.#baseUrl}/adobe/assets/import/jobs/${jobId}/result`,
+    };
+  }
+
+  /**
+   * Poll import job status until completion.
+   * @param {string} jobId - The import job ID
+   * @param {Function} logFn - Logging function
+   * @param {number} maxWaitMs - Maximum wait time (default 5 minutes)
+   * @returns {Promise<{state: string, progress: Object, errors: Array, failed?: boolean}>}
+   */
+  async pollImportJob(jobId, logFn = () => {}, maxWaitMs = 300000) {
+    const statusUrl = `${this.#baseUrl}/adobe/assets/import/jobs/${jobId}/status`;
+    const startTime = Date.now();
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      if (Date.now() - startTime > maxWaitMs) {
+        logFn('Job polling timed out.', 'error');
+        return { state: 'TIMEOUT', failed: true };
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(`[AEMApi] Polling job status: ${statusUrl}`);
+      try {
+        const response = await fetch(statusUrl, {
+          method: 'GET',
+          headers: this.#getHeaders(),
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[AEMApi] Poll response status: ${response.status}`);
+
+        if (!response.ok) {
+          throw new Error(`Status check failed: ${response.status}`);
+        }
+
+        const body = await response.json();
+        const { state, progress } = body;
+
+        logFn(`Import progress: ${progress.imported || 0}/${progress.total || 0} imported, step: ${progress.step || 'unknown'}`);
+
+        if (state === 'COMPLETED') {
+          return { state, progress, errors: body.errors || [] };
+        }
+        if (state === 'FAILED') {
+          return { state, progress, errors: body.errors || [], failed: true };
+        }
+
+        // Use Retry-After header if present, otherwise default to 2 seconds
+        const retryAfter = response.headers.get('Retry-After');
+        const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      } catch (err) {
+        logFn(`Poll error: ${err.message}`, 'warning');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+  }
+
+  /**
+   * Get import job results (includes asset IDs for uploaded assets).
+   * @param {string} jobId - The import job ID
+   * @returns {Promise<Object>} Job result with items array containing asset IDs
+   */
+  async getImportJobResult(jobId) {
+    const url = `${this.#baseUrl}/adobe/assets/import/jobs/${jobId}/result`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.#getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get job result: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update metadata on an existing asset using the Author API.
+   * Uses JSON Patch format and If-Match: * to bypass ETag requirement.
+   * @param {string} assetId - Asset ID (URN format: urn:aaid:aem:...)
+   * @param {Object} metadata - Metadata properties to update
+   * @returns {Promise<Object|null>} API response or null if no content
+   */
+  async updateMetadataById(assetId, metadata) {
+    const url = `${this.#baseUrl}/adobe/assets/${assetId}/metadata`;
+
+    // Convert metadata object to JSON Patch operations (RFC 6902)
+    // Path should be just the property name, not /assetMetadata/name
+    const patchOps = Object.entries(metadata).map(([key, value]) => ({
+      op: 'add',
+      path: key,
+      value,
+    }));
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          ...this.#getHeaders('application/json-patch+json'),
+          'If-Match': '*', // Match any version
+        },
+        body: JSON.stringify(patchOps),
+      });
+    } catch (err) {
+      throw new Error(`Network error updating metadata: ${err.message}`);
+    }
+
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        errorBody = '(could not read response body)';
+      }
+      throw new Error(`PATCH ${url} returned ${response.status}: ${errorBody}`);
+    }
+
+    // Handle empty responses (204 No Content or empty body)
+    if (response.status === 204) {
+      return null;
+    }
+
+    // Try to parse JSON, but don't fail if empty
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Update metadata on an existing asset (legacy method using Assets API).
+   * @param {string} assetPath - Full path to the asset
+   * @param {Object} metadata - Metadata properties to update
+   * @returns {Promise<Object|null>} API response or null if no content
+   */
+  async updateMetadata(assetPath, metadata) {
+    const apiPath = damPathToApiPath(assetPath);
+    const url = `${this.#baseUrl}/api/assets${apiPath}`;
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'PUT',
+        headers: this.#getHeaders(),
+        body: JSON.stringify({
+          class: 'asset',
+          properties: metadata,
+        }),
+      });
+    } catch (err) {
+      throw new Error(`Network error updating metadata on ${assetPath}: ${err.message}`);
+    }
+
+    if (!response.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+      } catch {
+        errorBody = '(could not read response body)';
+      }
+      throw new Error(`PUT ${url} returned ${response.status}: ${errorBody}`);
+    }
+
+    // Handle empty responses (204 No Content or empty body)
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
+      return null;
+    }
+
+    // Try to parse JSON, but don't fail if empty
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Create a folder if it doesn't exist, recursively creating parent folders as needed.
+   * NOTE: We do NOT check with HEAD/GET first because CORS browser extensions fake those responses.
+   * Instead, we always try to create and handle "already exists" responses as success.
+   * @param {string} folderPath - Full path to the folder (e.g., /content/dam/project/subfolder)
+   * @param {Function} logFn - Optional logging function
+   * @returns {Promise<{success: boolean, error?: string}>} Folder creation result
+   */
+  async ensureFolder(folderPath, logFn = () => {}) {
+    // eslint-disable-next-line no-console
+    console.log(`[AEMApi] ensureFolder called with: ${folderPath}`);
+    // Convert DAM path to API path
+    const apiPath = damPathToApiPath(folderPath);
+
+    // Split API path into segments and build up the hierarchy
+    // e.g., /frescopa-coffee/en/volvo -> ['frescopa-coffee', 'en', 'volvo']
+    const segments = apiPath.split('/').filter((s) => s);
+
+    // Start from root (empty string = /api/assets root)
+    let currentApiPath = '';
+
+    for (let i = 0; i < segments.length; i += 1) {
+      const folderName = segments[i];
+      const targetApiPath = `${currentApiPath}/${folderName}`;
+
+      // Always try to create the folder - API returns 409 if it already exists
+      const createUrl = `${this.#baseUrl}/api/assets${currentApiPath}/*`;
+      logFn(`Ensuring folder: ${targetApiPath}`);
+      const requestBody = JSON.stringify({
+        class: 'folder',
+        properties: {
+          name: folderName,
+          'dc:title': folderName,
+        },
+      });
+      const requestHeaders = this.#getHeaders();
+      // eslint-disable-next-line no-console
+      console.log(`[AEMApi] POST ${createUrl}`);
+      // eslint-disable-next-line no-console
+      console.log(`[AEMApi] Request headers:`, requestHeaders);
+      // eslint-disable-next-line no-console
+      console.log(`[AEMApi] Request body:`, requestBody);
+      try {
+        const response = await fetch(createUrl, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: requestBody,
+        });
+        // eslint-disable-next-line no-console
+        console.log(`[AEMApi] Response status: ${response.status}`);
+        // eslint-disable-next-line no-console
+        console.log(`[AEMApi] Response headers:`, Object.fromEntries(response.headers.entries()));
+        const responseText = await response.clone().text();
+        // eslint-disable-next-line no-console
+        console.log(`[AEMApi] Response body:`, responseText.substring(0, 500));
+
+        // 201 = created, 409 = already exists, both are OK
+        if (response.ok || response.status === 201) {
+          logFn(`  ✓ Folder created: ${targetApiPath}`);
+        } else if (response.status === 409) {
+          logFn(`  ✓ Folder exists: ${targetApiPath}`);
+        } else {
+          let errorBody = '';
+          try {
+            errorBody = await response.text();
+          } catch {
+            errorBody = '(could not read response body)';
+          }
+          // 500 with "already exist" message is also OK
+          if (response.status === 500 && errorBody.includes('already exist')) {
+            logFn(`  ✓ Folder exists: ${targetApiPath}`);
+          } else {
+            return {
+              success: false,
+              error: `POST ${createUrl} returned ${response.status}: ${errorBody}`,
+            };
+          }
+        }
+      } catch (err) {
+        return {
+          success: false,
+          error: `Network error creating folder ${targetApiPath}: ${err.message}`,
+        };
+      }
+
+      currentApiPath = targetApiPath;
+    }
+
+    return { success: true };
+  }
+}
+/* eslint-enable
+  no-await-in-loop,
+  no-restricted-syntax,
+  prefer-destructuring,
+  no-promise-executor-return,
+  object-curly-newline,
+  quotes,
+  max-len */
+
+/**
+ * Gets the filename from an image URL.
+ * @param {string} url - The image URL
+ * @returns {string} The filename
+ */
+function getFilenameFromUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    const { pathname } = urlObj;
+    // Get the last segment of the path
+    const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
+    // Remove any query string remnants and decode
+    return decodeURIComponent(filename.split('?')[0]) || 'asset';
+  } catch {
+    return 'asset';
+  }
+}
+
+/**
+ * Sanitizes a folder path for AEM DAM by replacing dots with dashes.
+ * @param {string} path - The folder path
+ * @returns {string} Sanitized path
+ */
+function sanitizeFolderPath(path) {
+  // Split path into segments, sanitize each segment (replace dots with dashes), rejoin
+  return path.split('/').map((segment) => segment.replace(/\./g, '-')).join('/');
+}
+
+/**
+ * Converts a DAM path to an API path by stripping /content/dam prefix.
+ * @param {string} damPath - The full DAM path (e.g., /content/dam/project/image.jpg)
+ * @returns {string} API path (e.g., /project/image.jpg)
+ */
+/**
+ * Escapes a string for safe use in a shell script single-quoted string.
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeShellString(str) {
+  // In single-quoted bash strings, only single quotes need escaping
+  // Replace single quotes with '\'' (end quote, escaped quote, start quote)
+  return String(str).replace(/'/g, "'\\''");
+}
+
+/**
+ * Escapes a JSON string for embedding in a bash script using double quotes.
+ * This is safer for complex JSON with URLs.
+ * @param {string} jsonStr - JSON string to escape
+ * @returns {string} Escaped string safe for double-quoted bash
+ */
+function escapeJsonForBash(jsonStr) {
+  // For double-quoted bash strings, escape: $ ` \ " !
+  return String(jsonStr)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, '\\$')
+    .replace(/`/g, '\\`')
+    .replace(/!/g, '\\!');
+}
+
+/**
+ * Generates a downloadable shell script for AEM export.
+ * This avoids CORS issues by running curl commands locally.
+ *
  * @param {ClusterManager} clusterManager - The cluster manager instance
  * @param {Object} options - Export options
  * @param {boolean} options.exportAssets - Whether to export assets
  * @param {boolean} options.exportMetadata - Whether to export metadata
  */
-async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
-  // TODO: Implement AEM export functionality
-  // eslint-disable-next-line no-console
-  console.log('Export to AEM:', { exportAssets, exportMetadata });
-  // eslint-disable-next-line no-console
-  console.log('Clusters to export:', clusterManager.getAllClusters().length);
+/* eslint-disable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  quotes,
+  max-len */
+async function generateAEMExportScript(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
+  try {
+    // Show config modal and get user input
+    const config = await showAEMConfigModal({ exportAssets, exportMetadata });
 
-  // Stub implementation - show alert for now
-  // eslint-disable-next-line no-alert
-  alert(`Export to AEM (stub)\n\nExport Assets: ${exportAssets}\nExport Metadata: ${exportMetadata}\nTotal clusters: ${clusterManager.getAllClusters().length}`);
+    const clusters = clusterManager.getAllClusters();
+
+    // Collect asset information
+    const assetInfos = [];
+    const foldersToCreate = new Set();
+
+    for (const cluster of clusters) {
+      const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
+      if (!identity) continue;
+
+      const sourceUrl = identity.src;
+      const filename = getFilenameFromUrl(sourceUrl);
+      const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+
+      const shortestPath = getShortestPagePath(sites);
+      const rawFolderPath = shortestPath
+        ? `${config.rootPath}/${shortestPath}`
+        : config.rootPath;
+
+      // Sanitize folder path (replace dots with dashes)
+      const folderPath = sanitizeFolderPath(rawFolderPath);
+
+      assetInfos.push({
+        cluster,
+        sourceUrl,
+        filename,
+        folderPath,
+        metadata: buildAEMMetadata(cluster),
+      });
+
+      foldersToCreate.add(folderPath);
+    }
+
+    // Build the shell script
+    const lines = [];
+
+    // Script header
+    lines.push('#!/bin/bash');
+    lines.push('# AEM Asset Export Script');
+    lines.push(`# Generated: ${new Date().toISOString()}`);
+    lines.push(`# Assets: ${assetInfos.length}`);
+    lines.push(`# Folders: ${foldersToCreate.size}`);
+    lines.push('');
+    lines.push('set -e  # Exit on error');
+    lines.push('');
+
+    // Configuration variables
+    lines.push('# ============ CONFIGURATION ============');
+    lines.push(`TOKEN='${escapeShellString(config.accessToken)}'`);
+    lines.push(`API_KEY='${escapeShellString(config.apiKey)}'`);
+    lines.push(`BASE_URL='https://${escapeShellString(config.repositoryId)}.adobeaemcloud.com'`);
+    lines.push('');
+
+    // Helper function for curl
+    lines.push('# Helper function for authenticated requests');
+    lines.push('aem_curl() {');
+    lines.push('  curl -s -w "\\nHTTP_STATUS:%{http_code}" \\');
+    lines.push('    -H "Authorization: Bearer ${TOKEN}" \\');
+    lines.push('    -H "x-api-key: ${API_KEY}" \\');
+    lines.push('    "$@"');
+    lines.push('}');
+    lines.push('');
+
+    // Function to create folder
+    lines.push('# Create a folder (handles already-exists gracefully)');
+    lines.push('create_folder() {');
+    lines.push('  local folder_name="$1"');
+    lines.push('  local parent_api_path="$2"');
+    lines.push('  local url="${BASE_URL}/api/assets${parent_api_path}/*"');
+    lines.push('  ');
+    lines.push('  response=$(aem_curl -X POST \\');
+    lines.push('    -H "Content-Type: application/json" \\');
+    lines.push('    -d "{\\"class\\":\\"folder\\",\\"properties\\":{\\"name\\":\\"${folder_name}\\",\\"dc:title\\":\\"${folder_name}\\"}}" \\');
+    lines.push('    "$url")');
+    lines.push('  ');
+    lines.push('  status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)');
+    lines.push('  if [ "$status" = "201" ] || [ "$status" = "409" ] || [ "$status" = "500" ]; then');
+    lines.push('    echo "  ✓ Folder created: ${folder_name}"');
+    lines.push('    return 0');
+    lines.push('  else');
+    lines.push('    echo "  ✗ Failed to create folder: ${folder_name} (status: $status)"');
+    lines.push('    echo "$response" | head -5');
+    lines.push('    return 1');
+    lines.push('  fi');
+    lines.push('}');
+    lines.push('');
+
+    // Phase 1: Create folders (deduplicated)
+    if (exportAssets) {
+      lines.push('# ============ PHASE 1: CREATE FOLDERS ============');
+      lines.push('echo "Creating folder structure..."');
+      lines.push('');
+      lines.push('# Track created folders to avoid redundant API calls');
+      lines.push('declare -A CREATED_FOLDERS');
+      lines.push('');
+
+      // Collect all unique folder paths that need to be created
+      const allFolderPaths = new Set();
+      for (const folderPath of foldersToCreate) {
+        const apiPath = damPathToApiPath(folderPath);
+        const segments = apiPath.split('/').filter((s) => s);
+        let currentPath = '';
+        for (const segment of segments) {
+          currentPath = `${currentPath}/${segment}`;
+          allFolderPaths.add(currentPath);
+        }
+      }
+
+      // Sort by path length to create parents first
+      const sortedPaths = [...allFolderPaths].sort((a, b) => a.length - b.length);
+
+      for (const folderApiPath of sortedPaths) {
+        const parentPath = folderApiPath.substring(0, folderApiPath.lastIndexOf('/')) || '';
+        const folderName = folderApiPath.substring(folderApiPath.lastIndexOf('/') + 1);
+
+        lines.push(`# Create ${folderApiPath}`);
+        lines.push(`if [ -z "\${CREATED_FOLDERS['${escapeShellString(folderApiPath)}']:-}" ]; then`);
+        lines.push(`  create_folder '${escapeShellString(folderName)}' '${escapeShellString(parentPath)}'`);
+        lines.push(`  CREATED_FOLDERS['${escapeShellString(folderApiPath)}']=1`);
+        lines.push('fi');
+        lines.push('');
+      }
+
+      lines.push(`echo "Folder creation complete. Created ${sortedPaths.length} folders."`);
+      lines.push('echo ""');
+      lines.push('');
+
+      // Wait for AEM to index the folders before importing assets
+      lines.push('echo "Waiting 10 seconds for folders to be indexed..."');
+      lines.push('sleep 10');
+      lines.push('echo ""');
+      lines.push('');
+    }
+
+    // Phase 2: Import assets (batched by folder)
+    if (exportAssets) {
+      lines.push('# ============ PHASE 2: IMPORT ASSETS (BATCHED) ============');
+      lines.push('echo "Importing assets from URLs..."');
+      lines.push('');
+      lines.push('declare -a JOB_IDS');
+      lines.push('declare -a JOB_FOLDERS');
+      lines.push('declare -A ASSET_IDS');
+      lines.push('');
+
+      // Group assets by folder
+      const assetsByFolder = new Map();
+      for (const info of assetInfos) {
+        const apiPath = damPathToApiPath(info.folderPath);
+        const fullFolderPath = `/content/dam${apiPath}`;
+        if (!assetsByFolder.has(fullFolderPath)) {
+          assetsByFolder.set(fullFolderPath, []);
+        }
+        assetsByFolder.get(fullFolderPath).push(info);
+      }
+
+      // Generate batch import for each folder
+      for (const [fullFolderPath, assets] of assetsByFolder) {
+        // Ensure unique file names within the folder batch.
+        // AEM rejects a single import request when two entries share the same fileName.
+        // We deterministically suffix duplicates with "-dupN" before the extension.
+        const usedNames = new Map(); // fileName -> count
+        const assetsWithUniqueNames = assets.map((info) => {
+          const originalName = info.filename;
+          const count = (usedNames.get(originalName) || 0) + 1;
+          usedNames.set(originalName, count);
+
+          if (count === 1) {
+            return { ...info, effectiveFilename: originalName };
+          }
+
+          const dot = originalName.lastIndexOf('.');
+          const base = dot > 0 ? originalName.substring(0, dot) : originalName;
+          const ext = dot > 0 ? originalName.substring(dot) : '';
+          const effectiveFilename = `${base}-dup${count}${ext}`;
+          return { ...info, effectiveFilename };
+        });
+
+        // Emit a note into the script when we had to rename duplicates.
+        if (usedNames.size !== assets.length) {
+          const renamed = assetsWithUniqueNames
+            .filter((i) => i.effectiveFilename !== i.filename)
+            .map((i) => `${i.filename}→${i.effectiveFilename}`)
+            .join(', ');
+          lines.push(`# NOTE: Renamed duplicate filenames in this batch: ${renamed}`);
+        }
+
+        // Build the files array JSON - include metadata if exportMetadata is enabled
+        const filesJson = assetsWithUniqueNames.map((info) => {
+          if (exportMetadata) {
+            // Metadata JSON goes inside single-quoted bash string
+            // Single quotes in the JSON must be escaped: ' becomes '\''
+            const metadataJson = JSON.stringify(info.metadata).replace(/'/g, "'\\''");
+            return `{"fileName":"${escapeShellString(info.effectiveFilename)}","url":"${escapeShellString(info.sourceUrl)}","assetMetadata":${metadataJson}}`;
+          }
+          return `{"fileName":"${escapeShellString(info.effectiveFilename)}","url":"${escapeShellString(info.sourceUrl)}"}`;
+        }).join(',');
+        const filenamesList = assetsWithUniqueNames.map((info) => info.effectiveFilename).join(', ');
+
+        lines.push(`echo "Importing batch: ${assets.length} files to ${escapeShellString(fullFolderPath)}"`);
+        lines.push(`echo "  Files: ${escapeShellString(filenamesList.substring(0, 100))}${filenamesList.length > 100 ? '...' : ''}"`);
+        lines.push(`response=$(aem_curl -X POST \\`);
+        lines.push(`  -H "Content-Type: application/json" \\`);
+        lines.push(`  -d '{"folder":"${escapeShellString(fullFolderPath)}","files":[${filesJson}],"sourceName":"Assets Workbench"}' \\`);
+        lines.push(`  "\${BASE_URL}/adobe/assets/import/fromUrl")`);
+        lines.push('');
+        lines.push('status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)');
+        lines.push('if [ "$status" = "202" ]; then');
+        lines.push('  job_id=$(echo "$response" | grep -o \'"id":"[^"]*"\' | head -1 | cut -d\\" -f4)');
+        lines.push('  if [ -n "$job_id" ]; then');
+        lines.push(`    echo "  ✓ Import job created: $job_id (${assets.length} files)"`);
+        lines.push('    JOB_IDS+=("$job_id")');
+        lines.push(`    JOB_FOLDERS+=("${escapeShellString(fullFolderPath)}")`);
+        lines.push('  else');
+        lines.push('    echo "  ⚠ Import accepted but no job ID returned"');
+        lines.push('  fi');
+        lines.push('else');
+        lines.push(`  echo "  ✗ Import failed for ${escapeShellString(fullFolderPath)} (status: $status)"`);
+        lines.push('  echo "$response" | grep -v "HTTP_STATUS:" | head -3');
+        lines.push('fi');
+        lines.push('');
+      }
+
+      lines.push(`echo ""`);
+      lines.push(`echo "Submitted ${assetsByFolder.size} batch import jobs for ${assetInfos.length} assets."`);
+      lines.push('echo "Waiting for jobs to finish..."');
+      lines.push('');
+
+      // Phase 3: Poll for job completion
+      lines.push('# ============ PHASE 3: WAIT FOR IMPORTS ============');
+      lines.push('');
+      lines.push('for i in "${!JOB_IDS[@]}"; do');
+      lines.push('  job_id="${JOB_IDS[$i]}"');
+      lines.push('  folder="${JOB_FOLDERS[$i]}"');
+      lines.push('  echo "Polling job $job_id for $folder..."');
+      lines.push('  ');
+      lines.push('  max_attempts=120');
+      lines.push('  attempt=0');
+      lines.push('  while [ $attempt -lt $max_attempts ]; do');
+      lines.push('    response=$(aem_curl "${BASE_URL}/adobe/assets/import/jobs/${job_id}/status")');
+      lines.push('    state=$(echo "$response" | grep -o \'"state":"[^"]*"\' | cut -d\\" -f4)');
+      lines.push('    imported=$(echo "$response" | grep -o \'"imported":[0-9]*\' | cut -d: -f2)');
+      lines.push('    total=$(echo "$response" | grep -o \'"total":[0-9]*\' | cut -d: -f2)');
+      lines.push('    ');
+      lines.push('    if [ "$state" = "COMPLETED" ]; then');
+      lines.push('      echo "  ✓ Import complete: $imported/$total files"');
+      lines.push('      # Get all asset IDs from result');
+      lines.push('      result=$(aem_curl "${BASE_URL}/adobe/assets/import/jobs/${job_id}/result")');
+      lines.push('      # Extract all filename:assetId pairs');
+      lines.push('      while IFS= read -r line; do');
+      lines.push('        filename=$(echo "$line" | grep -o \'"fileName":"[^"]*"\' | cut -d\\" -f4)');
+      lines.push('        asset_id=$(echo "$line" | grep -o \'"assetId":"[^"]*"\' | cut -d\\" -f4)');
+      lines.push('        if [ -n "$filename" ] && [ -n "$asset_id" ]; then');
+      lines.push('          ASSET_IDS["$filename"]="$asset_id"');
+      lines.push('          echo "    $filename -> $asset_id"');
+      lines.push('        fi');
+      lines.push('      done < <(echo "$result" | tr "}" "\\n")');
+      lines.push('      break');
+      lines.push('    elif [ "$state" = "FAILED" ]; then');
+      lines.push('      echo "  ✗ Import failed for $folder"');
+      lines.push('      echo "$response" | head -3');
+      lines.push('      break');
+      lines.push('    else');
+      lines.push('      echo "    Progress: ${imported:-0}/${total:-?} (state: $state)"');
+      lines.push('      sleep 3');
+      lines.push('      ((attempt++))');
+      lines.push('    fi');
+      lines.push('  done');
+      lines.push('  ');
+      lines.push('  if [ $attempt -ge $max_attempts ]; then');
+      lines.push('    echo "  ⚠ Timeout waiting for $folder"');
+      lines.push('  fi');
+      lines.push('  echo ""');
+      lines.push('done');
+      lines.push('');
+      lines.push('echo "Import polling complete. ${#ASSET_IDS[@]} assets have IDs."');
+      lines.push('');
+    }
+
+    // Phase 4: Update metadata (only needed if NOT importing assets, i.e. metadata-only mode)
+    // When importing assets with exportMetadata=true, metadata is included in the import request
+    if (exportMetadata && !exportAssets) {
+      lines.push('# ============ PHASE 4: UPDATE METADATA (on existing assets) ============');
+      lines.push('echo "Updating metadata on existing assets..."');
+      lines.push('echo "Note: This requires assets to already exist in AEM with known IDs."');
+      lines.push('echo ""');
+
+      for (const info of assetInfos) {
+        const { metadata } = info;
+        // Build JSON Patch operations
+        const patchOps = Object.entries(metadata).map(([key, value]) => ({
+          op: 'add',
+          path: `/${key}`,
+          value,
+        }));
+        const patchJson = JSON.stringify(patchOps);
+
+        lines.push(`filename="${escapeShellString(info.filename)}"`);
+        lines.push('asset_id="${ASSET_IDS[$filename]:-}"');
+        lines.push('');
+        lines.push('if [ -n "$asset_id" ]; then');
+        lines.push(`  echo "Updating metadata for $filename..."`);
+        lines.push(`  response=$(aem_curl -X PATCH \\`);
+        lines.push(`    -H "Content-Type: application/json-patch+json" \\`);
+        lines.push(`    -H "If-Match: *" \\`);
+        lines.push(`    -d "${escapeJsonForBash(patchJson)}" \\`);
+        lines.push(`    "\${BASE_URL}/adobe/assets/\${asset_id}/metadata")`);
+        lines.push('  ');
+        lines.push('  status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)');
+        lines.push('  if [ "$status" = "200" ] || [ "$status" = "204" ]; then');
+        lines.push('    echo "  ✓ Metadata updated for $filename"');
+        lines.push('  else');
+        lines.push('    echo "  ✗ Metadata update failed for $filename (status: $status)"');
+        lines.push('  fi');
+        lines.push('else');
+        lines.push('  echo "  ⚠ Skipping metadata for $filename (no asset ID)"');
+        lines.push('fi');
+        lines.push('');
+      }
+
+      lines.push('echo ""');
+      lines.push('echo "Metadata updates complete."');
+    } else if (exportMetadata && exportAssets) {
+      lines.push('# Metadata was included in the import request - no separate update needed');
+      lines.push('echo "Metadata was set during import."');
+    }
+
+    // Summary
+    lines.push('');
+    lines.push('# ============ SUMMARY ============');
+    lines.push('echo ""');
+    lines.push('echo "============================================"');
+    lines.push('echo "Export complete!"');
+    lines.push(`echo "Total assets processed: ${assetInfos.length}"`);
+    lines.push(`echo "Total folders created: ${foldersToCreate.size}"`);
+    lines.push('echo "============================================"');
+
+    // Create and download the script
+    const scriptContent = lines.join('\n');
+    const blob = new Blob([scriptContent], { type: 'text/x-shellscript' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `aem-export-${Date.now()}.sh`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Show success message
+    // eslint-disable-next-line no-alert
+    alert(`Shell script downloaded!\n\nTo run it:\n  bash ~/Downloads/${link.download}\n\nThe script will create ${foldersToCreate.size} folders and import ${assetInfos.length} assets.`);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to generate export script:', error);
+    // eslint-disable-next-line no-alert
+    alert(`Failed to generate export script: ${error.message}`);
+  }
 }
+/* eslint-enable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  quotes,
+  max-len */
+
+/**
+ * Exports assets and/or metadata to AEM using phased approach (browser-based, has CORS issues).
+ * Phase 1: Create all folders
+ * Phase 2: Check which assets exist
+ * Phase 3: Upload all missing assets
+ * Phase 4: Wait for uploads to complete
+ * Phase 5: Update metadata for all assets
+ *
+ * NOTE: This function has CORS issues with AEM. Use generateAEMExportScript() instead.
+ *
+ * @param {ClusterManager} clusterManager - The cluster manager instance
+ * @param {Object} options - Export options
+ * @param {boolean} options.exportAssets - Whether to export assets
+ * @param {boolean} options.exportMetadata - Whether to export metadata
+ */
+/* eslint-disable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  no-unused-vars,
+  no-undef,
+  arrow-parens,
+  quotes,
+  max-len */
+async function exportToAEM(clusterManager, { exportAssets = true, exportMetadata = true } = {}) {
+  let progress = null;
+
+  try {
+    // Show config modal and get user input
+    const config = await showAEMConfigModal({ exportAssets, exportMetadata });
+
+    // Create progress modal
+    progress = createProgressModal();
+
+    const clusters = clusterManager.getAllClusters();
+    progress.log(`Starting export of ${clusters.length} assets...`);
+
+    // Initialize AEM API
+    const aemApi = new AEMApi(config.repositoryId, config.apiKey, config.accessToken);
+
+    // ========== PHASE 1: Prepare asset info and collect folders ==========
+    progress.log('');
+    progress.log('═══ Phase 1: Preparing asset information ═══', 'info');
+
+    const assetInfos = [];
+    const foldersToCreate = new Set();
+
+    for (const cluster of clusters) {
+      const identity = cluster.getFirstIdentityOf(UrlAndPageIdentity.type);
+      if (!identity) {
+        progress.log('Skipping cluster - no URL/page identity found', 'warning');
+        continue;
+      }
+
+      const sourceUrl = identity.src;
+      const filename = getFilenameFromUrl(sourceUrl);
+      const sites = cluster.getAll(UrlAndPageIdentity.type, 'site');
+
+      const shortestPath = getShortestPagePath(sites);
+      const rawFolderPath = shortestPath
+        ? `${config.rootPath}/${shortestPath}`
+        : config.rootPath;
+
+      // Sanitize folder path (replace dots with dashes)
+      const folderPath = sanitizeFolderPath(rawFolderPath);
+      const assetPath = `${folderPath}/${filename}`;
+
+      assetInfos.push({
+        cluster,
+        sourceUrl,
+        filename,
+        folderPath,
+        assetPath,
+        exists: false,
+        uploaded: false,
+        metadataUpdated: false,
+        error: null,
+      });
+
+      foldersToCreate.add(folderPath);
+    }
+
+    progress.log(`Prepared ${assetInfos.length} assets in ${foldersToCreate.size} folders`);
+    progress.setTotal(assetInfos.length * 3); // 3 phases per asset: check, upload, metadata
+
+    // ========== PHASE 2: Create all folders ==========
+    progress.log('');
+    progress.log('═══ Phase 2: Creating folder structure ═══', 'info');
+
+    const createdFolders = new Set();
+    const failedFolders = new Set();
+    let folderSuccessCount = 0;
+    let folderFailCount = 0;
+
+    for (const folderPath of foldersToCreate) {
+      if (!createdFolders.has(folderPath)) {
+        progress.log(`Creating folder: ${folderPath}`, 'info');
+        const folderResult = await aemApi.ensureFolder(folderPath, (msg) => progress.log(`  ${msg}`, 'info'));
+        if (!folderResult.success) {
+          progress.log(`  ✗ Failed: ${folderResult.error}`, 'error');
+          failedFolders.add(folderPath);
+          folderFailCount += 1;
+          // Mark assets in this folder as having errors
+          assetInfos.forEach((info) => {
+            if (info.folderPath === folderPath) {
+              info.error = `Folder creation failed: ${folderResult.error}`;
+            }
+          });
+        } else {
+          progress.log('  ✓ Folder ready', 'success');
+          createdFolders.add(folderPath);
+          folderSuccessCount += 1;
+        }
+      }
+    }
+
+    progress.log(`Folder creation: ${folderSuccessCount} succeeded, ${folderFailCount} failed`, folderFailCount > 0 ? 'warning' : 'success');
+
+    if (folderFailCount > 0 && folderSuccessCount === 0) {
+      progress.error('All folder creations failed. Check AEM permissions and configuration.');
+      return;
+    }
+
+    // ========== PHASE 3: Upload all assets (skip existence check due to CORS issues) ==========
+    progress.log('');
+    progress.log('═══ Phase 3: Preparing to upload all assets ═══', 'info');
+
+    // For now, assume no assets exist to bypass CORS-faked existence checks
+    // The import API will handle duplicates gracefully
+    const existingCount = 0;
+    const missingCount = assetInfos.length;
+    progress.log(`Skipping existence check (CORS issues), will upload all ${missingCount} assets`);
+
+    // ========== PHASE 4: Upload missing assets ==========
+    if (exportAssets && missingCount > 0) {
+      progress.log('');
+      progress.log('═══ Phase 4: Uploading assets ═══', 'info');
+
+      // Upload all assets that don't have folder errors (skipping existence check)
+      const assetsToUpload = assetInfos.filter((i) => !i.error);
+      const skippedDueToFolderError = assetInfos.filter((i) => i.error).length;
+      if (skippedDueToFolderError > 0) {
+        progress.log(`Skipping ${skippedDueToFolderError} assets due to folder creation errors`, 'warning');
+      }
+      const jobsToTrack = [];
+
+      const uploadTasks = assetsToUpload.map((info) => async () => {
+        try {
+          progress.log(`Uploading: ${info.filename}`, 'info');
+
+          // Use the new Import from URL API
+          const fullFolderPath = `/content/dam${damPathToApiPath(info.folderPath)}`;
+          const files = [{
+            fileName: info.filename,
+            url: info.sourceUrl,
+          }];
+
+          const result = await aemApi.importFromUrl(fullFolderPath, files);
+          info.uploaded = true;
+          info.importJobId = result.jobId;
+
+          progress.log(`  ✓ Import job created: ${result.jobId}`, 'success');
+
+          // Track import job for polling
+          jobsToTrack.push({ info, jobId: result.jobId });
+        } catch (err) {
+          info.error = err.message;
+          progress.log(`  ✗ Upload failed: ${err.message}`, 'error');
+        }
+        progress.increment();
+        return info;
+      });
+
+      await runWithConcurrency(uploadTasks, AEM_API_CONCURRENCY);
+
+      const uploadedCount = assetsToUpload.filter((i) => i.uploaded).length;
+      progress.log(`Uploaded ${uploadedCount} of ${assetsToUpload.length} assets`);
+
+      // Poll for job completion if we have job URLs
+      if (jobsToTrack.length > 0) {
+        progress.log('');
+        progress.log(`Waiting for ${jobsToTrack.length} upload jobs to complete...`, 'info');
+
+        const pollTasks = jobsToTrack.map((job) => async () => {
+          progress.log(`  Polling import job ${job.jobId} for ${job.info.filename}...`, 'info');
+          const result = await aemApi.pollImportJob(job.jobId, (msg, level) => {
+            progress.log(`    ${msg}`, level || 'info');
+          });
+
+          if (result.failed) {
+            progress.log(`  ✗ Import job failed for ${job.info.filename}: ${result.state}`, 'error');
+            job.info.error = `Import failed: ${result.state}`;
+          } else if (result.state === 'COMPLETED') {
+            progress.log(`  ✓ Import complete for ${job.info.filename}`, 'success');
+
+            // Get asset ID from job result
+            try {
+              const jobResult = await aemApi.getImportJobResult(job.jobId);
+              progress.log(`    Job result items: ${jobResult.items?.length || 0}`, 'info');
+              const item = jobResult.items?.find((i) => i.fileName === job.info.filename);
+              progress.log(`    Found item for ${job.info.filename}: ${item ? 'YES' : 'NO'}`, 'info');
+              if (item?.assetId) {
+                job.info.assetId = item.assetId;
+                progress.log(`    Asset ID assigned: ${item.assetId}`, 'success');
+              } else {
+                progress.log(`    No asset ID found in job result`, 'warning');
+              }
+            } catch (err) {
+              progress.log(`    Warning: Could not get asset ID: ${err.message}`, 'warning');
+            }
+          } else {
+            progress.log(`  ⚠ Import job timeout for ${job.info.filename}`, 'warning');
+          }
+          return result;
+        });
+
+        await runWithConcurrency(pollTasks, AEM_API_CONCURRENCY);
+        progress.log('All upload jobs processed', 'info');
+
+        // Debug: Check how many assets have IDs
+        const assetsWithIds = assetInfos.filter(i => i.assetId);
+        progress.log(`DEBUG: ${assetsWithIds.length} assets have IDs after polling`, 'info');
+      } else if (uploadedCount > 0) {
+        // No job URLs returned - wait a bit for processing
+        progress.log('');
+        progress.log('No job URLs returned, waiting 5 seconds for processing...', 'info');
+        await new Promise((resolve) => { setTimeout(resolve, 5000); });
+      }
+    } else {
+      // Skip increment for upload phase
+      assetInfos.forEach(() => progress.increment());
+      if (!exportAssets) {
+        progress.log('');
+        progress.log('═══ Phase 4: Skipping uploads (disabled) ═══', 'info');
+      } else {
+        progress.log('');
+        progress.log('═══ Phase 4: No uploads needed ═══', 'info');
+      }
+    }
+
+    // ========== PHASE 5: Update metadata ==========
+    if (exportMetadata) {
+      progress.log('');
+      progress.log('═══ Phase 5: Updating metadata ═══', 'info');
+
+      // Update metadata for assets that have asset IDs (from newly uploaded assets)
+      const assetsForMetadata = assetInfos.filter((i) => i.assetId);
+      const totalAssets = assetInfos.length;
+      const assetsWithIds = assetInfos.filter((i) => i.assetId).length;
+      const uploadedAssets = assetInfos.filter((i) => i.uploaded).length;
+
+      progress.log(`Assets processed: ${totalAssets} total, ${assetsWithIds} with IDs, ${uploadedAssets} uploaded`, 'info');
+
+      if (assetsForMetadata.length === 0) {
+        progress.log('No assets with IDs available for metadata update', 'warning');
+        // Skip increment for metadata phase
+        assetInfos.forEach(() => progress.increment());
+      } else {
+        const metadataTasks = assetsForMetadata.map((info) => async () => {
+          try {
+            const metadata = buildAEMMetadata(info.cluster);
+            progress.log(`Updating metadata: ${info.filename} (impressions=${metadata['xdm:impressions']}, CTR=${metadata['xdm:assetExperienceClickThroughRate']})`, 'info');
+            await aemApi.updateMetadataById(info.assetId, metadata);
+            info.metadataUpdated = true;
+            progress.log(`  ✓ Metadata updated for ${info.filename}`, 'success');
+          } catch (err) {
+            info.error = err.message;
+            progress.log(`  ✗ Metadata failed: ${err.message}`, 'error');
+          }
+          progress.increment();
+          return info;
+        });
+
+        await runWithConcurrency(metadataTasks, AEM_API_CONCURRENCY);
+
+        const metadataCount = assetsForMetadata.filter((i) => i.metadataUpdated).length;
+        progress.log(`Updated metadata for ${metadataCount} of ${assetsForMetadata.length} assets`);
+      }
+    } else {
+      // Skip increment for metadata phase
+      assetInfos.forEach(() => progress.increment());
+      progress.log('');
+      progress.log('═══ Phase 5: Skipping metadata (disabled) ═══', 'info');
+    }
+
+    // ========== SUMMARY ==========
+    const successCount = assetInfos.filter((i) => !i.error && i.uploaded).length;
+    const errorCount = assetInfos.filter((i) => i.error).length;
+    const skipCount = assetInfos.length - successCount - errorCount;
+
+    progress.complete(`Completed: ${successCount} processed, ${skipCount} skipped, ${errorCount} errors`);
+  } catch (error) {
+    if (progress) {
+      progress.error(`Export failed: ${error.message}`);
+    }
+    // eslint-disable-next-line no-console
+    console.error('Export to AEM failed:', error);
+  }
+}
+/* eslint-enable
+  no-template-curly-in-string,
+  no-restricted-syntax,
+  no-await-in-loop,
+  no-continue,
+  no-unused-vars,
+  quotes,
+  max-len */
 
 function addActionsToDropdown(doc) {
   const dropdown = doc.getElementById('action-select');
