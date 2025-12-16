@@ -222,11 +222,18 @@ class UrlAndPageIdentity extends AbstractIdentity {
     } = identityValues;
 
     // If the cluster already has a UrlAndPageIdentity (because it was created as the originating
-    // identity), do nothing. This keeps UrlAndPageIdentity out of the "autowired" path.
+    // identity), do not create/add another one. However, we STILL need to hydrate RUM on the
+    // originating identity (otherwise page/asset RUM values will remain 0).
     try {
       const existing = clusterManager.get(originatingClusterId)
         ?.getSingletonOf(UrlAndPageIdentity.type);
-      if (existing) return;
+      if (existing) {
+        // Only hydrate once per identity instance
+        if (!existing.#rumData && identityValues.domainKey) {
+          await existing.#obtainRum(identityValues, identityState);
+        }
+        return;
+      }
     } catch {
       // ignore
     }
