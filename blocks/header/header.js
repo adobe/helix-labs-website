@@ -130,13 +130,6 @@ export default async function decorate(block) {
         }
       }
     });
-
-    sections.querySelectorAll('a').forEach((a) => {
-      const url = new URL(a.href);
-      if (url.hostname === 'labs.aem.live') {
-        a.classList.add('lab-link');
-      }
-    });
   }
 
   // add login button
@@ -180,11 +173,10 @@ export default async function decorate(block) {
   block.replaceChildren(navWrapper);
 
   // add experimental ribbon
-  if (['labs.aem.live', '--helix-labs-website--adobe.aem.page', '--helix-labs-website--adobe.aem.live', 'localhost'].some((h) => window.location.hostname.includes(h))) {
-    const ribbon = document.createElement('div');
-    ribbon.className = 'experimental-ribbon';
-    ribbon.textContent = 'Experimental';
-    block.prepend(ribbon);
-  }
+  const ribbon = document.createElement('div');
+  ribbon.className = 'experimental-ribbon';
+  ribbon.textContent = 'Experimental';
+  block.prepend(ribbon);
+
   swapIcons(block);
 }
