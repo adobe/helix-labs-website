@@ -582,13 +582,16 @@ class RumMediaCrawler extends AbstractCrawler {
       const siteUrl = `${this.#siteOrigin}${prodUrl.pathname}${prodUrl.search || ''}`;
 
       const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchableBaseUrl);
-      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
-        : `${fetchableBaseUrl.endsWith('/') ? `${fetchableBaseUrl}index` : fetchableBaseUrl}.plain.html`;
+      // Only EDS sites support `.plain.html`. For other origins (e.g. AEM Cloud),
+      // fetch the actual HTML URL (preserve query).
+      const htmlUrl = htmlCrawler
+        ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
+        : `${fetchableBaseUrl}${prodUrl.search || ''}`;
       const { origin } = new URL(fetchableBaseUrl);
 
       return CrawlerPageParser.parsePageForImages({
         pageUrl: siteUrl,
-        plainUrl,
+        htmlUrl,
         origin,
         getOptimizedImageUrl: (src, orig, width, height, maxDimension) => ImageUrlParserRegistry
           .getOptimizedImageUrl(src, orig, width, height, maxDimension),
@@ -618,15 +621,18 @@ class RumMediaCrawler extends AbstractCrawler {
       const fetchableBaseUrl = `${this.#siteOrigin}${prodUrl.pathname}`;
       const siteUrl = `${this.#siteOrigin}${prodUrl.pathname}${prodUrl.search || ''}`;
       const htmlCrawler = HtmlCrawlerRegistry.getCrawler(fetchableBaseUrl);
-      const plainUrl = htmlCrawler ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
-        : `${fetchableBaseUrl.endsWith('/') ? `${fetchableBaseUrl}index` : fetchableBaseUrl}.plain.html`;
+      // Only EDS sites support `.plain.html`. For other origins (e.g. AEM Cloud),
+      // fetch the actual HTML URL (preserve query).
+      const htmlUrl = htmlCrawler
+        ? htmlCrawler.getPlainUrl(fetchableBaseUrl)
+        : `${fetchableBaseUrl}${prodUrl.search || ''}`;
 
       // Fetch the page to get metadata (optional). For missing/404 pages, we can still generate
       // optimized image variants using EDS knowledge and default dimensions.
       let pageResult = null;
       let pageLastModified = null;
       if (!skipPageFetch) {
-        pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
+        pageResult = await CrawlerUtil.fetchPageDocument(htmlUrl, { includeMetadata: true });
         pageLastModified = pageResult?.lastModified ? pageResult.lastModified.getTime() : null;
       }
 

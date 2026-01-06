@@ -17,20 +17,25 @@ class CrawlerPageParser {
    * Parse a page and extract all image data.
    * @param {Object} options - Configuration options
    * @param {string} options.pageUrl - The page URL (for site field)
-   * @param {string} options.plainUrl - The .plain.html URL to fetch
+   * @param {string} [options.htmlUrl] - The HTML URL to fetch (full HTML or `.plain.html`)
+   * @param {string} [options.plainUrl] - Back-compat: `.plain.html` URL to fetch
    * @param {string} options.origin - The origin for resolving relative URLs
    * @param {Function} options.getOptimizedImageUrl - Function to get optimized image URLs
    * @returns {Promise<CrawlerImageValues[]>} Array of image data
    */
   static async parsePageForImages({
     pageUrl,
+    htmlUrl,
     plainUrl,
     origin,
     getOptimizedImageUrl,
   }) {
     try {
+      const fetchUrl = htmlUrl || plainUrl;
+      if (!fetchUrl) return [];
+
       // Fetch and parse the page using DOMParser (no live DOM insertion)
-      const pageResult = await CrawlerUtil.fetchPageDocument(plainUrl, { includeMetadata: true });
+      const pageResult = await CrawlerUtil.fetchPageDocument(fetchUrl, { includeMetadata: true });
       if (!pageResult || !pageResult.doc) {
         return [];
       }
@@ -132,7 +137,8 @@ class CrawlerPageParser {
       const imgData = (await Promise.all(imgDataPromises)).filter((item) => item !== null);
       return imgData;
     } catch (error) {
-      console.error(`CrawlerPageParser: unable to fetch ${plainUrl}:`, error);
+      // eslint-disable-next-line no-console
+      console.error(`CrawlerPageParser: unable to fetch ${htmlUrl || plainUrl}:`, error);
       return [];
     }
   }
