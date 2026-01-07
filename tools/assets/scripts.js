@@ -1262,6 +1262,7 @@ function setupDevConsole(doc) {
   const MAX_LINES = 50000;
   const buffer = [];
   let hasTruncated = false;
+  let autoScrollEnabled = true;
   const counts = {
     debug: 0,
     info: 0,
@@ -1293,8 +1294,11 @@ function setupDevConsole(doc) {
   const getElements = () => ({
     actionBarEl: doc.querySelector('#canvas .action-bar'),
     progressBarEl: doc.getElementById('progress-bar'),
+    loadingAreaEl: doc.getElementById('action-bar-loading-area'),
     consoleEl: doc.getElementById('loading-console'),
     metaEl: doc.getElementById('loading-console-meta'),
+    toolbarEl: doc.getElementById('loading-console-toolbar'),
+    jumpBtnEl: doc.getElementById('loading-console-jump-bottom'),
     linesEl: doc.getElementById('loading-console-lines'),
     pinnedAnchorEl: doc.getElementById('dev-console-anchor'),
     countEls: {
@@ -1304,6 +1308,13 @@ function setupDevConsole(doc) {
       error: doc.getElementById('loading-console-count-error'),
     },
   });
+
+  const isAtBottom = () => {
+    const { linesEl } = getElements();
+    if (!linesEl) return true;
+    const distanceFromBottom = (linesEl.scrollHeight - linesEl.clientHeight) - linesEl.scrollTop;
+    return Math.abs(distanceFromBottom) < 2;
+  };
 
   const updateMetaVisibility = () => {
     const { metaEl, linesEl } = getElements();
@@ -1316,29 +1327,40 @@ function setupDevConsole(doc) {
     metaEl.setAttribute('aria-hidden', atTop ? 'false' : 'true');
   };
 
+  const updateToolbarVisibility = () => {
+    const { toolbarEl } = getElements();
+    if (!toolbarEl) return;
+    toolbarEl.setAttribute('aria-hidden', autoScrollEnabled ? 'true' : 'false');
+  };
+
   const attachScrollListener = () => {
     const { linesEl } = getElements();
     if (!linesEl) return;
     if (linesEl.dataset.devConsoleScrollAttached === 'true') return;
     linesEl.dataset.devConsoleScrollAttached = 'true';
-    linesEl.addEventListener('scroll', () => updateMetaVisibility());
+    linesEl.addEventListener('scroll', () => {
+      const atBottom = isAtBottom();
+      autoScrollEnabled = atBottom;
+      updateToolbarVisibility();
+      updateMetaVisibility();
+    });
   };
 
   const moveConsoleToLoadingLocation = () => {
-    const { actionBarEl, consoleEl } = getElements();
-    if (!actionBarEl || !consoleEl) return;
+    const { loadingAreaEl, consoleEl } = getElements();
+    if (!loadingAreaEl || !consoleEl) return;
     // Place immediately after the progress bar container (loading area).
     const progressBarEl = doc.getElementById('progress-bar');
-    if (progressBarEl && progressBarEl.parentElement === actionBarEl) {
+    if (progressBarEl && progressBarEl.parentElement === loadingAreaEl) {
       const needsMove = consoleEl.previousElementSibling !== progressBarEl
-        || consoleEl.parentElement !== actionBarEl;
+        || consoleEl.parentElement !== loadingAreaEl;
       if (needsMove) {
         progressBarEl.insertAdjacentElement('afterend', consoleEl);
       }
       return;
     }
-    // Fallback: append to action bar.
-    if (consoleEl.parentElement !== actionBarEl) actionBarEl.appendChild(consoleEl);
+    // Fallback: append to loading area.
+    if (consoleEl.parentElement !== loadingAreaEl) loadingAreaEl.appendChild(consoleEl);
   };
 
   const moveConsoleToPinnedLocation = () => {
@@ -1349,10 +1371,21 @@ function setupDevConsole(doc) {
 
   const renderCounts = (countEls) => {
     if (!countEls) return;
-    if (countEls.debug) countEls.debug.textContent = String(counts.debug);
-    if (countEls.info) countEls.info.textContent = String(counts.info);
-    if (countEls.warn) countEls.warn.textContent = String(counts.warn);
-    if (countEls.error) countEls.error.textContent = String(counts.error);
+    // Match DevTools-style wording:
+    // - "No errors", "No warnings", "No info"
+    // - "<n> verbose" (we map our debug lines to verbose)
+    if (countEls.error) {
+      countEls.error.textContent = counts.error ? `${counts.error} errors` : 'No errors';
+    }
+    if (countEls.warn) {
+      countEls.warn.textContent = counts.warn ? `${counts.warn} warnings` : 'No warnings';
+    }
+    if (countEls.info) {
+      countEls.info.textContent = counts.info ? `${counts.info} info` : 'No info';
+    }
+    if (countEls.debug) {
+      countEls.debug.textContent = `${counts.debug} verbose`;
+    }
   };
 
   const renderBuffer = (linesEl) => {
@@ -1366,6 +1399,8 @@ function setupDevConsole(doc) {
       linesEl.appendChild(line);
     });
     linesEl.scrollTop = linesEl.scrollHeight;
+    autoScrollEnabled = true;
+    updateToolbarVisibility();
     updateMetaVisibility();
   };
 
@@ -1390,8 +1425,6 @@ function setupDevConsole(doc) {
     const isAllowed = (isLoading || isPinned) && consoleEl?.getAttribute('aria-hidden') !== 'true';
     if (consoleEl && linesEl && isAllowed) {
       attachScrollListener();
-      const distanceFromBottom = (linesEl.scrollHeight - linesEl.clientHeight) - linesEl.scrollTop;
-      const wasAtBottom = Math.abs(distanceFromBottom) < 2;
       const line = doc.createElement('div');
       line.className = `loading-console__line loading-console__line--${level}`;
       line.textContent = text;
@@ -1400,7 +1433,7 @@ function setupDevConsole(doc) {
       while (linesEl.children.length > MAX_LINES) {
         linesEl.removeChild(linesEl.firstChild);
       }
-      if (wasAtBottom) {
+      if (autoScrollEnabled) {
         linesEl.scrollTop = linesEl.scrollHeight;
       }
     }
@@ -1467,6 +1500,7 @@ function setupDevConsole(doc) {
     reset() {
       buffer.length = 0;
       hasTruncated = false;
+      autoScrollEnabled = true;
       counts.debug = 0;
       counts.info = 0;
       counts.warn = 0;
@@ -1474,6 +1508,7 @@ function setupDevConsole(doc) {
       const { linesEl, countEls } = getElements();
       if (linesEl) linesEl.textContent = '';
       renderCounts(countEls);
+      updateToolbarVisibility();
       updateMetaVisibility();
     },
     show() {
@@ -1914,6 +1949,17 @@ function registerListeners(doc) {
   if (logToggle) {
     logToggle.addEventListener('click', () => {
       window.devConsole?.togglePinned?.();
+    });
+  }
+
+  const jumpBottom = doc.getElementById('loading-console-jump-bottom');
+  if (jumpBottom) {
+    jumpBottom.addEventListener('click', () => {
+      const linesEl = doc.getElementById('loading-console-lines');
+      if (linesEl) {
+        linesEl.scrollTop = linesEl.scrollHeight;
+        // scrolling triggers the scroll handler which re-enables auto-scroll
+      }
     });
   }
 

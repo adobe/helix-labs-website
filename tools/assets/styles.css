@@ -103,6 +103,14 @@
   position: relative;
 }
 
+/* The shared action-bar block is a single-row flex container by default.
+   In the assets tool we have full-width children (loading area + form), so we must allow wrapping
+   to avoid pushing content off-screen. */
+.assets .action-bar {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
 /* Ensure .assets and .progress-bar take full width */
 .assets {
   width: 100%;
@@ -110,6 +118,12 @@
 
 .assets .progress-bar-container {
   width: 100%;
+}
+
+.assets .action-bar-loading-area {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .assets .progress-bar-container ul {
@@ -133,9 +147,12 @@
   border: 1px solid #2d2d2d;
   background: #1e1e1e;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.35;
   color: #d4d4d4;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .assets .loading-console[aria-hidden='true'] {
@@ -148,9 +165,38 @@
 }
 
 .assets .loading-console__lines {
-  max-height: 60vh;
+  /* Fixed viewport: 10 lines tall, always scrollable */
+  line-height: inherit;
+  height: calc(10 * 1.35em);
+  max-height: calc(10 * 1.35em);
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.assets .loading-console__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 6px;
+}
+
+.assets .loading-console__toolbar[aria-hidden='true'] {
+  display: none;
+}
+
+.assets .loading-console__jump {
+  border: 1px solid #2d2d2d;
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: #252526;
+  color: #d4d4d4;
+  font: inherit;
+  cursor: pointer;
+}
+
+.assets .loading-console__jump:hover,
+.assets .loading-console__jump:focus {
+  border-color: #3c3c3c;
+  background: #2d2d2d;
 }
 
 .assets .loading-console__counts {
