@@ -173,8 +173,14 @@
             </li>
           </ul>
           <div class="loading-console" id="loading-console" aria-hidden="true">
-            <div class="loading-console__meta">Console (last 50 lines)</div>
+            <div class="loading-console__meta">Console (last 50,000 lines)</div>
             <div class="loading-console__lines" id="loading-console-lines" role="log" aria-label="Loading console output"></div>
+            <div class="loading-console__counts" id="loading-console-counts" aria-label="Log counts">
+              <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="loading-console-count-debug">0</span></span>
+              <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="loading-console-count-info">0</span></span>
+              <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="loading-console-count-warn">0</span></span>
+              <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="loading-console-count-error">0</span></span>
+            </div>
           </div>
         </div>
         <form id="action-form" aria-hidden="true">
@@ -245,8 +251,14 @@
           </div>
           <div class="form-field action-bar-console-field" id="action-bar-console-field" aria-hidden="true">
             <div class="loading-console" id="action-bar-console" aria-hidden="true">
-              <div class="loading-console__meta">Console (last 50 lines)</div>
+              <div class="loading-console__meta">Console (last 50,000 lines)</div>
               <div class="loading-console__lines" id="action-bar-console-lines" role="log" aria-label="Console output"></div>
+              <div class="loading-console__counts" id="action-bar-console-counts" aria-label="Log counts">
+                <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="action-bar-console-count-debug">0</span></span>
+                <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="action-bar-console-count-info">0</span></span>
+                <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="action-bar-console-count-warn">0</span></span>
+                <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="action-bar-console-count-error">0</span></span>
+              </div>
             </div>
           </div>
           </form>

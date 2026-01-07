@@ -1259,8 +1259,14 @@ function setupDevConsole(doc) {
   /* eslint-disable no-console */
 
   const STORAGE_KEY = 'assets-open-workbench:log-pinned';
-  const MAX_LINES = 50;
+  const MAX_LINES = 50000;
   const buffer = [];
+  const counts = {
+    debug: 0,
+    info: 0,
+    warn: 0,
+    error: 0,
+  };
 
   const getPinnedFromStorage = () => {
     try {
@@ -1287,24 +1293,46 @@ function setupDevConsole(doc) {
     const progressBarEl = doc.getElementById('progress-bar');
     const loadingConsoleEl = doc.getElementById('loading-console');
     const loadingLinesEl = doc.getElementById('loading-console-lines');
+    const loadingCounts = {
+      debug: doc.getElementById('loading-console-count-debug'),
+      info: doc.getElementById('loading-console-count-info'),
+      warn: doc.getElementById('loading-console-count-warn'),
+      error: doc.getElementById('loading-console-count-error'),
+    };
     const actionConsoleFieldEl = doc.getElementById('action-bar-console-field');
     const actionConsoleEl = doc.getElementById('action-bar-console');
     const actionLinesEl = doc.getElementById('action-bar-console-lines');
+    const actionCounts = {
+      debug: doc.getElementById('action-bar-console-count-debug'),
+      info: doc.getElementById('action-bar-console-count-info'),
+      warn: doc.getElementById('action-bar-console-count-warn'),
+      error: doc.getElementById('action-bar-console-count-error'),
+    };
 
     return [
       {
         consoleEl: loadingConsoleEl,
         linesEl: loadingLinesEl,
+        countEls: loadingCounts,
         isAllowed: () => progressBarEl?.style?.display !== 'none'
           && loadingConsoleEl?.getAttribute('aria-hidden') !== 'true',
       },
       {
         consoleEl: actionConsoleEl,
         linesEl: actionLinesEl,
+        countEls: actionCounts,
         isAllowed: () => actionConsoleFieldEl?.getAttribute('aria-hidden') !== 'true'
           && actionConsoleEl?.getAttribute('aria-hidden') !== 'true',
       },
     ];
+  };
+
+  const renderCounts = (countEls) => {
+    if (!countEls) return;
+    if (countEls.debug) countEls.debug.textContent = String(counts.debug);
+    if (countEls.info) countEls.info.textContent = String(counts.info);
+    if (countEls.warn) countEls.warn.textContent = String(counts.warn);
+    if (countEls.error) countEls.error.textContent = String(counts.error);
   };
 
   const renderBuffer = (linesEl) => {
@@ -1324,7 +1352,14 @@ function setupDevConsole(doc) {
     buffer.push({ level, text });
     while (buffer.length > MAX_LINES) buffer.shift();
 
-    getTargets().forEach(({ consoleEl, linesEl, isAllowed }) => {
+    if (level === 'debug') counts.debug += 1;
+    if (level === 'info') counts.info += 1;
+    if (level === 'warn') counts.warn += 1;
+    if (level === 'error') counts.error += 1;
+
+    getTargets().forEach(({
+      consoleEl, linesEl, countEls, isAllowed,
+    }) => {
       if (!consoleEl || !linesEl) return;
       if (!isAllowed()) return;
 
@@ -1337,6 +1372,7 @@ function setupDevConsole(doc) {
         linesEl.removeChild(linesEl.firstChild);
       }
       linesEl.scrollTop = linesEl.scrollHeight;
+      renderCounts(countEls);
     });
   };
 
@@ -1389,6 +1425,12 @@ function setupDevConsole(doc) {
     panel.setAttribute('aria-hidden', pinned ? 'false' : 'true');
     if (pinned) renderBuffer(lines);
     else lines.textContent = '';
+    // update counts visibility/values when toggling
+    getTargets().forEach(({ consoleEl, countEls }) => {
+      if (consoleEl?.id === 'action-bar-console') {
+        renderCounts(countEls);
+      }
+    });
   };
 
   window.devConsoleWrapped = true;
@@ -1396,10 +1438,15 @@ function setupDevConsole(doc) {
   window.devConsole = {
     reset() {
       buffer.length = 0;
+      counts.debug = 0;
+      counts.info = 0;
+      counts.warn = 0;
+      counts.error = 0;
       const loadingLines = doc.getElementById('loading-console-lines');
       const actionLines = doc.getElementById('action-bar-console-lines');
       if (loadingLines) loadingLines.textContent = '';
       if (actionLines) actionLines.textContent = '';
+      getTargets().forEach(({ countEls }) => renderCounts(countEls));
     },
     showLoading() {
       const el = doc.getElementById('loading-console');
@@ -1407,6 +1454,9 @@ function setupDevConsole(doc) {
       if (!el || !lines) return;
       el.setAttribute('aria-hidden', false);
       renderBuffer(lines);
+      getTargets().forEach(({ consoleEl, countEls }) => {
+        if (consoleEl?.id === 'loading-console') renderCounts(countEls);
+      });
     },
     hideLoading() {
       const el = doc.getElementById('loading-console');
