@@ -1261,6 +1261,7 @@ function setupDevConsole(doc) {
   const STORAGE_KEY = 'assets-open-workbench:log-pinned';
   const MAX_LINES = 50000;
   const buffer = [];
+  let hasTruncated = false;
   const counts = {
     debug: 0,
     info: 0,
@@ -1293,6 +1294,7 @@ function setupDevConsole(doc) {
     actionBarEl: doc.querySelector('#canvas .action-bar'),
     progressBarEl: doc.getElementById('progress-bar'),
     consoleEl: doc.getElementById('loading-console'),
+    metaEl: doc.getElementById('loading-console-meta'),
     linesEl: doc.getElementById('loading-console-lines'),
     pinnedAnchorEl: doc.getElementById('dev-console-anchor'),
     countEls: {
@@ -1302,6 +1304,25 @@ function setupDevConsole(doc) {
       error: doc.getElementById('loading-console-count-error'),
     },
   });
+
+  const updateMetaVisibility = () => {
+    const { metaEl, linesEl } = getElements();
+    if (!metaEl) return;
+    if (!hasTruncated || !linesEl) {
+      metaEl.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    const atTop = linesEl.scrollTop <= 0;
+    metaEl.setAttribute('aria-hidden', atTop ? 'false' : 'true');
+  };
+
+  const attachScrollListener = () => {
+    const { linesEl } = getElements();
+    if (!linesEl) return;
+    if (linesEl.dataset.devConsoleScrollAttached === 'true') return;
+    linesEl.dataset.devConsoleScrollAttached = 'true';
+    linesEl.addEventListener('scroll', () => updateMetaVisibility());
+  };
 
   const moveConsoleToLoadingLocation = () => {
     const { actionBarEl, consoleEl } = getElements();
@@ -1336,6 +1357,7 @@ function setupDevConsole(doc) {
 
   const renderBuffer = (linesEl) => {
     if (!linesEl) return;
+    attachScrollListener();
     linesEl.textContent = '';
     buffer.forEach(({ level, text }) => {
       const line = doc.createElement('div');
@@ -1344,12 +1366,16 @@ function setupDevConsole(doc) {
       linesEl.appendChild(line);
     });
     linesEl.scrollTop = linesEl.scrollHeight;
+    updateMetaVisibility();
   };
 
   const appendEntry = (level, args) => {
     const text = args.map(toText).join(' ');
     buffer.push({ level, text });
-    while (buffer.length > MAX_LINES) buffer.shift();
+    while (buffer.length > MAX_LINES) {
+      buffer.shift();
+      hasTruncated = true;
+    }
 
     if (level === 'debug') counts.debug += 1;
     if (level === 'info') counts.info += 1;
@@ -1363,6 +1389,9 @@ function setupDevConsole(doc) {
     const isPinned = getPinnedFromStorage();
     const isAllowed = (isLoading || isPinned) && consoleEl?.getAttribute('aria-hidden') !== 'true';
     if (consoleEl && linesEl && isAllowed) {
+      attachScrollListener();
+      const distanceFromBottom = (linesEl.scrollHeight - linesEl.clientHeight) - linesEl.scrollTop;
+      const wasAtBottom = Math.abs(distanceFromBottom) < 2;
       const line = doc.createElement('div');
       line.className = `loading-console__line loading-console__line--${level}`;
       line.textContent = text;
@@ -1371,9 +1400,12 @@ function setupDevConsole(doc) {
       while (linesEl.children.length > MAX_LINES) {
         linesEl.removeChild(linesEl.firstChild);
       }
-      linesEl.scrollTop = linesEl.scrollHeight;
+      if (wasAtBottom) {
+        linesEl.scrollTop = linesEl.scrollHeight;
+      }
     }
     renderCounts(countEls);
+    updateMetaVisibility();
   };
 
   const original = {
@@ -1434,6 +1466,7 @@ function setupDevConsole(doc) {
   window.devConsole = {
     reset() {
       buffer.length = 0;
+      hasTruncated = false;
       counts.debug = 0;
       counts.info = 0;
       counts.warn = 0;
@@ -1441,6 +1474,7 @@ function setupDevConsole(doc) {
       const { linesEl, countEls } = getElements();
       if (linesEl) linesEl.textContent = '';
       renderCounts(countEls);
+      updateMetaVisibility();
     },
     show() {
       const { consoleEl, linesEl, countEls } = getElements();
