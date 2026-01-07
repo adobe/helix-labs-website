@@ -210,6 +210,16 @@
   color: #d4d4d4;
 }
 
+/* When the shared console is pinned into the action-bar form, make it a full-width row */
+.assets .action-bar form .dev-console-anchor {
+  flex: 1 0 100%;
+  display: block;
+}
+
+.assets .action-bar form .dev-console-anchor .loading-console {
+  width: 100%;
+}
+
 /* Set .progress-area to dynamically take up 80% of its container */
 .assets .progress-bar {
   flex-basis: 100%; /* Flex setting to take 80% width */

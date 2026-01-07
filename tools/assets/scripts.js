@@ -1290,9 +1290,11 @@ function setupDevConsole(doc) {
   };
 
   const getElements = () => ({
+    actionBarEl: doc.querySelector('#canvas .action-bar'),
     progressBarEl: doc.getElementById('progress-bar'),
     consoleEl: doc.getElementById('loading-console'),
     linesEl: doc.getElementById('loading-console-lines'),
+    pinnedAnchorEl: doc.getElementById('dev-console-anchor'),
     countEls: {
       debug: doc.getElementById('loading-console-count-debug'),
       info: doc.getElementById('loading-console-count-info'),
@@ -1300,6 +1302,29 @@ function setupDevConsole(doc) {
       error: doc.getElementById('loading-console-count-error'),
     },
   });
+
+  const moveConsoleToLoadingLocation = () => {
+    const { actionBarEl, consoleEl } = getElements();
+    if (!actionBarEl || !consoleEl) return;
+    // Place immediately after the progress bar container (loading area).
+    const progressBarEl = doc.getElementById('progress-bar');
+    if (progressBarEl && progressBarEl.parentElement === actionBarEl) {
+      const needsMove = consoleEl.previousElementSibling !== progressBarEl
+        || consoleEl.parentElement !== actionBarEl;
+      if (needsMove) {
+        progressBarEl.insertAdjacentElement('afterend', consoleEl);
+      }
+      return;
+    }
+    // Fallback: append to action bar.
+    if (consoleEl.parentElement !== actionBarEl) actionBarEl.appendChild(consoleEl);
+  };
+
+  const moveConsoleToPinnedLocation = () => {
+    const { pinnedAnchorEl, consoleEl } = getElements();
+    if (!pinnedAnchorEl || !consoleEl) return;
+    if (consoleEl.parentElement !== pinnedAnchorEl) pinnedAnchorEl.appendChild(consoleEl);
+  };
 
   const renderCounts = (countEls) => {
     if (!countEls) return;
@@ -1395,7 +1420,11 @@ function setupDevConsole(doc) {
     const isLoading = progressBarEl?.style?.display !== 'none';
     if (!isLoading && !pinned) {
       window.devConsole?.hide?.();
+      moveConsoleToLoadingLocation();
       return;
+    }
+    if (!isLoading && pinned) {
+      moveConsoleToPinnedLocation();
     }
     window.devConsole?.show?.();
   };
@@ -1435,6 +1464,12 @@ function setupDevConsole(doc) {
     isPinned() {
       return getPinnedFromStorage();
     },
+    moveToLoadingLocation() {
+      moveConsoleToLoadingLocation();
+    },
+    moveToPinnedLocation() {
+      moveConsoleToPinnedLocation();
+    },
   };
 
   // Initialize button/panel from persisted state.
@@ -1458,6 +1493,7 @@ function prepareLoading() {
 
   download.disabled = true;
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
+  window.devConsole?.moveToLoadingLocation?.();
   window.devConsole?.show?.();
   window.enableModals = false;
 }
@@ -1472,6 +1508,7 @@ function finishedLoading() {
   if (!window.devConsole?.isPinned?.()) {
     window.devConsole?.hide?.();
   } else {
+    window.devConsole?.moveToPinnedLocation?.();
     window.devConsole?.show?.();
   }
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
