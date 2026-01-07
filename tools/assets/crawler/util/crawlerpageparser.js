@@ -33,6 +33,7 @@ class CrawlerPageParser {
     try {
       const fetchUrl = htmlUrl || plainUrl;
       if (!fetchUrl) return [];
+      const baseUrlForResolution = fetchUrl;
 
       // Fetch and parse the page using DOMParser (no live DOM insertion)
       const pageResult = await CrawlerUtil.fetchPageDocument(fetchUrl, { includeMetadata: true });
@@ -71,7 +72,9 @@ class CrawlerPageParser {
 
         let resolvedUrl;
         try {
-          resolvedUrl = new URL(rawSrc, origin);
+          // Resolve relative URLs against the fetched page URL (not just its origin),
+          // since some sites emit path-relative src values.
+          resolvedUrl = new URL(rawSrc, baseUrlForResolution);
         } catch {
           return null;
         }
