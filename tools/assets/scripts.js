@@ -1589,10 +1589,15 @@ function setupDevConsole(doc) {
 
 function prepareLoading() {
   setupWindowVariables();
+  document.body.classList.add('assets--compact-form');
   const results = document.getElementById('audit-results');
   const progressBar = document.getElementById('progress-bar');
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
+  const importBtn = document.getElementById('import-sitemap-form-button');
+  const exportBtn = document.getElementById('export-sitemap-form-button');
+  if (importBtn) importBtn.textContent = '⬆︎ Import';
+  if (exportBtn) exportBtn.textContent = '⬇︎ Export';
 
   setupDevConsole(document);
   window.devConsole?.reset?.();

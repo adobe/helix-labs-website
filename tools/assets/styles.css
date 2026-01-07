@@ -517,6 +517,135 @@
   margin-bottom: 1rem;
 }
 
+.assets.assets--compact-form .sitemap-form li {
+  margin-bottom: 0.6rem;
+}
+
+/* After the user runs once, hide descriptive helper text to shrink the left pane. */
+.assets.assets--compact-form .sitemap-form .field-help-text {
+  display: none;
+}
+
+/* After run starts, hide the intro blurb to shrink the left pane. */
+.assets.assets--compact-form #assets-intro {
+  display: none;
+}
+
+/* Keep the "Image identification methods" label visible even in compact mode. */
+.assets.assets--compact-form .sitemap-form .crawler-field[data-field="identity-selectors"] .field-help-text {
+  display: block;
+}
+
+.assets .sitemap-form .crawler-field[data-field="identity-selectors"] .field-help-text p {
+  margin: 0 0 0.25rem;
+}
+
+/* Hide the "Purge browser stored data" button after first run to save space. */
+.assets.assets--compact-form #purge-stored-data-button {
+  display: none;
+}
+
+/* Form tool buttons should look like action-bar "chips" (not primary blue buttons). */
+.assets .sitemap-form .form-tool-button {
+  display: inline-block;
+  border: var(--border-m) solid var(--gray-100);
+  border-radius: 0.45em;
+  background-color: var(--gray-100);
+  color: var(--color-text);
+  padding: 0.25em 0.55em 0.35em;
+  font-size: var(--body-size-s);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.assets .sitemap-form .form-tool-button:hover,
+.assets .sitemap-form .form-tool-button:focus {
+  border-color: var(--gray-200);
+  background-color: var(--gray-200);
+}
+
+.assets .sitemap-form .form-tool-button:focus {
+  outline: var(--border-m) solid var(--color-link);
+  outline-offset: var(--border-m);
+}
+
+/* Tool row layout:
+   - left (purge) auto-sized
+   - middle (import/export) grows and centers, can wrap if needed
+   - right (run) auto-sized and sticks to the far right */
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__left,
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__middle {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__right {
+  margin-left: auto;
+}
+
+.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .form-tool-button {
+  flex: 0 0 auto;
+}
+
+/* Once compact mode hides the purge button, drop its empty column entirely */
+.assets.assets--compact-form .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__left {
+  display: none;
+}
+
+/* Compact mode: keep Import/Export tight and left-justified so they fit on one row more often */
+.assets.assets--compact-form .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__middle {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+}
+
+.assets.assets--compact-form .sitemap-form .button-wrapper.button-wrapper--form-tools {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.assets.assets--compact-form .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__middle {
+  flex: 0 0 auto;
+}
+
+.assets .sitemap-form #identity-selectors {
+  gap: 0.2rem 0.6rem;
+}
+
+/* Tighten checkbox spacing for identity selectors without affecting other fields */
+.assets .sitemap-form #identity-selectors label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.assets .sitemap-form #identity-selectors input[type="checkbox"] {
+  margin: 0;
+}
+
 
 .assets .sitemap-form .file-field {
   min-height: auto;
@@ -545,16 +674,12 @@
 }
 
 .assets .sitemap-form .button-wrapper.button-wrapper--form-tools {
-  justify-content: space-between;
+  width: 100%;
+  margin-right: 0;
   align-items: center;
 }
 
-.assets .sitemap-form .button-wrapper.button-wrapper--form-tools .button-wrapper__right {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-s);
-  justify-content: flex-end;
-}
+/* button-wrapper__right is now handled by the three-column tool-row rules above */
 
 @keyframes pulse {
   0% {

@@ -35,7 +35,7 @@
   <main>
     <div>
       <h1>Assets Open Workbench</h1>
-      <p>
+      <p id="assets-intro">
         <strong>Assets Open Workbench</strong> is an open source tool that provides a way to analyze Assets (presently images) from various sources.
 
       </p>
@@ -129,20 +129,12 @@
               <hr/>
             </li>
             <li>
-              <p class="button-wrapper">
-                <button type="submit" class="button">Run</button>
-              </p>
-            </li>
-            <li>
-              <hr/>
-            </li>
-            <li>
               <p class="button-wrapper button-wrapper--form-tools">
                 <span class="button-wrapper__left">
-                  <button type="button" id="purge-stored-data-button" class="button">Purge browser stored data</button>
+                  <button type="button" id="purge-stored-data-button" class="form-tool-button">🗑︎ Purge browser stored data</button>
                 </span>
-                <span class="button-wrapper__right">
-                  <button type="button" id="import-sitemap-form-button" class="button">Import form</button>
+                <span class="button-wrapper__middle">
+                  <button type="button" id="import-sitemap-form-button" class="form-tool-button">⬆︎ Import form</button>
                   <input
                     name="import-sitemap-form-file"
                     id="import-sitemap-form-file"
@@ -150,7 +142,10 @@
                     accept=".smf"
                     style="display: none;"
                   />
-                  <button type="button" id="export-sitemap-form-button" class="button">Export form</button>
+                  <button type="button" id="export-sitemap-form-button" class="form-tool-button">⬇︎ Export form</button>
+                </span>
+                <span class="button-wrapper__right">
+                  <button type="submit" class="form-tool-button" id="run-button">▶︎ Run</button>
                 </span>
               </p>
             </li>
