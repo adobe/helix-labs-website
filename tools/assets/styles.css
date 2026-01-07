@@ -142,7 +142,7 @@
 /* DevTools-like console (shared between loading + pinned view) */
 .assets .loading-console {
   margin-top: 8px;
-  padding: 8px 10px;
+  padding: 0 10px 4px;
   border-radius: 6px;
   border: 1px solid #2d2d2d;
   background: #1e1e1e;
@@ -153,6 +153,11 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  --console-line-height: 1.35em;
+  --console-min-lines: 10;
 }
 
 .assets .loading-console[aria-hidden='true'] {
@@ -164,49 +169,60 @@
   margin-bottom: 6px;
 }
 
-.assets .loading-console__lines {
-  /* Fixed viewport: 10 lines tall, always scrollable */
-  line-height: inherit;
-  height: calc(10 * 1.35em);
-  max-height: calc(10 * 1.35em);
-  overflow: auto;
-  white-space: pre-wrap;
-}
-
-.assets .loading-console__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin: 0 0 6px;
-}
-
-.assets .loading-console__toolbar[aria-hidden='true'] {
+.assets .loading-console__meta[aria-hidden='true'] {
   display: none;
 }
 
+.assets .loading-console__lines {
+  /* Resizable scrollable area (resize handle lives here) */
+  line-height: var(--console-line-height);
+  height: calc(var(--console-min-lines) * var(--console-line-height));
+  min-height: calc(var(--console-min-lines) * var(--console-line-height));
+  max-height: 70vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  padding: 0;
+  resize: vertical;
+}
+
+/* Toolbar removed; jump-to-bottom lives in the bottom counts bar now. */
+
 .assets .loading-console__jump {
-  border: 1px solid #2d2d2d;
-  border-radius: 6px;
-  padding: 4px 8px;
-  background: #252526;
-  color: #d4d4d4;
+  /* Match the counts typography (same font + weight), but keep it clickable */
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+}
+
+.assets .loading-console__jump[aria-hidden='true'] {
+  /* Avoid layout shift when the button appears/disappears */
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .assets .loading-console__jump:hover,
 .assets .loading-console__jump:focus {
-  border-color: #3c3c3c;
-  background: #2d2d2d;
+  text-decoration: underline;
 }
 
 .assets .loading-console__counts {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid #2d2d2d;
+  margin-top: 0;
+  padding-top: 8px;
+  border-top: 1px solid #999;
   color: #9da1a6;
+  align-items: center;
+  padding-bottom: 2px;
+}
+
+.assets .loading-console__counts-spacer {
+  flex: 1 1 auto;
 }
 
 .assets .loading-console__count {

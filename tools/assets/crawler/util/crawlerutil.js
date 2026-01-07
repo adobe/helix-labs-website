@@ -82,6 +82,8 @@ class CrawlerUtil {
    */
   static async fetchPageDocument(url, options = {}) {
     try {
+      // eslint-disable-next-line no-console
+      console.info(`Fetching HTML page: ${url}`);
       const req = await this.#requestPool.run(async () => UrlResourceHandler.fetch(url));
       if (!req.ok) {
         // eslint-disable-next-line no-console

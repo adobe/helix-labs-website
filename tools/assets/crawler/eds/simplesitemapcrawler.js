@@ -47,6 +47,8 @@ class SimpleSitemapCrawler extends AbstractEDSSitemapCrawler {
     const sitemaps = [];
 
     try {
+      // eslint-disable-next-line no-console
+      console.info(`Fetching robots.txt: ${robotsUrl}`);
       const resp = await UrlResourceHandler.fetch(robotsUrl);
       if (resp.ok) {
         const text = await resp.text();
@@ -71,6 +73,8 @@ class SimpleSitemapCrawler extends AbstractEDSSitemapCrawler {
 
     // Fallback to /sitemap.xml if no sitemaps found in robots.txt
     if (sitemaps.length === 0) {
+      // eslint-disable-next-line no-console
+      console.info(`No sitemaps in robots.txt; falling back to ${origin}/sitemap.xml`);
       sitemaps.push(`${origin}/sitemap.xml`);
     }
 
@@ -117,10 +121,10 @@ class SimpleSitemapCrawler extends AbstractEDSSitemapCrawler {
       // Discover sitemaps from robots.txt
       const { origin } = new URL(siteUrl);
       // eslint-disable-next-line no-console
-      console.log(`Discovering sitemaps from ${origin}/robots.txt...`);
+      console.info(`Discovering sitemaps from ${origin}/robots.txt...`);
       sitemapUrls = await SimpleSitemapCrawler.discoverSitemapsFromRobots(origin);
       // eslint-disable-next-line no-console
-      console.log(`Found ${sitemapUrls.length} sitemap(s):`, sitemapUrls);
+      console.info(`Found ${sitemapUrls.length} sitemap(s):`, sitemapUrls);
     }
 
     // Walk all discovered sitemaps and combine results

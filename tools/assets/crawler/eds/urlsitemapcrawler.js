@@ -56,6 +56,8 @@ class UrlSitemapCrawler extends AbstractEDSSitemapCrawler {
     const { hostname } = new URL(siteUrl);
     const sitemap = formData['embedded-sitemap-url'];
 
+    // eslint-disable-next-line no-console
+    console.info(`Using sitemap URL: ${sitemap}`);
     return this.walkSitemapFromUrl(sitemap, hostname);
   }
 }

@@ -59,6 +59,8 @@ class FileSitemapCrawler extends AbstractEDSSitemapCrawler {
       throw new Error('No file provided in form data');
     }
 
+    // eslint-disable-next-line no-console
+    console.info(`Parsing sitemap file: ${file.name || '(unknown filename)'}`);
     const text = await this.readFileAsText(file);
     if (!text) {
       return [];

@@ -62,6 +62,8 @@ class AbstractEDSSitemapCrawler extends AbstractCrawler {
   }
 
   async walkSitemapFromUrl(sitemap, hlxHostname) {
+    // eslint-disable-next-line no-console
+    console.info(`Fetching sitemap: ${sitemap}`);
     const req = await UrlResourceHandler.fetch(sitemap);
     if (req.ok) {
       const text = await req.text();

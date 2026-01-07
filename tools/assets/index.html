@@ -177,15 +177,14 @@
           <!-- Shared debug console: visible during loading, and optionally pinned after loading -->
           <div class="loading-console" id="loading-console" aria-hidden="true">
             <div class="loading-console__meta" id="loading-console-meta" aria-hidden="true">Console (last 50,000 lines)</div>
-            <div class="loading-console__toolbar" id="loading-console-toolbar" aria-hidden="true">
-              <button type="button" class="loading-console__jump" id="loading-console-jump-bottom">Jump to bottom</button>
-            </div>
             <div class="loading-console__lines" id="loading-console-lines" role="log" aria-label="Console output"></div>
             <div class="loading-console__counts" id="loading-console-counts" aria-label="Log counts">
-              <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="loading-console-count-error">No errors</span></span>
-              <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="loading-console-count-warn">No warnings</span></span>
-              <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="loading-console-count-info">No info</span></span>
-              <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="loading-console-count-debug">0 verbose</span></span>
+              <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="loading-console-count-error">0 Error</span></span>
+              <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="loading-console-count-warn">0 Warn</span></span>
+              <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="loading-console-count-info">0 Info</span></span>
+              <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="loading-console-count-debug">0 Verbose</span></span>
+              <span class="loading-console__counts-spacer"></span>
+              <button type="button" class="loading-console__jump" id="loading-console-jump-bottom" aria-hidden="true">Jump to bottom ⬇︎</button>
             </div>
           </div>
         </div>

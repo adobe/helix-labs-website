@@ -1297,7 +1297,6 @@ function setupDevConsole(doc) {
     loadingAreaEl: doc.getElementById('action-bar-loading-area'),
     consoleEl: doc.getElementById('loading-console'),
     metaEl: doc.getElementById('loading-console-meta'),
-    toolbarEl: doc.getElementById('loading-console-toolbar'),
     jumpBtnEl: doc.getElementById('loading-console-jump-bottom'),
     linesEl: doc.getElementById('loading-console-lines'),
     pinnedAnchorEl: doc.getElementById('dev-console-anchor'),
@@ -1328,9 +1327,36 @@ function setupDevConsole(doc) {
   };
 
   const updateToolbarVisibility = () => {
-    const { toolbarEl } = getElements();
-    if (!toolbarEl) return;
-    toolbarEl.setAttribute('aria-hidden', autoScrollEnabled ? 'true' : 'false');
+    const { jumpBtnEl } = getElements();
+    if (!jumpBtnEl) return;
+    jumpBtnEl.setAttribute('aria-hidden', autoScrollEnabled ? 'true' : 'false');
+  };
+
+  const attachResizeObserver = () => {
+    const { linesEl } = getElements();
+    if (!linesEl) return;
+    if (linesEl.dataset.devConsoleResizeAttached === 'true') return;
+    linesEl.dataset.devConsoleResizeAttached = 'true';
+
+    let lastHeight = linesEl.getBoundingClientRect().height;
+    const ro = new ResizeObserver(() => {
+      const newHeight = linesEl.getBoundingClientRect().height;
+      const shrunk = newHeight < lastHeight - 1;
+      lastHeight = newHeight;
+
+      // If user shrinks the viewport, snap to bottom and resume auto-scroll.
+      if (shrunk) {
+        linesEl.scrollTop = linesEl.scrollHeight;
+        // Some browsers apply the resize in two layout steps; re-snap on the next tick.
+        setTimeout(() => {
+          linesEl.scrollTop = linesEl.scrollHeight;
+        }, 0);
+        autoScrollEnabled = true;
+        updateToolbarVisibility();
+        updateMetaVisibility();
+      }
+    });
+    ro.observe(linesEl);
   };
 
   const attachScrollListener = () => {
@@ -1338,6 +1364,7 @@ function setupDevConsole(doc) {
     if (!linesEl) return;
     if (linesEl.dataset.devConsoleScrollAttached === 'true') return;
     linesEl.dataset.devConsoleScrollAttached = 'true';
+    attachResizeObserver();
     linesEl.addEventListener('scroll', () => {
       const atBottom = isAtBottom();
       autoScrollEnabled = atBottom;
@@ -1371,31 +1398,30 @@ function setupDevConsole(doc) {
 
   const renderCounts = (countEls) => {
     if (!countEls) return;
-    // Match DevTools-style wording:
-    // - "No errors", "No warnings", "No info"
-    // - "<n> verbose" (we map our debug lines to verbose)
-    if (countEls.error) {
-      countEls.error.textContent = counts.error ? `${counts.error} errors` : 'No errors';
+    // Consistent terse labels (no "No ..."):
+    if (countEls.error) countEls.error.textContent = `${counts.error} Error`;
+    if (countEls.warn) countEls.warn.textContent = `${counts.warn} Warn`;
+    if (countEls.info) countEls.info.textContent = `${counts.info} Info`;
+    // Map debug to "Verbose" like DevTools
+    if (countEls.debug) countEls.debug.textContent = `${counts.debug} Verbose`;
+  };
+
+  const formatLineText = (entry) => {
+    if (!entry) return '';
+    if (entry.count && entry.count > 1) {
+      return `(Repeated ${entry.count} times) ${entry.text}`;
     }
-    if (countEls.warn) {
-      countEls.warn.textContent = counts.warn ? `${counts.warn} warnings` : 'No warnings';
-    }
-    if (countEls.info) {
-      countEls.info.textContent = counts.info ? `${counts.info} info` : 'No info';
-    }
-    if (countEls.debug) {
-      countEls.debug.textContent = `${counts.debug} verbose`;
-    }
+    return entry.text;
   };
 
   const renderBuffer = (linesEl) => {
     if (!linesEl) return;
     attachScrollListener();
     linesEl.textContent = '';
-    buffer.forEach(({ level, text }) => {
+    buffer.forEach(({ level, text, count }) => {
       const line = doc.createElement('div');
       line.className = `loading-console__line loading-console__line--${level}`;
-      line.textContent = text;
+      line.textContent = formatLineText({ level, text, count });
       linesEl.appendChild(line);
     });
     linesEl.scrollTop = linesEl.scrollHeight;
@@ -1406,16 +1432,25 @@ function setupDevConsole(doc) {
 
   const appendEntry = (level, args) => {
     const text = args.map(toText).join(' ');
-    buffer.push({ level, text });
-    while (buffer.length > MAX_LINES) {
-      buffer.shift();
-      hasTruncated = true;
-    }
-
+    // Update counters by event occurrence (even if we de-dupe the rendered line)
     if (level === 'debug') counts.debug += 1;
     if (level === 'info') counts.info += 1;
     if (level === 'warn') counts.warn += 1;
     if (level === 'error') counts.error += 1;
+
+    // If the next log entry is identical to the previous, increment a repeat counter
+    // instead of appending another line.
+    const last = buffer.length ? buffer[buffer.length - 1] : null;
+    const isRepeat = last && last.level === level && last.text === text;
+    if (isRepeat) {
+      last.count = (last.count || 1) + 1;
+    } else {
+      buffer.push({ level, text, count: 1 });
+      while (buffer.length > MAX_LINES) {
+        buffer.shift();
+        hasTruncated = true;
+      }
+    }
 
     const {
       progressBarEl, consoleEl, linesEl, countEls,
@@ -1425,10 +1460,15 @@ function setupDevConsole(doc) {
     const isAllowed = (isLoading || isPinned) && consoleEl?.getAttribute('aria-hidden') !== 'true';
     if (consoleEl && linesEl && isAllowed) {
       attachScrollListener();
-      const line = doc.createElement('div');
-      line.className = `loading-console__line loading-console__line--${level}`;
-      line.textContent = text;
-      linesEl.appendChild(line);
+      if (isRepeat && linesEl.lastElementChild) {
+        // Update the previous line in-place with its new repeat count.
+        linesEl.lastElementChild.textContent = formatLineText(last);
+      } else {
+        const line = doc.createElement('div');
+        line.className = `loading-console__line loading-console__line--${level}`;
+        line.textContent = text;
+        linesEl.appendChild(line);
+      }
 
       while (linesEl.children.length > MAX_LINES) {
         linesEl.removeChild(linesEl.firstChild);
