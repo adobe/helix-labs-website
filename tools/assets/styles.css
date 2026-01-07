@@ -250,8 +250,8 @@
 
 .assets .color-span {
   display: inline-block;
-  width: 1em;
-  height: 1em;
+  width: 1.1em;
+  height: 1.1em;
   aspect-ratio: 1 / 1;
   box-sizing: border-box;
   border-radius: 50%;
@@ -317,8 +317,7 @@
   /* True checkerboard pattern (reads well even at small sizes) */
   background-color: #fff;
   background-image: repeating-conic-gradient(#cfcfcf 0% 25%, transparent 0% 50%);
-  /* Smaller tile so the swatch shows multiple squares even at ~1em size */
-  background-size: 4px 4px;
+  background-size: 10px 10px;
 }
 
 .assets .color-list-item {
