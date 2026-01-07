@@ -646,34 +646,48 @@ class RumMediaCrawler extends AbstractCrawler {
 
       if (pageResult?.doc) {
         // Find this specific image in the page
-        const images = pageResult.doc.querySelectorAll('img[src]');
+        const images = pageResult.doc.querySelectorAll('img');
         const seenMap = new Map();
 
         // eslint-disable-next-line no-restricted-syntax
         for (const img of images) {
-          const imgSrc = img.getAttribute('src');
-          if (!imgSrc) continue;
-
           try {
-            const imgUrl = new URL(imgSrc, fetchableBaseUrl);
-            const imgHref = this.#transformToInternalUrl(imgUrl.href) || imgUrl.href;
+            // Prefer srcset/picture sources when present; fall back to src/lazy attrs.
+            const candidates = CrawlerPageParser.getResolvedImageCandidates(img, htmlUrl);
+            if (!candidates.length) continue;
 
             // Track instances
-            const srcKey = `${imgUrl.hostname}${imgUrl.pathname}`;
+            const instanceUrl = candidates[0];
+            const srcKey = `${instanceUrl.hostname}${instanceUrl.pathname}`;
             if (seenMap.has(srcKey)) {
               seenMap.set(srcKey, seenMap.get(srcKey) + 1);
             } else {
               seenMap.set(srcKey, 1);
             }
 
-            // Check if this is our image (compare normalized URLs)
             const hrefToCompare = this.#transformToInternalUrl(href) || href;
-            if (imgHref.split('#')[0] === hrefToCompare.split('#')[0]) {
+            const hrefKey = ImageUrlParserRegistry.getDurableIdentityPart(new URL(hrefToCompare))
+              || new URL(hrefToCompare).pathname;
+
+            // Check if any candidate matches our target image (durable part/pathname comparison)
+            const matched = candidates.find((candidate) => {
+              try {
+                const candidateHref = this.#transformToInternalUrl(candidate.href) || candidate.href;
+                const candidateKey = ImageUrlParserRegistry.getDurableIdentityPart(new URL(candidateHref))
+                  || new URL(candidateHref).pathname;
+                return candidateKey === hrefKey;
+              } catch {
+                return false;
+              }
+            });
+
+            if (matched) {
+              const matchedHref = this.#transformToInternalUrl(matched.href) || matched.href;
               alt = img.getAttribute('alt') || '';
               width = parseInt(img.getAttribute('width'), 10) || MIN_DIMENSION;
               height = parseInt(img.getAttribute('height'), 10) || MIN_DIMENSION;
               instance = seenMap.get(srcKey);
-              src = imgHref; // Use the normalized URL we will actually fetch
+              src = matchedHref; // Use the normalized URL we will actually fetch
               break;
             }
           } catch {

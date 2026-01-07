@@ -14,6 +14,109 @@ const MAX_CARD_DIMENSION = 400;
  */
 class CrawlerPageParser {
   /**
+   * Parse a srcset attribute value into candidate URLs with optional descriptors.
+   * @param {string} srcset
+   * @returns {{url:string,width:number|null,density:number|null}[]}
+   */
+  static parseSrcset(srcset) {
+    if (!srcset || typeof srcset !== 'string') return [];
+    return srcset
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [url, descriptor] = part.split(/\s+/, 2);
+        if (!url) return null;
+        const d = (descriptor || '').trim().toLowerCase();
+        if (!d) return { url, width: null, density: null };
+        if (d.endsWith('w')) {
+          const w = parseInt(d.slice(0, -1), 10);
+          return { url, width: Number.isFinite(w) ? w : null, density: null };
+        }
+        if (d.endsWith('x')) {
+          const x = parseFloat(d.slice(0, -1));
+          return { url, width: null, density: Number.isFinite(x) ? x : null };
+        }
+        return { url, width: null, density: null };
+      })
+      .filter((c) => c !== null);
+  }
+
+  /**
+   * Return all resolved candidate image URLs for an <img>, preferring srcset/picture sources.
+   * The first entry is the "best" (largest) candidate.
+   *
+   * NOTE: We intentionally return a single canonical URL for crawling (caller picks [0]),
+   * to avoid crawling every srcset candidate.
+   *
+   * @param {Element} img
+   * @param {string} baseUrl
+   * @returns {URL[]}
+   */
+  static getResolvedImageCandidates(img, baseUrl) {
+    const candidates = [];
+
+    const pushFromSrcset = (srcset) => {
+      this.parseSrcset(srcset).forEach((c) => candidates.push(c));
+    };
+
+    const pushFromSrc = (src) => {
+      if (!src) return;
+      candidates.push({ url: src, width: null, density: null });
+    };
+
+    // Prefer <picture><source srcset> when present
+    const picture = img?.closest ? img.closest('picture') : null;
+    if (picture) {
+      [...picture.querySelectorAll('source')].forEach((source) => {
+        const ss = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+        if (ss) pushFromSrcset(ss);
+      });
+    }
+
+    // Then consider <img srcset> (or lazy equivalents)
+    const imgSrcset = img?.getAttribute?.('srcset') || img?.getAttribute?.('data-srcset');
+    if (imgSrcset) pushFromSrcset(imgSrcset);
+
+    // Finally fall back to src or common lazy-load attrs
+    const imgSrc = img?.getAttribute?.('src')
+      || img?.getAttribute?.('data-src')
+      || img?.getAttribute?.('data-lazy-src')
+      || img?.getAttribute?.('data-original')
+      || img?.getAttribute?.('data-src-url');
+    if (imgSrc) pushFromSrc(imgSrc);
+
+    // Sort best-first: widest srcset first, else highest density, else keep insertion order.
+    const sorted = candidates
+      .map((c, idx) => ({ ...c, idx }))
+      .sort((a, b) => {
+        const aw = a.width ?? -1;
+        const bw = b.width ?? -1;
+        if (aw !== bw) return bw - aw;
+        const ax = a.density ?? -1;
+        const bx = b.density ?? -1;
+        if (ax !== bx) return bx - ax;
+        return a.idx - b.idx;
+      });
+
+    const urls = [];
+    const seen = new Set();
+    sorted.forEach(({ url }) => {
+      try {
+        const resolved = new URL(url, baseUrl);
+        const key = resolved.href;
+        if (!seen.has(key)) {
+          seen.add(key);
+          urls.push(resolved);
+        }
+      } catch {
+        // ignore invalid
+      }
+    });
+    return urls;
+  }
+
+  /**
    * Parse a page and extract all image data.
    * @param {Object} options - Configuration options
    * @param {string} options.pageUrl - The page URL (for site field)
@@ -48,7 +151,7 @@ class CrawlerPageParser {
       // Reading getAttribute('src') is safe - it won't trigger resource loads
       // since the document is not inserted into the live DOM
       const seenMap = new Map();
-      const images = doc.querySelectorAll('img[src]');
+      const images = doc.querySelectorAll('img');
 
       // Process images and fetch asset Last-Modified in parallel
       const imgDataPromises = [...images].map(async (img) => {
@@ -66,18 +169,8 @@ class CrawlerPageParser {
 
         const aspectRatio = parseFloat((displayWidth / displayHeight).toFixed(1)) || '';
 
-        // Read src directly - safe because doc is from DOMParser, not live DOM
-        const rawSrc = img.getAttribute('src');
-        if (!rawSrc) return null;
-
-        let resolvedUrl;
-        try {
-          // Resolve relative URLs against the fetched page URL (not just its origin),
-          // since some sites emit path-relative src values.
-          resolvedUrl = new URL(rawSrc, baseUrlForResolution);
-        } catch {
-          return null;
-        }
+        const resolvedUrl = this.getResolvedImageCandidates(img, baseUrlForResolution)[0];
+        if (!resolvedUrl) return null;
 
         if (!CrawlerUtil.isUrlValid(resolvedUrl)) {
           return null;
