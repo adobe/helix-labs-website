@@ -179,6 +179,7 @@
         </div>
         <form id="action-form" aria-hidden="true">
           <div class="form-field radio-field">
+            <button type="button" id="log-toggle" class="action-bar-log-toggle" aria-pressed="false">Log</button>
             <p>Sort by:</p>
             <ul>
               <div class="form-field radio-field" id="sorts">
@@ -241,6 +242,12 @@
                   <button id="increase-slider" class="slider-arrow" type="button">▶</button>
               </li>
             </ul>
+          </div>
+          <div class="form-field action-bar-console-field" id="action-bar-console-field" aria-hidden="true">
+            <div class="loading-console" id="action-bar-console" aria-hidden="true">
+              <div class="loading-console__meta">Console (last 50 lines)</div>
+              <div class="loading-console__lines" id="action-bar-console-lines" role="log" aria-label="Console output"></div>
+            </div>
           </div>
           </form>
       </div>

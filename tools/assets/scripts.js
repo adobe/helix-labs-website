@@ -1253,21 +1253,21 @@ function setupWindowVariables() {
   UrlResourceHandler.initialize();
 }
 
-function setupLoadingConsole(doc) {
-  if (window.loadingConsoleWrapped) return;
+function setupDevConsole(doc) {
+  if (window.devConsoleWrapped) return;
 
   /* eslint-disable no-console */
 
-  const getElements = () => ({
-    consoleEl: doc.getElementById('loading-console'),
-    linesEl: doc.getElementById('loading-console-lines'),
-    progressBarEl: doc.getElementById('progress-bar'),
-  });
+  const STORAGE_KEY = 'assets-open-workbench:log-pinned';
+  const MAX_LINES = 50;
+  const buffer = [];
 
-  const isVisible = () => {
-    const { progressBarEl } = getElements();
-    if (!progressBarEl) return false;
-    return progressBarEl.style.display !== 'none';
+  const getPinnedFromStorage = () => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
   };
 
   const toText = (arg) => {
@@ -1283,22 +1283,61 @@ function setupLoadingConsole(doc) {
     }
   };
 
-  const appendLine = (level, args) => {
-    const { consoleEl, linesEl } = getElements();
-    if (!consoleEl || !linesEl) return;
-    if (!isVisible()) return;
-    if (consoleEl.getAttribute('aria-hidden') === 'true') return;
+  const getTargets = () => {
+    const progressBarEl = doc.getElementById('progress-bar');
+    const loadingConsoleEl = doc.getElementById('loading-console');
+    const loadingLinesEl = doc.getElementById('loading-console-lines');
+    const actionConsoleFieldEl = doc.getElementById('action-bar-console-field');
+    const actionConsoleEl = doc.getElementById('action-bar-console');
+    const actionLinesEl = doc.getElementById('action-bar-console-lines');
 
-    const line = doc.createElement('div');
-    line.className = `loading-console__line loading-console__line--${level}`;
-    line.textContent = args.map(toText).join(' ');
-    linesEl.appendChild(line);
+    return [
+      {
+        consoleEl: loadingConsoleEl,
+        linesEl: loadingLinesEl,
+        isAllowed: () => progressBarEl?.style?.display !== 'none'
+          && loadingConsoleEl?.getAttribute('aria-hidden') !== 'true',
+      },
+      {
+        consoleEl: actionConsoleEl,
+        linesEl: actionLinesEl,
+        isAllowed: () => actionConsoleFieldEl?.getAttribute('aria-hidden') !== 'true'
+          && actionConsoleEl?.getAttribute('aria-hidden') !== 'true',
+      },
+    ];
+  };
 
-    // keep last 50 lines
-    while (linesEl.children.length > 50) {
-      linesEl.removeChild(linesEl.firstChild);
-    }
+  const renderBuffer = (linesEl) => {
+    if (!linesEl) return;
+    linesEl.textContent = '';
+    buffer.forEach(({ level, text }) => {
+      const line = doc.createElement('div');
+      line.className = `loading-console__line loading-console__line--${level}`;
+      line.textContent = text;
+      linesEl.appendChild(line);
+    });
     linesEl.scrollTop = linesEl.scrollHeight;
+  };
+
+  const appendEntry = (level, args) => {
+    const text = args.map(toText).join(' ');
+    buffer.push({ level, text });
+    while (buffer.length > MAX_LINES) buffer.shift();
+
+    getTargets().forEach(({ consoleEl, linesEl, isAllowed }) => {
+      if (!consoleEl || !linesEl) return;
+      if (!isAllowed()) return;
+
+      const line = doc.createElement('div');
+      line.className = `loading-console__line loading-console__line--${level}`;
+      line.textContent = text;
+      linesEl.appendChild(line);
+
+      while (linesEl.children.length > MAX_LINES) {
+        linesEl.removeChild(linesEl.firstChild);
+      }
+      linesEl.scrollTop = linesEl.scrollHeight;
+    });
   };
 
   const original = {
@@ -1311,7 +1350,7 @@ function setupLoadingConsole(doc) {
 
   const wrap = (method, level) => (...args) => {
     original[method](...args);
-    appendLine(level, args);
+    appendEntry(level, args);
   };
 
   console.log = wrap('log', 'log');
@@ -1331,22 +1370,63 @@ function setupLoadingConsole(doc) {
     console.error(...parts);
   });
 
-  window.loadingConsoleWrapped = true;
+  const setPinned = (pinned) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, pinned ? 'true' : 'false');
+    } catch {
+      // ignore
+    }
 
-  window.loadingConsole = {
-    show() {
-      const { consoleEl, linesEl } = getElements();
-      if (!consoleEl || !linesEl) return;
-      linesEl.textContent = '';
-      consoleEl.setAttribute('aria-hidden', false);
+    const btn = doc.getElementById('log-toggle');
+    if (btn) btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+
+    const field = doc.getElementById('action-bar-console-field');
+    const panel = doc.getElementById('action-bar-console');
+    const lines = doc.getElementById('action-bar-console-lines');
+    if (!field || !panel || !lines) return;
+
+    field.setAttribute('aria-hidden', pinned ? 'false' : 'true');
+    panel.setAttribute('aria-hidden', pinned ? 'false' : 'true');
+    if (pinned) renderBuffer(lines);
+    else lines.textContent = '';
+  };
+
+  window.devConsoleWrapped = true;
+
+  window.devConsole = {
+    reset() {
+      buffer.length = 0;
+      const loadingLines = doc.getElementById('loading-console-lines');
+      const actionLines = doc.getElementById('action-bar-console-lines');
+      if (loadingLines) loadingLines.textContent = '';
+      if (actionLines) actionLines.textContent = '';
     },
-    hide() {
-      const { consoleEl, linesEl } = getElements();
-      if (!consoleEl || !linesEl) return;
-      linesEl.textContent = '';
-      consoleEl.setAttribute('aria-hidden', true);
+    showLoading() {
+      const el = doc.getElementById('loading-console');
+      const lines = doc.getElementById('loading-console-lines');
+      if (!el || !lines) return;
+      el.setAttribute('aria-hidden', false);
+      renderBuffer(lines);
+    },
+    hideLoading() {
+      const el = doc.getElementById('loading-console');
+      if (!el) return;
+      el.setAttribute('aria-hidden', true);
+    },
+    togglePinned() {
+      const current = getPinnedFromStorage();
+      setPinned(!current);
+    },
+    applyPinnedFromStorage() {
+      setPinned(getPinnedFromStorage());
+    },
+    isPinned() {
+      return getPinnedFromStorage();
     },
   };
+
+  // Initialize button/panel from persisted state.
+  window.devConsole.applyPinnedFromStorage();
 
   /* eslint-enable no-console */
 }
@@ -1358,14 +1438,15 @@ function prepareLoading() {
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
 
-  setupLoadingConsole(document);
+  setupDevConsole(document);
+  window.devConsole?.reset?.();
 
   progressBar.setAttribute('aria-hidden', false);
   actionForm.setAttribute('aria-hidden', true);
 
   download.disabled = true;
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
-  window.loadingConsole?.show?.();
+  window.devConsole?.showLoading?.();
   window.enableModals = false;
 }
 
@@ -1375,7 +1456,7 @@ function finishedLoading() {
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
 
-  window.loadingConsole?.hide?.();
+  window.devConsole?.hideLoading?.();
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
   document.getElementById('progress').style.width = '0%'; // Reset progress
 
@@ -1383,6 +1464,7 @@ function finishedLoading() {
 
   progressBar.setAttribute('aria-hidden', true);
   actionForm.setAttribute('aria-hidden', false);
+  window.devConsole?.applyPinnedFromStorage?.();
 
   if (window.collectingRum) {
     sortImages(document, document.getElementById('sort-performance'), null);
@@ -1702,6 +1784,8 @@ function registerListeners(doc) {
   const FILTER_ACTIONS = ACTION_BAR.querySelectorAll('input[name="filter"]');
   // Function to populate the dropdown with reports
 
+  setupDevConsole(doc);
+
   // Crawler type change handler - applies form config from the selected crawler
   const crawlerTypeSelect = document.getElementById('crawler-type');
   if (crawlerTypeSelect) {
@@ -1737,6 +1821,13 @@ function registerListeners(doc) {
     window.stopProcessing = true;
     window.stopCallback();
   });
+
+  const logToggle = doc.getElementById('log-toggle');
+  if (logToggle) {
+    logToggle.addEventListener('click', () => {
+      window.devConsole?.togglePinned?.();
+    });
+  }
 
   doc.getElementById('decrease-slider').addEventListener('click', () => {
     const slider = doc.getElementById('pagination-slider');
