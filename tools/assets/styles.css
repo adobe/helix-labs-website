@@ -273,11 +273,21 @@
   border-color: transparent;
 }
 
+.assets .action-bar label input + span.color-span.alpha {
+  border-color: #b8b8b8;
+}
+
 .assets .action-bar label input:hover + span.color-span,
 .assets .action-bar label input:focus + span.color-span,
 .assets .action-bar label input:checked + span.color-span {
   background-color: transparent;
   border-color: transparent;
+}
+
+.assets .action-bar label input:hover + span.color-span.alpha,
+.assets .action-bar label input:focus + span.color-span.alpha,
+.assets .action-bar label input:checked + span.color-span.alpha {
+  border-color: #b8b8b8;
 }
 
 .assets .action-bar label input:focus + span.color-span {
@@ -301,13 +311,14 @@
 
 .assets .color-span.alpha {
   display: inline-block;
-  border: 1px solid #ccc;
+  border: 1px solid #b8b8b8;
   position: relative;
   cursor: pointer;
   background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc),
                     linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc);
-  background-size: 10px 10px;
-  background-position: 0 0, 5px 5px;
+  /* Smaller checker size so it reads clearly at small swatch sizes */
+  background-size: 6px 6px;
+  background-position: 0 0, 3px 3px;
 }
 
 .assets .color-list-item {
