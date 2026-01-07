@@ -1,0 +1,1 @@
+Tools in this folder are moved to https://github.com/adobe/helix-tools-website

@@ -1,7 +1,7 @@
-import DataLoader from '../../scripts/loader.js';
+import DataLoader from '../../../scripts/loader.js';
 import { updateChart } from './chart.js';
 import { formatRelativeDate, formatNumber } from './utils.js';
-import { decorateIcons } from '../../scripts/aem.js';
+import { decorateIcons } from '../../../scripts/aem.js';
 
 const dataLoader = new DataLoader();
 dataLoader.apiEndpoint = 'https://bundles.aem.page';
