@@ -1253,6 +1253,104 @@ function setupWindowVariables() {
   UrlResourceHandler.initialize();
 }
 
+function setupLoadingConsole(doc) {
+  if (window.loadingConsoleWrapped) return;
+
+  /* eslint-disable no-console */
+
+  const getElements = () => ({
+    consoleEl: doc.getElementById('loading-console'),
+    linesEl: doc.getElementById('loading-console-lines'),
+    progressBarEl: doc.getElementById('progress-bar'),
+  });
+
+  const isVisible = () => {
+    const { progressBarEl } = getElements();
+    if (!progressBarEl) return false;
+    return progressBarEl.style.display !== 'none';
+  };
+
+  const toText = (arg) => {
+    if (arg === null) return 'null';
+    if (arg === undefined) return 'undefined';
+    if (arg instanceof Error) return arg.stack || arg.message || String(arg);
+    if (typeof arg === 'string') return arg;
+    if (typeof arg === 'number' || typeof arg === 'boolean' || typeof arg === 'bigint') return String(arg);
+    try {
+      return JSON.stringify(arg);
+    } catch {
+      return String(arg);
+    }
+  };
+
+  const appendLine = (level, args) => {
+    const { consoleEl, linesEl } = getElements();
+    if (!consoleEl || !linesEl) return;
+    if (!isVisible()) return;
+    if (consoleEl.getAttribute('aria-hidden') === 'true') return;
+
+    const line = doc.createElement('div');
+    line.className = `loading-console__line loading-console__line--${level}`;
+    line.textContent = args.map(toText).join(' ');
+    linesEl.appendChild(line);
+
+    // keep last 50 lines
+    while (linesEl.children.length > 50) {
+      linesEl.removeChild(linesEl.firstChild);
+    }
+    linesEl.scrollTop = linesEl.scrollHeight;
+  };
+
+  const original = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: (console.debug ? console.debug.bind(console) : console.log.bind(console)),
+  };
+
+  const wrap = (method, level) => (...args) => {
+    original[method](...args);
+    appendLine(level, args);
+  };
+
+  console.log = wrap('log', 'log');
+  console.info = wrap('info', 'info');
+  console.warn = wrap('warn', 'warn');
+  console.error = wrap('error', 'error');
+  console.debug = wrap('debug', 'debug');
+
+  // Capture uncaught errors into the same stream (but keep native console output too)
+  window.addEventListener('error', (event) => {
+    // Some errors don't have event.error; include message and filename/lineno.
+    const parts = [
+      event?.message || 'Uncaught error',
+      event?.filename ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}` : null,
+      event?.error || null,
+    ].filter(Boolean);
+    console.error(...parts);
+  });
+
+  window.loadingConsoleWrapped = true;
+
+  window.loadingConsole = {
+    show() {
+      const { consoleEl, linesEl } = getElements();
+      if (!consoleEl || !linesEl) return;
+      linesEl.textContent = '';
+      consoleEl.setAttribute('aria-hidden', false);
+    },
+    hide() {
+      const { consoleEl, linesEl } = getElements();
+      if (!consoleEl || !linesEl) return;
+      linesEl.textContent = '';
+      consoleEl.setAttribute('aria-hidden', true);
+    },
+  };
+
+  /* eslint-enable no-console */
+}
+
 function prepareLoading() {
   setupWindowVariables();
   const results = document.getElementById('audit-results');
@@ -1260,11 +1358,14 @@ function prepareLoading() {
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
 
+  setupLoadingConsole(document);
+
   progressBar.setAttribute('aria-hidden', false);
   actionForm.setAttribute('aria-hidden', true);
 
   download.disabled = true;
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
+  window.loadingConsole?.show?.();
   window.enableModals = false;
 }
 
@@ -1274,6 +1375,7 @@ function finishedLoading() {
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
 
+  window.loadingConsole?.hide?.();
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
   document.getElementById('progress').style.width = '0%'; // Reset progress
 

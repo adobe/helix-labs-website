@@ -125,6 +125,58 @@
   margin-right: 10px;
 }
 
+/* DevTools-like console embedded in the loading bar (hidden when progress bar is hidden) */
+.assets .progress-bar-container .loading-console {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #2d2d2d;
+  background: #1e1e1e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #d4d4d4;
+}
+
+.assets .progress-bar-container .loading-console[aria-hidden='true'] {
+  display: none;
+}
+
+.assets .progress-bar-container .loading-console__meta {
+  color: #9da1a6;
+  margin-bottom: 6px;
+}
+
+.assets .progress-bar-container .loading-console__lines {
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.assets .progress-bar-container .loading-console__line {
+  padding: 1px 0;
+}
+
+.assets .progress-bar-container .loading-console__line--error {
+  color: #f48771;
+}
+
+.assets .progress-bar-container .loading-console__line--warn {
+  color: #cca700;
+}
+
+.assets .progress-bar-container .loading-console__line--info {
+  color: #75beff;
+}
+
+.assets .progress-bar-container .loading-console__line--debug {
+  color: #9da1a6;
+}
+
+.assets .progress-bar-container .loading-console__line--log {
+  color: #d4d4d4;
+}
+
 /* Set .progress-area to dynamically take up 80% of its container */
 .assets .progress-bar {
   flex-basis: 100%; /* Flex setting to take 80% width */
