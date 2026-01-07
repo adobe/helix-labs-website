@@ -330,6 +330,12 @@
   margin: -1;
 }
 
+/* The action-bar defaults to fairly roomy spacing between filter items.
+   For the compact color swatches, reduce the gap so the row is denser. */
+.assets #color-pallette {
+  gap: calc(var(--spacing-xs) * 0.5);
+}
+
 .assets .sitemap-form {
   display: flex;
   flex-wrap: wrap;
