@@ -1249,8 +1249,11 @@ function setupWindowVariables() {
   window.lastExecutionTime = Date.now();
   window.identityCache = IdentityRegistry.identityRegistry.identityCache;
   window.stopProcessing = false;
+  // Per-run abort controller for fast cancellation of in-flight network requests.
+  window.abortController = new AbortController();
   window.sortRegistry = new SortRegistry();
   UrlResourceHandler.initialize();
+  UrlResourceHandler.setAbortSignal(window.abortController.signal);
 }
 
 function setupDevConsole(doc) {
@@ -1987,7 +1990,17 @@ function registerListeners(doc) {
   stopButton.addEventListener('click', () => {
     stopButton.classList.add('stop-pulsing');
     window.stopProcessing = true;
-    window.stopCallback();
+    // Abort in-flight fetches so stop is responsive.
+    try {
+      window.abortController?.abort?.('User requested stop');
+    } catch {
+      // ignore
+    }
+    if (typeof window.stopCallback === 'function') {
+      window.stopCallback();
+    }
+    // eslint-disable-next-line no-console
+    console.warn('Stop requested: cancelling remaining work…');
   });
 
   const logToggle = doc.getElementById('log-toggle');

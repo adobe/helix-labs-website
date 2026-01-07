@@ -20,6 +20,8 @@ class UrlResourceHandler {
 
   static #useProxy = USE_CORS_PROXY;
 
+  static #abortSignal = null;
+
   static initialize() {
     this.#promisePool = new PromisePool(LOAD_URLS_CONCURRENCY, 'URL Loading Pool');
   }
@@ -38,6 +40,38 @@ class UrlResourceHandler {
    */
   static isProxyEnabled() {
     return this.#useProxy;
+  }
+
+  /**
+   * Provide a global abort signal for all requests (per-run).
+   * @param {AbortSignal|null} signal
+   */
+  static setAbortSignal(signal) {
+    this.#abortSignal = signal || null;
+  }
+
+  static #composeAbortSignal(signalA, signalB) {
+    const a = signalA || null;
+    const b = signalB || null;
+    if (!a && !b) return undefined;
+    if (a && !b) return a;
+    if (b && !a) return b;
+
+    // Use AbortSignal.any if available.
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+      return AbortSignal.any([a, b]);
+    }
+
+    // Fallback: create a new controller that aborts when either input aborts.
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (a.aborted || b.aborted) {
+      abort();
+      return controller.signal;
+    }
+    a.addEventListener('abort', abort, { once: true });
+    b.addEventListener('abort', abort, { once: true });
+    return controller.signal;
   }
 
   /**
@@ -110,7 +144,9 @@ class UrlResourceHandler {
    */
   static async fetch(url, options) {
     const fetchUrl = this.#getProxiedUrl(url);
-    return this.#promisePool.run(async () => fetch(fetchUrl, options));
+    const mergedSignal = this.#composeAbortSignal(options?.signal, this.#abortSignal);
+    const mergedOptions = mergedSignal ? { ...(options || {}), signal: mergedSignal } : options;
+    return this.#promisePool.run(async () => fetch(fetchUrl, mergedOptions));
   }
 
   /**
