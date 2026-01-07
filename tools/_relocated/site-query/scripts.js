@@ -1,4 +1,4 @@
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
+import { initConfigField, updateConfig } from '../../../utils/config/config.js';
 
 function getFormData(form) {
   const data = {};

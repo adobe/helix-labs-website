@@ -1,6 +1,6 @@
-import { initConfigField, updateConfig } from '../../utils/config/config.js';
-import { toClassName } from '../../scripts/aem.js';
-import { ensureLogin } from '../../blocks/profile/profile.js';
+import { initConfigField, updateConfig } from '../../../utils/config/config.js';
+import { toClassName } from '../../../scripts/aem.js';
+import { ensureLogin } from '../../../blocks/profile/profile.js';
 
 const adminForm = document.getElementById('admin-form');
 const site = document.getElementById('site');

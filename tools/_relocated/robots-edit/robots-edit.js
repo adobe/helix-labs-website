@@ -1,4 +1,4 @@
-import { initConfigField } from '../../utils/config/config.js';
+import { initConfigField } from '../../../utils/config/config.js';
 
 const adminForm = document.getElementById('admin-form');
 const bodyForm = document.getElementById('body-form');
