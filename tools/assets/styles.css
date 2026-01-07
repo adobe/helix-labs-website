@@ -261,6 +261,28 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
+  padding: 0;
+  border: 1px solid transparent;
+}
+
+/* Override generic action-bar "pill button" styling for color swatches (keeps them circular) */
+.assets .action-bar label input + span.color-span {
+  padding: 0;
+  border-radius: 50%;
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.assets .action-bar label input:hover + span.color-span,
+.assets .action-bar label input:focus + span.color-span,
+.assets .action-bar label input:checked + span.color-span {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.assets .action-bar label input:focus + span.color-span {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-link);
 }
 
 .assets .color-span.selected {
