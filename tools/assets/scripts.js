@@ -1289,43 +1289,17 @@ function setupDevConsole(doc) {
     }
   };
 
-  const getTargets = () => {
-    const progressBarEl = doc.getElementById('progress-bar');
-    const loadingConsoleEl = doc.getElementById('loading-console');
-    const loadingLinesEl = doc.getElementById('loading-console-lines');
-    const loadingCounts = {
+  const getElements = () => ({
+    progressBarEl: doc.getElementById('progress-bar'),
+    consoleEl: doc.getElementById('loading-console'),
+    linesEl: doc.getElementById('loading-console-lines'),
+    countEls: {
       debug: doc.getElementById('loading-console-count-debug'),
       info: doc.getElementById('loading-console-count-info'),
       warn: doc.getElementById('loading-console-count-warn'),
       error: doc.getElementById('loading-console-count-error'),
-    };
-    const actionConsoleFieldEl = doc.getElementById('action-bar-console-field');
-    const actionConsoleEl = doc.getElementById('action-bar-console');
-    const actionLinesEl = doc.getElementById('action-bar-console-lines');
-    const actionCounts = {
-      debug: doc.getElementById('action-bar-console-count-debug'),
-      info: doc.getElementById('action-bar-console-count-info'),
-      warn: doc.getElementById('action-bar-console-count-warn'),
-      error: doc.getElementById('action-bar-console-count-error'),
-    };
-
-    return [
-      {
-        consoleEl: loadingConsoleEl,
-        linesEl: loadingLinesEl,
-        countEls: loadingCounts,
-        isAllowed: () => progressBarEl?.style?.display !== 'none'
-          && loadingConsoleEl?.getAttribute('aria-hidden') !== 'true',
-      },
-      {
-        consoleEl: actionConsoleEl,
-        linesEl: actionLinesEl,
-        countEls: actionCounts,
-        isAllowed: () => actionConsoleFieldEl?.getAttribute('aria-hidden') !== 'true'
-          && actionConsoleEl?.getAttribute('aria-hidden') !== 'true',
-      },
-    ];
-  };
+    },
+  });
 
   const renderCounts = (countEls) => {
     if (!countEls) return;
@@ -1357,12 +1331,13 @@ function setupDevConsole(doc) {
     if (level === 'warn') counts.warn += 1;
     if (level === 'error') counts.error += 1;
 
-    getTargets().forEach(({
-      consoleEl, linesEl, countEls, isAllowed,
-    }) => {
-      if (!consoleEl || !linesEl) return;
-      if (!isAllowed()) return;
-
+    const {
+      progressBarEl, consoleEl, linesEl, countEls,
+    } = getElements();
+    const isLoading = progressBarEl?.style?.display !== 'none';
+    const isPinned = getPinnedFromStorage();
+    const isAllowed = (isLoading || isPinned) && consoleEl?.getAttribute('aria-hidden') !== 'true';
+    if (consoleEl && linesEl && isAllowed) {
       const line = doc.createElement('div');
       line.className = `loading-console__line loading-console__line--${level}`;
       line.textContent = text;
@@ -1372,8 +1347,8 @@ function setupDevConsole(doc) {
         linesEl.removeChild(linesEl.firstChild);
       }
       linesEl.scrollTop = linesEl.scrollHeight;
-      renderCounts(countEls);
-    });
+    }
+    renderCounts(countEls);
   };
 
   const original = {
@@ -1415,22 +1390,14 @@ function setupDevConsole(doc) {
 
     const btn = doc.getElementById('log-toggle');
     if (btn) btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-
-    const field = doc.getElementById('action-bar-console-field');
-    const panel = doc.getElementById('action-bar-console');
-    const lines = doc.getElementById('action-bar-console-lines');
-    if (!field || !panel || !lines) return;
-
-    field.setAttribute('aria-hidden', pinned ? 'false' : 'true');
-    panel.setAttribute('aria-hidden', pinned ? 'false' : 'true');
-    if (pinned) renderBuffer(lines);
-    else lines.textContent = '';
-    // update counts visibility/values when toggling
-    getTargets().forEach(({ consoleEl, countEls }) => {
-      if (consoleEl?.id === 'action-bar-console') {
-        renderCounts(countEls);
-      }
-    });
+    // Visibility is governed by loading state OR pinned state.
+    const { progressBarEl } = getElements();
+    const isLoading = progressBarEl?.style?.display !== 'none';
+    if (!isLoading && !pinned) {
+      window.devConsole?.hide?.();
+      return;
+    }
+    window.devConsole?.show?.();
   };
 
   window.devConsoleWrapped = true;
@@ -1442,26 +1409,21 @@ function setupDevConsole(doc) {
       counts.info = 0;
       counts.warn = 0;
       counts.error = 0;
-      const loadingLines = doc.getElementById('loading-console-lines');
-      const actionLines = doc.getElementById('action-bar-console-lines');
-      if (loadingLines) loadingLines.textContent = '';
-      if (actionLines) actionLines.textContent = '';
-      getTargets().forEach(({ countEls }) => renderCounts(countEls));
+      const { linesEl, countEls } = getElements();
+      if (linesEl) linesEl.textContent = '';
+      renderCounts(countEls);
     },
-    showLoading() {
-      const el = doc.getElementById('loading-console');
-      const lines = doc.getElementById('loading-console-lines');
-      if (!el || !lines) return;
-      el.setAttribute('aria-hidden', false);
-      renderBuffer(lines);
-      getTargets().forEach(({ consoleEl, countEls }) => {
-        if (consoleEl?.id === 'loading-console') renderCounts(countEls);
-      });
+    show() {
+      const { consoleEl, linesEl, countEls } = getElements();
+      if (!consoleEl || !linesEl) return;
+      consoleEl.setAttribute('aria-hidden', false);
+      renderBuffer(linesEl);
+      renderCounts(countEls);
     },
-    hideLoading() {
-      const el = doc.getElementById('loading-console');
-      if (!el) return;
-      el.setAttribute('aria-hidden', true);
+    hide() {
+      const { consoleEl } = getElements();
+      if (!consoleEl) return;
+      consoleEl.setAttribute('aria-hidden', true);
     },
     togglePinned() {
       const current = getPinnedFromStorage();
@@ -1496,7 +1458,7 @@ function prepareLoading() {
 
   download.disabled = true;
   document.getElementById('progress-bar').style.display = 'block'; // Show progress bar
-  window.devConsole?.showLoading?.();
+  window.devConsole?.show?.();
   window.enableModals = false;
 }
 
@@ -1506,7 +1468,12 @@ function finishedLoading() {
   const actionForm = document.getElementById('action-form');
   const download = results.querySelector('select');
 
-  window.devConsole?.hideLoading?.();
+  // Hide the shared console after loading unless pinned
+  if (!window.devConsole?.isPinned?.()) {
+    window.devConsole?.hide?.();
+  } else {
+    window.devConsole?.show?.();
+  }
   document.getElementById('progress-bar').style.display = 'none'; // Hide progress bar
   document.getElementById('progress').style.width = '0%'; // Reset progress
 

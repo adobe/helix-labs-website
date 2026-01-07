@@ -125,8 +125,8 @@
   margin-right: 10px;
 }
 
-/* DevTools-like console embedded in the loading bar (hidden when progress bar is hidden) */
-.assets .progress-bar-container .loading-console {
+/* DevTools-like console (shared between loading + pinned view) */
+.assets .loading-console {
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 6px;
@@ -138,22 +138,22 @@
   color: #d4d4d4;
 }
 
-.assets .progress-bar-container .loading-console[aria-hidden='true'] {
+.assets .loading-console[aria-hidden='true'] {
   display: none;
 }
 
-.assets .progress-bar-container .loading-console__meta {
+.assets .loading-console__meta {
   color: #9da1a6;
   margin-bottom: 6px;
 }
 
-.assets .progress-bar-container .loading-console__lines {
-  max-height: 240px;
+.assets .loading-console__lines {
+  max-height: 60vh;
   overflow: auto;
   white-space: pre-wrap;
 }
 
-.assets .progress-bar-container .loading-console__counts {
+.assets .loading-console__counts {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -163,50 +163,50 @@
   color: #9da1a6;
 }
 
-.assets .progress-bar-container .loading-console__count {
+.assets .loading-console__count {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-weight: 600;
 }
 
-.assets .progress-bar-container .loading-console__count--error {
+.assets .loading-console__count--error {
   color: #f48771;
 }
 
-.assets .progress-bar-container .loading-console__count--warn {
+.assets .loading-console__count--warn {
   color: #cca700;
 }
 
-.assets .progress-bar-container .loading-console__count--info {
+.assets .loading-console__count--info {
   color: #75beff;
 }
 
-.assets .progress-bar-container .loading-console__count--debug {
+.assets .loading-console__count--debug {
   color: #9da1a6;
 }
 
-.assets .progress-bar-container .loading-console__line {
+.assets .loading-console__line {
   padding: 1px 0;
 }
 
-.assets .progress-bar-container .loading-console__line--error {
+.assets .loading-console__line--error {
   color: #f48771;
 }
 
-.assets .progress-bar-container .loading-console__line--warn {
+.assets .loading-console__line--warn {
   color: #cca700;
 }
 
-.assets .progress-bar-container .loading-console__line--info {
+.assets .loading-console__line--info {
   color: #75beff;
 }
 
-.assets .progress-bar-container .loading-console__line--debug {
+.assets .loading-console__line--debug {
   color: #9da1a6;
 }
 
-.assets .progress-bar-container .loading-console__line--log {
+.assets .loading-console__line--log {
   color: #d4d4d4;
 }
 
@@ -351,18 +351,7 @@
   background-color: var(--gray-400);
 }
 
-.assets .action-bar-console-field {
-  flex: 1 0 100%;
-  display: block;
-}
-
-.assets .action-bar-console-field[aria-hidden='true'] {
-  display: none;
-}
-
-.assets .action-bar-console-field .loading-console {
-  width: 100%;
-}
+/* action-bar console is now the shared `#loading-console`, so no separate field styles needed */
 
 .assets .color-span.selected {
   border: 2px solid white;

@@ -172,15 +172,16 @@
               <button id="stop-button" aria-label="Stop">&#x1F6D1;</button>
             </li>
           </ul>
-          <div class="loading-console" id="loading-console" aria-hidden="true">
-            <div class="loading-console__meta">Console (last 50,000 lines)</div>
-            <div class="loading-console__lines" id="loading-console-lines" role="log" aria-label="Loading console output"></div>
-            <div class="loading-console__counts" id="loading-console-counts" aria-label="Log counts">
-              <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="loading-console-count-debug">0</span></span>
-              <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="loading-console-count-info">0</span></span>
-              <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="loading-console-count-warn">0</span></span>
-              <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="loading-console-count-error">0</span></span>
-            </div>
+        </div>
+        <!-- Shared debug console: visible during loading, and optionally pinned after loading -->
+        <div class="loading-console" id="loading-console" aria-hidden="true">
+          <div class="loading-console__meta">Console (last 50,000 lines)</div>
+          <div class="loading-console__lines" id="loading-console-lines" role="log" aria-label="Console output"></div>
+          <div class="loading-console__counts" id="loading-console-counts" aria-label="Log counts">
+            <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="loading-console-count-debug">0</span></span>
+            <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="loading-console-count-info">0</span></span>
+            <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="loading-console-count-warn">0</span></span>
+            <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="loading-console-count-error">0</span></span>
           </div>
         </div>
         <form id="action-form" aria-hidden="true">
@@ -248,18 +249,6 @@
                   <button id="increase-slider" class="slider-arrow" type="button">▶</button>
               </li>
             </ul>
-          </div>
-          <div class="form-field action-bar-console-field" id="action-bar-console-field" aria-hidden="true">
-            <div class="loading-console" id="action-bar-console" aria-hidden="true">
-              <div class="loading-console__meta">Console (last 50,000 lines)</div>
-              <div class="loading-console__lines" id="action-bar-console-lines" role="log" aria-label="Console output"></div>
-              <div class="loading-console__counts" id="action-bar-console-counts" aria-label="Log counts">
-                <span class="loading-console__count loading-console__count--debug"><span class="loading-console__emoji">🐞</span> <span id="action-bar-console-count-debug">0</span></span>
-                <span class="loading-console__count loading-console__count--info"><span class="loading-console__emoji">ℹ︎</span> <span id="action-bar-console-count-info">0</span></span>
-                <span class="loading-console__count loading-console__count--warn"><span class="loading-console__emoji">⚠︎</span> <span id="action-bar-console-count-warn">0</span></span>
-                <span class="loading-console__count loading-console__count--error"><span class="loading-console__emoji">⛔</span> <span id="action-bar-console-count-error">0</span></span>
-              </div>
-            </div>
           </div>
           </form>
       </div>
