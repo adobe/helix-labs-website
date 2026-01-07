@@ -109,6 +109,15 @@
 .assets .action-bar {
   flex-wrap: wrap;
   align-items: flex-start;
+  /* Reduce dead space below the last row (e.g. Color Filter) */
+  min-height: 0;
+  /* Keep some breathing room in the action bar (affects loading + pinned log layouts) */
+  padding: var(--spacing-s) var(--horizontal-spacing) var(--spacing-xs);
+}
+
+/* Tighten spacing between wrapped action-bar rows for the assets tool. */
+.assets .action-bar form {
+  gap: var(--spacing-s);
 }
 
 /* Ensure .assets and .progress-bar take full width */
@@ -278,8 +287,15 @@
   display: block;
 }
 
+.assets .action-bar form .dev-console-anchor:empty {
+  display: none;
+}
+
 .assets .action-bar form .dev-console-anchor .loading-console {
   width: 100%;
+  /* The action-bar form already provides vertical spacing via flex gap.
+     Don't add extra top margin in pinned mode. */
+  margin-top: 0;
 }
 
 /* Set .progress-area to dynamically take up 80% of its container */
@@ -463,6 +479,12 @@
    For the compact color swatches, reduce the gap so the row is denser. */
 .assets #color-pallette {
   gap: calc(var(--spacing-xs) * 0.5);
+}
+
+/* Color Filter row: avoid extra vertical whitespace at the bottom of the action bar. */
+.assets #color-pallette-container {
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 .assets .sitemap-form {
