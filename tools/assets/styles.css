@@ -314,11 +314,10 @@
   border: 1px solid #b8b8b8;
   position: relative;
   cursor: pointer;
-  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc),
-                    linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc);
-  /* Smaller checker size so it reads clearly at small swatch sizes */
+  /* True checkerboard pattern (reads well even at small sizes) */
+  background-color: #fff;
+  background-image: repeating-conic-gradient(#cfcfcf 0% 25%, transparent 0% 50%);
   background-size: 6px 6px;
-  background-position: 0 0, 3px 3px;
 }
 
 .assets .color-list-item {
