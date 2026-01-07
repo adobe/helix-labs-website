@@ -317,7 +317,8 @@
   /* True checkerboard pattern (reads well even at small sizes) */
   background-color: #fff;
   background-image: repeating-conic-gradient(#cfcfcf 0% 25%, transparent 0% 50%);
-  background-size: 6px 6px;
+  /* Smaller tile so the swatch shows multiple squares even at ~1em size */
+  background-size: 4px 4px;
 }
 
 .assets .color-list-item {
