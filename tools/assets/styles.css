@@ -250,11 +250,17 @@
 
 .assets .color-span {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 1em;
+  height: 1em;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
+  vertical-align: middle;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .assets .color-span.selected {
