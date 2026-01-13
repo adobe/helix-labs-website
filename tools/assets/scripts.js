@@ -59,13 +59,33 @@ async function openDB() {
   });
 }
 
+function normalizeFormDataForStorage(formData) {
+  const normalized = {};
+  Object.entries(formData || {}).forEach(([key, value]) => {
+    if (value instanceof URL) {
+      normalized[key] = value.href;
+      return;
+    }
+    if (value instanceof Date) {
+      normalized[key] = value.toISOString();
+      return;
+    }
+    // FileList / File should not be persisted
+    if (value instanceof FileList) return;
+    if (value instanceof File) return;
+    normalized[key] = value;
+  });
+  return normalized;
+}
+
 async function saveFormData(url, formData) {
   try {
     const db = await openDB(); // Open DB
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
 
-    const value = JSON.stringify(formData);
+    const normalized = normalizeFormDataForStorage(formData);
+    const value = JSON.stringify(normalized);
     const key = url instanceof URL ? url.href : url;
 
     const request = store.put(value, key);
@@ -74,6 +94,9 @@ async function saveFormData(url, formData) {
       request.onsuccess = () => {
         // Save the URL of the most recent form data in localStorage
         localStorage.setItem('lastExecutedURL', key);
+        if (normalized['crawler-type']) {
+          localStorage.setItem('lastCrawlerType', String(normalized['crawler-type']));
+        }
         resolve();
       };
       request.onerror = (event) => reject(event.target.error);
@@ -1262,7 +1285,8 @@ function setupDevConsole(doc) {
   /* eslint-disable no-console */
 
   const STORAGE_KEY = 'assets-open-workbench:log-pinned';
-  const MAX_LINES = 50000;
+  const MAX_LINES = 2000;
+  const MAX_LINE_CHARS = 1000;
   const buffer = [];
   let hasTruncated = false;
   let autoScrollEnabled = true;
@@ -1434,7 +1458,10 @@ function setupDevConsole(doc) {
   };
 
   const appendEntry = (level, args) => {
-    const text = args.map(toText).join(' ');
+    let text = args.map(toText).join(' ');
+    if (text.length > MAX_LINE_CHARS) {
+      text = `${text.slice(0, MAX_LINE_CHARS)} (truncated)`;
+    }
     // Update counters by event occurrence (even if we de-dupe the rendered line)
     if (level === 'debug') counts.debug += 1;
     if (level === 'info') counts.info += 1;
@@ -1806,11 +1833,10 @@ function populateCrawlerTypeDropdown() {
   const crawlerOptions = CrawlerRegistry.getCrawlerOptions();
 
   // Add options for each crawler
-  crawlerOptions.forEach((option, index) => {
+  crawlerOptions.forEach((option) => {
     const optionEl = document.createElement('option');
     optionEl.value = option.type;
     optionEl.textContent = option.displayName;
-    if (index === 0) optionEl.selected = true;
     crawlerTypeSelect.appendChild(optionEl);
   });
 }
@@ -1899,9 +1925,14 @@ function initializeCrawlerType() {
     populateCrawlerTypeDropdown();
   }
 
-  // Default to first option (sitemap) if no value is set
-  if (!crawlerTypeSelect.value && crawlerTypeSelect.options.length > 0) {
-    crawlerTypeSelect.value = crawlerTypeSelect.options[0].value;
+  // Prefer last used crawler type (stored on successful run), otherwise use current selection,
+  // otherwise default to first option.
+  if ((!crawlerTypeSelect.value || crawlerTypeSelect.value === '')
+    && crawlerTypeSelect.options.length > 0) {
+    const lastCrawlerType = localStorage.getItem('lastCrawlerType');
+    const exists = lastCrawlerType
+      && [...crawlerTypeSelect.options].some((o) => o.value === lastCrawlerType);
+    crawlerTypeSelect.value = exists ? lastCrawlerType : crawlerTypeSelect.options[0].value;
   }
 
   // Apply the form configuration for the selected crawler
@@ -1913,12 +1944,14 @@ async function domContentLoaded() {
     // Populate crawler type dropdown first so values can be restored
     populateCrawlerTypeDropdown();
 
+    // Apply a deterministic default configuration immediately to avoid showing the wrong fields
+    // if IndexedDB restore is slow or fails.
+    initializeCrawlerType();
+
     // Retrieve the last executed URL from localStorage
     const lastURL = localStorage.getItem('lastExecutedURL');
 
     if (!lastURL) {
-      // No stored data, initialize crawler type to default
-      initializeCrawlerType();
       return;
     }
 
@@ -1933,9 +1966,26 @@ async function domContentLoaded() {
       const data = event.target.result;
       if (data) {
         const parsedData = JSON.parse(data); // Parse the stringified form data
+        // If stored crawler-type exists, apply it before populating so hidden-field skipping
+        // restores only relevant fields.
+        const storedCrawlerType = parsedData?.['crawler-type'];
+        const crawlerTypeSelect = document.getElementById('crawler-type');
+        if (storedCrawlerType && crawlerTypeSelect) {
+          const exists = [...crawlerTypeSelect.options].some((o) => o.value === storedCrawlerType);
+          if (exists) {
+            crawlerTypeSelect.value = storedCrawlerType;
+            applyCrawlerFormConfig(storedCrawlerType);
+          }
+        }
         populateFormFromData(parsedData); // Populate the form with the retrieved data
       }
-      // Initialize crawler type after form population (applies form config)
+      // Ensure config is applied for whichever crawler type ended up selected.
+      initializeCrawlerType();
+    };
+
+    request.onerror = () => {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to restore saved execution; using default crawler config.');
       initializeCrawlerType();
     };
   } catch (error) {
@@ -2499,14 +2549,18 @@ async function showAEMConfigModal({ exportAssets, exportMetadata }) {
     const handleCancel = () => {
       modal.close();
       modal.remove();
-      reject(new Error('Export cancelled by user'));
+      const err = new Error('Export cancelled by user');
+      err.name = 'UserCancelled';
+      reject(err);
     };
 
     cancelBtn.addEventListener('click', handleCancel);
 
     // Override the modal's close behavior
     modal.addEventListener('close', () => {
-      reject(new Error('Export cancelled by user'));
+      const err = new Error('Export cancelled by user');
+      err.name = 'UserCancelled';
+      reject(err);
     });
 
     // Handle form submission
@@ -3654,6 +3708,10 @@ async function generateAEMExportScript(clusterManager, { exportAssets = true, ex
     // eslint-disable-next-line no-alert
     alert(`Shell script downloaded!\n\nTo run it:\n  bash ~/Downloads/${link.download}\n\nThe script will create ${foldersToCreate.size} folders and import ${assetInfos.length} assets.`);
   } catch (error) {
+    // User cancellation should be silent (no "failed" dialog).
+    if (error?.name === 'UserCancelled' || error?.message === 'Export cancelled by user') {
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error('Failed to generate export script:', error);
     // eslint-disable-next-line no-alert
